@@ -1,0 +1,40 @@
+{
+  "name": "local-pdf-cbt",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Local-first PDF CBT desktop application — foundation only",
+  "type": "module",
+  "main": "electron/main.js",
+  "engines": {
+    "node": ">=24.19.0 <25",
+    "npm": ">=10 <12"
+  },
+  "packageManager": "npm@11.19.0",
+  "scripts": {
+    "presetup:electron": "node scripts/check-runtime.js",
+    "setup:electron": "install-electron",
+    "predev": "node scripts/check-runtime.js",
+    "dev": "node scripts/dev.js",
+    "prebuild": "node scripts/check-runtime.js",
+    "build": "vite build",
+    "prestart": "node scripts/check-runtime.js",
+    "start": "electron .",
+    "package": "npm run build && node scripts/package.js",
+    "pretest": "node scripts/check-runtime.js",
+    "test": "node --test tests/foundation.test.js tests/pdf-file.test.js tests/pdf-selection.test.js",
+    "pretest:electron": "node scripts/check-runtime.js",
+    "test:electron": "node --test --test-concurrency=1 tests/electron.test.js",
+    "test:shutdown": "powershell.exe -NoProfile -File tests/shutdown.ps1",
+    "pretest:native": "node scripts/check-runtime.js",
+    "test:native": "node --test tests/native-dialog.test.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.0.0",
+    "playwright-core": "1.62.1",
+    "prettier": "3.9.6",
+    "vite": "8.2.2"
+  }
+}

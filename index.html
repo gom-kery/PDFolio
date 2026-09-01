@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local PDF CBT</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="app-brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M6 3h8l4 4v14H6V3Z" />
+              <path d="M14 3v5h4M9 12h6M9 16h4" />
+            </svg>
+          </span>
+          <div>
+            <h1>Local PDF CBT</h1>
+            <p class="brand-description">로컬 PDF 학습 공간</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span class="local-label">로컬 전용</span>
+          <button id="select-pdf" type="button">PDF 선택</button>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <section class="workspace" aria-labelledby="workspace-title">
+          <header class="workspace-header">
+            <h2 id="workspace-title">문서 작업 공간</h2>
+            <span id="document-state" class="workspace-caption">문서 없음</span>
+          </header>
+          <p
+            id="selection-status"
+            class="selection-status"
+            role="status"
+            aria-atomic="true"
+            data-state="idle"
+          >
+            PDF 파일을 한 개 선택해주세요.
+          </p>
+          <div class="empty-state">
+            <div class="empty-state-icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48" fill="none">
+                <path d="M12 6h17l8 8v28H12V6Z" />
+                <path d="M29 6v9h8M19 24h11M19 30h7" />
+              </svg>
+            </div>
+            <h3 id="document-title">아직 열린 PDF가 없습니다</h3>
+            <p id="document-description">
+              상단의 PDF 선택 버튼으로 파일을 선택할 수 있습니다.
+            </p>
+            <p>현재는 파일 선택만 지원합니다. 임시 크기 상한은 50 MiB입니다.</p>
+          </div>
+        </section>
+
+        <aside class="status-panel" aria-labelledby="status-title">
+          <h2 id="status-title">앱 상태</h2>
+          <dl class="status-list">
+            <div class="status-item">
+              <dt>실행 환경</dt>
+              <dd
+                id="runtime-status"
+                role="status"
+                aria-atomic="true"
+                data-state="checking"
+              >
+                <p class="runtime-label">
+                  <span class="status-dot" aria-hidden="true"></span>
+                  <span data-status-label>확인 중</span>
+                </p>
+                <p class="runtime-detail" data-status-detail>
+                  실행 환경을 확인하고 있습니다.
+                </p>
+              </dd>
+            </div>
+            <div class="status-item">
+              <dt>선택한 파일</dt>
+              <dd id="selected-file-name">선택한 파일 없음</dd>
+            </div>
+            <div class="status-item">
+              <dt>파일 크기</dt>
+              <dd id="selected-file-size">—</dd>
+            </div>
+          </dl>
+          <div class="scope-note">
+            <h3>파일 선택 단계</h3>
+            <p>
+              선택한 파일의 이름과 크기만 표시합니다. 페이지
+              표시·드롭·문제풀이는 아직 지원하지 않으며 선택은 저장되지
+              않습니다.
+            </p>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="app-footer">
+        <p>파일이나 학습 데이터를 외부로 전송하지 않습니다.</p>
+        <p>Unit 1.1 · PDF 파일 선택</p>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

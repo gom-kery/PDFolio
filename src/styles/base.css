@@ -1,0 +1,41 @@
+:root {
+  font-family: 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif;
+  color: #243332;
+  background: #f4f6f5;
+  line-height: 1.6;
+  color-scheme: light;
+
+  --color-surface: #ffffff;
+  --color-muted: #647370;
+  --color-border: #dce3e0;
+  --color-accent: #236553;
+  --color-accent-soft: #edf5f0;
+  --color-warning: #805519;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd {
+  margin: 0;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

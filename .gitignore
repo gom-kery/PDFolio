@@ -1,0 +1,17 @@
+node_modules/
+dist/
+release/
+work/
+.local-data/
+.env
+.env.*
+!.env.example
+*.log
+*.pdf
+!tests/fixtures/*.pdf
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+Thumbs.db
+.DS_Store
