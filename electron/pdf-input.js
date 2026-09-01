@@ -1,4 +1,4 @@
-import { fileFailure, inspectPdfFile } from './pdf-file.js';
+import { fileFailure, readPdfFile } from './pdf-file.js';
 
 /** Confirm that a PDF input request came from the bound window's current main frame. */
 export function isTrustedPdfInputEvent(event, window, rendererUrl) {
@@ -30,8 +30,8 @@ export function createPdfInputGate() {
   };
 }
 
-/** Use the Unit 1.1 read-only inspection path and map private I/O failures. */
-export async function inspectPdfInput(filePath, inspectFile = inspectPdfFile) {
+/** Read one approved file through the shared read-only boundary and map private failures. */
+export async function inspectPdfInput(filePath, inspectFile = readPdfFile) {
   try {
     return await inspectFile(filePath);
   } catch (error) {

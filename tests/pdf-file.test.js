@@ -8,6 +8,7 @@ import {
   inspectPdfFile,
   isLocalFilePath,
   MAX_PDF_FILE_BYTES,
+  readPdfFile,
 } from '../electron/pdf-file.js';
 import { createPdfFixtures } from './helpers/pdf-fixtures.js';
 
@@ -32,6 +33,21 @@ test('selected Unicode/uppercase PDF returns only metadata and leaves original b
     document: { name: '한글 문서 & 연습.PDF', sizeBytes: beforeStat.size },
   });
   assert.equal(await hash(), beforeHash);
+  assert.equal((await stat(files.valid)).mtimeMs, beforeStat.mtimeMs);
+});
+
+test('approved PDF is read completely without returning its path or changing the original', async () => {
+  const original = await readFile(files.valid);
+  const beforeStat = await stat(files.valid);
+  const result = await readPdfFile(files.valid);
+  assert.equal(result.status, 'selected');
+  assert.deepEqual(result.document, {
+    name: '한글 문서 & 연습.PDF',
+    sizeBytes: original.length,
+  });
+  assert.ok(result.data instanceof Uint8Array);
+  assert.deepEqual(Buffer.from(result.data), original);
+  assert.equal('path' in result, false);
   assert.equal((await stat(files.valid)).mtimeMs, beforeStat.mtimeMs);
 });
 

@@ -1,5 +1,6 @@
-import { mkdir, open, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { MAX_PDF_FILE_BYTES } from '../../electron/pdf-file.js';
 
 /** An original, blank single-page PDF with byte-accurate xref offsets; no user content. */
@@ -24,6 +25,15 @@ export function blankPdf() {
 /** Create bounded input cases in the caller's test directory, never in user document folders. */
 export async function createPdfFixtures(directory) {
   await mkdir(directory, { recursive: true });
+  const fixtureDirectory = fileURLToPath(
+    new URL('../fixtures/', import.meta.url),
+  );
+  const renderedFixture = await readFile(
+    path.join(fixtureDirectory, 'unit-1.3-korean-image.pdf'),
+  );
+  const passwordFixture = await readFile(
+    path.join(fixtureDirectory, 'unit-1.3-password.pdf'),
+  );
   const files = {
     valid: path.join(directory, '한글 문서 & 연습.PDF'),
     replacement: path.join(directory, '다른 문서.pdf'),
@@ -32,19 +42,21 @@ export async function createPdfFixtures(directory) {
     empty: path.join(directory, '빈 파일.pdf'),
     short: path.join(directory, '짧은 파일.pdf'),
     headerOnly: path.join(directory, '구조 검사 미완료.pdf'),
+    password: path.join(directory, '암호 필요.pdf'),
     highBit: path.join(directory, '서명 변조.pdf'),
     oversized: path.join(directory, '상한 초과.pdf'),
     boundary: path.join(directory, '상한 일치.pdf'),
     folder: path.join(directory, '폴더.pdf'),
   };
   for (const [name, content] of [
-    ['valid', blankPdf()],
+    ['valid', renderedFixture],
     ['replacement', blankPdf()],
     ['renamed', 'NOT A PDF'],
     ['text', blankPdf()],
     ['empty', ''],
     ['short', '%PDF-1'],
     ['headerOnly', '%PDF-1.7\n'],
+    ['password', passwordFixture],
     [
       'highBit',
       Buffer.from([0xa5, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37, 0x0a]),

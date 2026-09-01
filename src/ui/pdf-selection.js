@@ -41,12 +41,17 @@ function formatFileSize(sizeBytes) {
 }
 
 /**
- * Connect native selection and file drop to one result UI and retain the last success on failure.
- * File names are untrusted text. No path, PDF bytes, parsing or persistence lives here.
+ * Connect native selection and file drop to one result UI and retain the last success on input failure.
+ * File names are untrusted text. Parsing and rendering are delegated to the PDF viewer.
  * @param {Document} document - Shell document.
  * @param {{selectPdfFile?: Function, inspectDroppedPdfFiles?: Function} | undefined} bridge
+ * @param {{onPdfSelected?: Function}} options
  */
-export function initializePdfSelection(document, bridge) {
+export function initializePdfSelection(
+  document,
+  bridge,
+  { onPdfSelected } = {},
+) {
   const button = document.querySelector('#select-pdf');
   const message = document.querySelector('#selection-status');
   const workspace = document.querySelector('.workspace');
@@ -66,7 +71,7 @@ export function initializePdfSelection(document, bridge) {
     );
   };
 
-  const handleResult = (result, source) => {
+  const handleResult = async (result, source) => {
     if (result?.status === 'selected') {
       if (
         typeof result.document?.name !== 'string' ||
@@ -76,18 +81,48 @@ export function initializePdfSelection(document, bridge) {
       selected = result.document;
       document.querySelector('#document-title').textContent = selected.name;
       document.querySelector('#document-description').textContent =
-        '기본 파일 검사만 완료했습니다. PDF 페이지 표시와 손상·암호 확인은 아직 지원하지 않습니다.';
-      document.querySelector('#document-state').textContent = '파일 선택됨';
+        'PDF 구조를 확인하고 첫 페이지를 불러오고 있습니다.';
+      document.querySelector('#document-state').textContent = '렌더링 중';
       document.querySelector('#selected-file-name').textContent = selected.name;
       document.querySelector('#selected-file-size').textContent =
         formatFileSize(selected.sizeBytes);
       button.textContent = '다른 PDF 선택';
       showMessage(
-        'selected',
-        source === 'drop'
-          ? 'PDF 파일 드롭을 완료했습니다. 원본 파일은 변경하지 않았습니다.'
-          : '파일 선택을 완료했습니다. 원본 파일은 변경하지 않았습니다.',
+        'rendering',
+        '읽기 전용으로 PDF 첫 페이지를 준비하고 있습니다.',
       );
+      if (typeof onPdfSelected === 'function') {
+        let rendered;
+        try {
+          rendered = await onPdfSelected(result);
+        } catch {
+          rendered = { status: 'error', code: 'PDF_RENDER_FAILED' };
+        }
+        if (rendered?.status === 'rendered') {
+          document.querySelector('#document-description').textContent =
+            `PDF 첫 페이지를 표시했습니다. 전체 ${rendered.pageCount.toLocaleString('ko-KR')}페이지이며 페이지 이동은 다음 Unit에서 추가합니다.`;
+          document.querySelector('#document-state').textContent =
+            `원문 보기 · 1 / ${rendered.pageCount}`;
+          showMessage(
+            'selected',
+            source === 'drop'
+              ? 'PDF 파일 드롭과 첫 페이지 표시를 완료했습니다. 원본 파일은 변경하지 않았습니다.'
+              : 'PDF 파일 선택과 첫 페이지 표시를 완료했습니다. 원본 파일은 변경하지 않았습니다.',
+          );
+        } else if (rendered?.status === 'error') {
+          document.querySelector('#document-description').textContent =
+            '파일 입력은 완료했지만 첫 페이지를 표시할 수 없습니다. 아래 오류 안내를 확인해주세요.';
+          document.querySelector('#document-state').textContent =
+            '표시할 수 없음';
+          showMessage(
+            'error',
+            'PDF 파일은 읽었지만 내용을 표시하지 못했습니다. 원본 파일은 변경하지 않았습니다.',
+          );
+        }
+      } else {
+        document.querySelector('#document-state').textContent = '파일 선택됨';
+        showMessage('selected', '파일 선택을 완료했습니다.');
+      }
     } else if (result?.status === 'canceled') {
       showMessage(
         'canceled',
@@ -107,7 +142,7 @@ export function initializePdfSelection(document, bridge) {
 
   const runInput = async (operation, source) => {
     if (isSelecting) {
-      handleResult({ status: 'busy' }, source);
+      await handleResult({ status: 'busy' }, source);
       return;
     }
     isSelecting = true;
@@ -116,11 +151,11 @@ export function initializePdfSelection(document, bridge) {
     showMessage(
       'selecting',
       source === 'drop'
-        ? '드롭한 PDF의 기본 정보를 확인하고 있습니다.'
-        : '파일을 선택하거나 기본 정보를 확인하고 있습니다.',
+        ? '드롭한 PDF를 읽기 전용으로 확인하고 있습니다.'
+        : 'PDF 파일을 선택하거나 읽기 전용으로 확인하고 있습니다.',
     );
     try {
-      handleResult(await operation(), source);
+      await handleResult(await operation(), source);
     } catch {
       showFailure('READ_FAILED');
     } finally {

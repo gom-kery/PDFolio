@@ -68,6 +68,9 @@ export async function checkPdfSelection(application, page, artifacts) {
     await application.evaluate((_electron, value) => {
       globalThis.unit11DialogPlan = value;
     }, plan);
+    await page.locator('#selection-status').evaluate((element) => {
+      element.dataset.state = 'test-pending';
+    });
     await page.locator('#select-pdf').click();
     await page.waitForSelector(`#selection-status[data-state="${state}"]`);
     assert.equal(await page.locator('#select-pdf').isEnabled(), true);
@@ -125,8 +128,41 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     assert.match(
       await page.locator('#document-description').innerText(),
-      /손상·암호 확인은 아직 지원하지 않습니다/,
+      /PDF 첫 페이지를 표시했습니다/,
     );
+    const renderedPage = await page.evaluate(() => {
+      const canvas = document.querySelector('#pdf-canvas');
+      const context = canvas.getContext('2d');
+      const pixels = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ).data;
+      let coloredSamples = 0;
+      for (let index = 0; index < pixels.length; index += 4 * 97) {
+        if (
+          pixels[index + 3] > 0 &&
+          (pixels[index] < 240 ||
+            pixels[index + 1] < 240 ||
+            pixels[index + 2] < 240)
+        )
+          coloredSamples++;
+      }
+      return {
+        width: canvas.width,
+        height: canvas.height,
+        hidden: canvas.hidden,
+        coloredSamples,
+        page: document.querySelector('#pdf-page-count').textContent,
+        status: document.querySelector('#viewer-status').textContent,
+      };
+    });
+    assert.equal(renderedPage.hidden, false);
+    assert.ok(renderedPage.width > 400 && renderedPage.height > 500);
+    assert.ok(renderedPage.coloredSamples > 100);
+    assert.equal(renderedPage.page, '1 / 1');
+    assert.match(renderedPage.status, /첫 페이지를 표시했습니다/);
     assert.ok(
       !(await page.locator('body').innerText()).includes(
         path.dirname(files.valid),
@@ -160,6 +196,22 @@ export async function checkPdfSelection(application, page, artifacts) {
       fullPage: true,
     });
 
+    await select({ canceled: false, filePaths: [files.password] }, 'error');
+    assert.match(
+      await page.locator('#viewer-status').innerText(),
+      /암호가 필요한 PDF/,
+    );
+    assert.equal(await page.locator('#pdf-canvas').isHidden(), true);
+    cases.push('password-required');
+
+    await select({ canceled: false, filePaths: [files.headerOnly] }, 'error');
+    assert.match(
+      await page.locator('#viewer-status').innerText(),
+      /PDF 구조가 손상됐거나 지원할 수 없는 형식/,
+    );
+    assert.equal(await page.locator('#pdf-canvas').isHidden(), true);
+    cases.push('damaged-structure');
+
     await dispatchDrop({ filePaths: [files.replacement] });
     await page.waitForFunction(
       () =>
@@ -170,7 +222,7 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     assert.match(
       await page.locator('#selection-status').innerText(),
-      /PDF 파일 드롭을 완료/,
+      /PDF 파일 드롭.*완료/,
     );
     assert.equal(await hash(files.replacement), replacementHash);
     await page.screenshot({
@@ -349,7 +401,9 @@ export async function checkPdfSelection(application, page, artifacts) {
     await page.waitForFunction(
       () =>
         document.querySelector('#selected-file-name').textContent ===
-        '다른 문서.pdf',
+          '다른 문서.pdf' &&
+        document.querySelector('#selection-status').dataset.state ===
+          'selected',
     );
     const options = await application.evaluate(
       () => globalThis.unit11DialogOptions,
@@ -382,6 +436,8 @@ export async function checkPdfSelection(application, page, artifacts) {
       foreignWindowBlocked: true,
       canceledAndFailedSelectionPreserved: true,
       concurrentRequest: 'busy',
+      rendered: 'Korean text and embedded raster image on Canvas',
+      parserFailures: ['password required', 'damaged structure'],
       reloadedSelection: 'empty',
       dialog: 'controlled results; actual native picker checked separately',
     };

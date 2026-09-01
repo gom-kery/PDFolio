@@ -21,6 +21,15 @@ before(async () => {
   await writeFile(path.join(assets, 'index.html'), '<h1>로컬 화면</h1>');
   await writeFile(path.join(assets, 'app.js'), 'export const local = true;');
   await writeFile(path.join(assets, 'app.css'), 'body { color: green; }');
+  for (const name of [
+    'worker.mjs',
+    'font.bcmap',
+    'color.icc',
+    'font.pfb',
+    'font.ttf',
+    'decoder.wasm',
+  ])
+    await writeFile(path.join(assets, name), `fixture:${name}`);
   await writeFile(path.join(fixtureDirectory, 'outside.js'), 'PRIVATE_FIXTURE');
   registerLocalProtocol(
     {
@@ -41,11 +50,17 @@ after(async () => {
   await rm(fixtureDirectory, { recursive: true, force: true });
 });
 
-test('local HTML, JS and CSS are served with the bundled CSP and correct content type', async () => {
+test('local application and PDF.js assets are served with the bundled CSP and correct content type', async () => {
   for (const [name, contentType] of [
     ['index.html', 'text/html'],
     ['app.js', 'text/javascript'],
     ['app.css', 'text/css'],
+    ['worker.mjs', 'text/javascript'],
+    ['font.bcmap', 'application/octet-stream'],
+    ['color.icc', 'application/octet-stream'],
+    ['font.pfb', 'application/octet-stream'],
+    ['font.ttf', 'font/ttf'],
+    ['decoder.wasm', 'application/wasm'],
   ]) {
     const response = await handle({
       url: `local-cbt://app/${name}`,
@@ -119,10 +134,11 @@ test('network allowlist separates bundled and development origins', () => {
   assert.equal(isAllowedRequest('local-cbt://app:123/index.html'), false);
 });
 
-test('bundled CSP never inherits development inline styles or sockets', () => {
+test('bundled CSP permits only same-origin PDF.js workers/assets and no development sockets', () => {
   const bundled = createContentSecurityPolicy(false);
-  assert.ok(bundled.includes("connect-src 'none'"));
+  assert.ok(bundled.includes("connect-src 'self'"));
   assert.ok(bundled.includes("script-src 'self'"));
+  assert.ok(bundled.includes("worker-src 'self'"));
   assert.ok(!bundled.includes('unsafe-inline'));
   assert.ok(!bundled.includes('unsafe-eval'));
   assert.ok(!bundled.includes('127.0.0.1'));

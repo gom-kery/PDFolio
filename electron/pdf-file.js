@@ -24,16 +24,9 @@ export function fileFailure(error) {
   return 'READ_FAILED';
 }
 
-/**
- * Inspect only the selected file's metadata and first nine bytes, using a read-only handle.
- * Does not parse PDF structure, detect encryption, retain a handle or return a path/bytes.
- * @param {string} filePath - Path returned by the native picker, never by renderer input.
- * @param {{openFile?: typeof open, resolvePath?: typeof realpath}} io - Testable I/O boundary.
- * @returns {Promise<{status: 'selected', document: {name: string, sizeBytes: number}} | {status: 'error', code: string}>}
- * @throws Filesystem failures are mapped to public codes by the selection handler.
- */
-export async function inspectPdfFile(
+async function readPdfCandidate(
   filePath,
+  includeData,
   { openFile = open, resolvePath = realpath } = {},
 ) {
   if (!isLocalFilePath(filePath))
@@ -53,7 +46,9 @@ export async function inspectPdfFile(
     if (before.size > MAX_PDF_FILE_BYTES)
       return { status: 'error', code: 'FILE_TOO_LARGE' };
 
-    const header = Buffer.alloc(HEADER_BYTES);
+    const data = includeData ? Buffer.allocUnsafe(before.size) : null;
+    const header =
+      data?.subarray(0, HEADER_BYTES) || Buffer.alloc(HEADER_BYTES);
     let offset = 0;
     while (offset < header.length) {
       const { bytesRead } = await handle.read(
@@ -67,14 +62,48 @@ export async function inspectPdfFile(
     }
     if (!/^%PDF-(?:1\.[0-7]|2\.0)[\r\n]$/u.test(header.toString('latin1')))
       return { status: 'error', code: 'NOT_PDF' };
+
+    if (data) {
+      offset = HEADER_BYTES;
+      while (offset < data.length) {
+        const { bytesRead } = await handle.read(
+          data,
+          offset,
+          data.length - offset,
+          offset,
+        );
+        if (!bytesRead) break;
+        offset += bytesRead;
+      }
+      if (offset !== data.length)
+        return { status: 'error', code: 'FILE_CHANGED' };
+    }
+
     const after = await handle.stat();
     if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
       return { status: 'error', code: 'FILE_CHANGED' };
     return {
       status: 'selected',
       document: { name: path.win32.basename(filePath), sizeBytes: before.size },
+      ...(data ? { data: Uint8Array.from(data) } : {}),
     };
   } finally {
     await handle?.close();
   }
+}
+
+/**
+ * Check metadata and the PDF header without retaining or returning content.
+ * Kept as the narrow Unit 1.1 inspection boundary and for lightweight checks.
+ */
+export function inspectPdfFile(filePath, io) {
+  return readPdfCandidate(filePath, false, io);
+}
+
+/**
+ * Read one picker/drop-approved PDF through the same read-only guard.
+ * The renderer receives bytes needed by PDF.js, never the local path.
+ */
+export function readPdfFile(filePath, io) {
+  return readPdfCandidate(filePath, true, io);
 }

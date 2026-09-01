@@ -154,7 +154,7 @@ for (const mode of ['dev', 'built', 'packaged']) {
           evidence.renderer.bridgeFrozen && evidence.renderer.infoFrozen,
           true,
         );
-        assert.equal(evidence.renderer.controls, 1);
+        assert.equal(evidence.renderer.controls, 2);
         assert.equal(await page.locator('#select-pdf').isEnabled(), true);
 
         evidence.main = await application.evaluate(
@@ -312,6 +312,17 @@ for (const mode of ['dev', 'built', 'packaged']) {
           page,
           artifacts,
         );
+        evidence.pdfAssetRequests = requests.filter(
+          (url) => url.includes('pdf.worker') || url.includes('/pdfjs/'),
+        );
+        assert.ok(
+          evidence.pdfAssetRequests.some((url) => url.includes('pdf.worker')),
+        );
+        assert.ok(
+          evidence.pdfAssetRequests.every((url) =>
+            url.startsWith(mode === 'dev' ? DEV_ORIGIN : 'local-cbt://app/'),
+          ),
+        );
         assert.deepEqual(evidence.normalErrors, []);
         assert.deepEqual(evidence.normalWarnings, []);
         assert.deepEqual(evidence.pageErrors, []);
@@ -436,6 +447,10 @@ for (const mode of ['dev', 'built', 'packaged']) {
             const results = [];
             for (const [suffix, expected] of [
               ['index.html', 200],
+              ['pdfjs/cmaps/78-EUC-H.bcmap', 200],
+              ['pdfjs/iccs/CGATS001Compat-v2-micro.icc', 200],
+              ['pdfjs/standard_fonts/LiberationSans-Regular.ttf', 200],
+              ['pdfjs/wasm/openjpeg.wasm', 200],
               ['%2e%2e%2fpackage.json', 403],
               ['bad%5cfile.js', 403],
               ['package.json', 403],

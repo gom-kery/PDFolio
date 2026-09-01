@@ -1,4 +1,4 @@
-import { inspectPdfFile } from './pdf-file.js';
+import { readPdfFile } from './pdf-file.js';
 import {
   createPdfInputGate,
   inspectPdfInput,
@@ -11,7 +11,7 @@ export const PDF_SELECTION_CHANNEL = 'pdf:select-file';
  * Bind a zero-argument picker to one trusted window's main frame.
  * Serialized requests prevent duplicate dialogs; cancellation/failure leave UI selection unchanged.
  * @param {{window: import('electron').BrowserWindow, rendererUrl: string,
- * showOpenDialog: Function, inspectFile?: typeof inspectPdfFile,
+ * showOpenDialog: Function, inspectFile?: typeof readPdfFile,
  * runExclusive?: Function}} options
  * @returns {Function} IPC invoke handler returning only public result records.
  */
@@ -19,7 +19,7 @@ export function createPdfSelectionHandler({
   window,
   rendererUrl,
   showOpenDialog,
-  inspectFile = inspectPdfFile,
+  inspectFile = readPdfFile,
   runExclusive = createPdfInputGate(),
 }) {
   return async (event, ...args) => {

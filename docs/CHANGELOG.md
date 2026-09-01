@@ -2,6 +2,104 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.1.3 작업 기록 — 2026-09-01
+
+**Unit 1.3 PDF.js 첫 페이지 렌더링 구현·기능 검사 통과. 기존 GPU 종료 회귀가 실패하여 전체 무오류 완료 판정은 보류한다.**
+
+작업 전에 현재 프로젝트 파일·PROJECT_BIBLE·ROADMAP·DECISIONS와 Git 상태를 확인했다. 사용자의 명시적 Unit 1.3 요청에 따라 로컬 PDF.js 첫 페이지 표시와 한글·이미지·암호 필요·손상 처리만 진행했다. Unit 0.4의 미해결 상태나 Unit 1.0 미착수를 완료로 바꾸지 않았고, 페이지 이동·확대·축소·너비 맞춤·Text Layer·분석·CBT·저장은 추가하지 않았다.
+
+### Unit 1.3 — 1. 구현한 내용
+
+- `pdfjs-dist` 6.3.289를 정확히 고정하고 PDF.js 본체와 worker를 같은 버전으로 빌드한다.
+- CMap·ICC·표준 글꼴·WASM·PDF.js 라이선스를 설치 패키지에서 준비해 개발 서버와 `dist/pdfjs/`의 로컬 자산으로 제공한다. worker는 별도 로컬 모듈로 출력하며 외부 CDN·원격 글꼴을 사용하지 않는다.
+- 선택·드롭으로 승인된 PDF를 main의 같은 `r` 핸들에서 전체 읽고, 읽기 전후 크기·수정 시각을 확인한다. renderer에는 이름·크기·바이트만 전달하고 로컬 경로는 반환하지 않는다.
+- PDF.js 객체·문서 요청 식별자·loading/render task·정리를 `src/pdf/` 어댑터에 한정한다. 새 파일이나 종료 시 이전 작업을 취소·파기하고 늦은 결과가 최신 화면을 덮지 못하게 한다.
+- 첫 페이지만 scale 1 viewport로 Canvas에 표시하고 backing pixel에는 디스플레이 픽셀 비율을 적용한다. 전체 페이지 수는 안내하지만 페이지 이동·배율 제어는 제공하지 않는다.
+- 암호가 필요한 PDF는 암호 입력 없이 미지원 안내를 표시하고, 손상/지원 불가 PDF는 별도 상태로 안내한다. 파서 실패 시 이전 Canvas를 확실히 숨긴다.
+- 배포 CSP에 같은 origin worker·자산 fetch만 허용하고 로컬 프로토콜에 필요한 PDF.js 확장자만 추가했다. Electron 세션의 외부 요청 차단은 유지한다.
+
+### Unit 1.3 — 2. 수정/생성된 파일
+
+| 구분 | 프로젝트 루트 기준 파일 |
+| --- | --- |
+| 읽기 전용 전체 바이트 경계 | electron/pdf-file.js, electron/pdf-input.js, electron/pdf-selection.js |
+| 로컬 자산 CSP·프로토콜 | electron/config.js, electron/local-protocol.js, vite.config.js |
+| PDF.js 어댑터 신규 | src/pdf/pdf-adapter.js, src/pdf/pdf-adapter-core.js |
+| 첫 페이지 Viewer 신규·연결 | src/ui/pdf-viewer.js, src/ui/pdf-selection.js, src/main.js, index.html, src/styles/base.css, src/styles/shell.css |
+| 합성 PDF·검사 | tests/fixtures/, tests/pdf-adapter.test.js, tests/pdf-file.test.js, tests/foundation.test.js, tests/electron.test.js, tests/helpers/ |
+| 버전·의존성 | package.json, package-lock.json — 0.1.3, pdfjs-dist 6.3.289 |
+| 실행·상태·결정 기록 | README.md, PROJECT_BIBLE.md, ROADMAP.md, DECISIONS.md, CHANGELOG.md |
+
+생성된 `dist/`, `release/`, `work/`는 Git 대상이 아니다. 두 PDF fixture는 사용자 문서가 아닌 합성 자료이며 일반 fixture에는 SIL Open Font License 1.1의 Noto Sans KR subset이 포함된다.
+
+### Unit 1.3 — 3. 실행 방법
+
+프로젝트 루트에서 `npm run dev`로 개발 앱을 실행한다. `npm run build` 후 `npm start`는 빌드 자산 모드이며, `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`는 버전 0.1.3 패키지다. main·renderer·자산 변경이므로 실행 중인 이전 앱은 완전히 닫고 다시 시작한다.
+
+### Unit 1.3 — 4. 사용자가 직접 테스트할 방법
+
+1. 앱을 열어 하단의 `Unit 1.3 · PDF.js 첫 페이지 렌더링`을 확인한다.
+2. 한글 글자와 포함 이미지가 있는 작은 로컬 PDF를 선택한다. 첫 페이지가 Canvas에 보이고 상태 패널에 `1 / 전체 페이지 수`가 표시되어야 한다.
+3. 다른 정상 PDF를 작업 공간에 드롭한다. 첫 페이지와 파일명·크기·페이지 수가 새 파일로 바뀌고 이전 화면이 남지 않아야 한다.
+4. 암호가 필요한 PDF 복사본을 연다. 암호 입력창이나 원문이 나오지 않고 현재 미지원 안내가 표시되어야 한다.
+5. `%PDF-1.7` 서명만 있고 구조가 잘린 별도 합성 파일을 연다. 손상/지원 불가 안내가 나오고 직전 Canvas가 숨겨져야 한다.
+6. 비PDF·다중 드롭·폴더·URL·취소를 다시 확인한다. 기본 입력 실패·취소는 직전 정상 문서를 유지해야 한다.
+7. 원본 PDF의 크기·수정 시각·해시를 전후 비교한다. 앱이 원본을 바꾸지 않아야 한다.
+8. 네트워크를 사용하지 않아도 생성된 Windows 패키지에서 같은 첫 페이지가 보여야 한다.
+
+개인 문서를 손상·암호 시험용으로 변경하지 않는다. 별도 복사본이나 `tests/fixtures/`의 합성 PDF를 사용한다.
+
+### Unit 1.3 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 내용 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | Prettier 대상 전체 |
+| `npm test` | 통과, 47/47 | 자산 프로토콜·CSP, 읽기 전용 전체 바이트, PDF 어댑터 첫 페이지·오류 분류·취소/정리, 기존 입력 회귀 |
+| `npm run build` | 통과 | PDF.js 본체 번들, 별도 worker, CMap·ICC·표준 글꼴·WASM·라이선스 포함 |
+| `npm run package` | 통과 | Electron 44.0.0 Windows x64/ASAR 버전 0.1.3 재생성 |
+| `npm run test:electron` | 통과, 3/3 | 개발·빌드·패키지에서 한글·포함 이미지 Canvas 유색 픽셀, worker·내부 자산, 암호·손상, 이전 Canvas 숨김, 원본 해시, 보안·앱 전용 오프라인 회귀 |
+| `npm run test:native` | 통과, 1/1 | 실제 Windows 선택 창의 한글 PDF 선택·첫 페이지 렌더·취소 보존 |
+| fixture 시각 확인 | 통과 | Poppler 120 DPI 렌더에서 한글 글리프·포함 raster 이미지·테두리의 깨짐·잘림 없음 |
+| `npm run test:shutdown` | 실패, 16/18 | 개발 모드 즉시 종료 2회에서 기존 GPU 진단 재현. 전부 exit code 0, 창 종료·포트 해제 정상 |
+| 전체 무오류 완료 | **보류** | OPEN-09 미해결. Unit 1.3 기능 성공과 구분 |
+
+최종 Electron 기능 증거는 `work/electron-tests/dev-6EAHY4`, `built-yjuvXg`, `packaged-qIrREz`, 실제 선택 창 증거는 `work/native-dialog-tests/case-ZRCI46`, 종료 결과는 `work/shutdown-tests/f6242c08e20f418c9b3858e6754a6f3b`에 있다. 생성 자료는 Git과 앱 패키지에서 제외한다.
+
+통합 검사 과정에서 두 가지 검증 결함을 고쳤다. 이전 오류 상태를 새 오류 완료로 오인하던 대기 조건을 새 입력 결과만 기다리도록 변경했고, Canvas의 `display` 규칙이 `hidden` 속성을 덮어 이전 페이지가 남던 실제 UI 문제는 `[hidden]`을 강제 적용해 해결했다. PDF.js 문서 정리 실패가 새 문서 열기를 막지 않도록 정리 경계도 방어하고, 손상 fixture의 예상된 parser 경고는 오류 수준 verbosity로 제한했다. 최종 검사는 정상 Console error/warning 없이 통과했다.
+
+### Unit 1.3 — 6. 예상되는 Edge Case
+
+- 빠른 파일 교체·종료: 이전 loading/render task를 취소하고 문서 요청 식별자가 다른 결과는 적용하지 않는다.
+- 암호 PDF: 비밀번호를 추측하거나 저장하지 않는다. 현재는 암호 해제 복사본을 요구한다.
+- 손상·지원 불가: 기본 서명을 통과해도 PDF.js 구조 판정에서 실패할 수 있으며 이전 Canvas를 현재 문서처럼 남기지 않는다.
+- 포함 글꼴·CMap·이미지: 로컬 자산 경로만 사용한다. 합성 한글·raster 이미지는 검증했지만 모든 출판 PDF 호환성을 보장하지 않는다.
+- 큰 문서·고해상도 화면: 입력은 50 MiB 이하이고 첫 페이지만 유지하지만 Canvas 픽셀·시간·메모리 상한은 아직 측정하지 않았다.
+- 기본 입력 실패·취소: 파서에 들어가지 않으며 직전 정상 문서와 메타데이터를 유지한다.
+
+### Unit 1.3 — 7. 알려진 제한사항
+
+첫 페이지만 표시한다. 페이지 이동·번호 입력·확대·축소·너비 맞춤·사용자 회전 버튼은 없다. PDF 고유 회전은 PDF.js viewport가 반영하지만 다양한 실제 회전 문서의 독립 검증은 아직 없다.
+
+Text Layer·검색·링크·양식·첨부·스크립트 실행, 문제/보기/해설 분석, 가림·답 선택·채점·저장은 없다. 이 화면은 원문 Viewer 단계이며 CBT 화면이 아니다. 암호 입력/해제도 지원하지 않는다.
+
+### Unit 1.3 — 8. Technical Debt
+
+- OPEN-09: 빠른 종료 GPU 진단의 원인 규명·안전한 수정과 반복 검증이 필요하다.
+- Unit 1.0: 전체 문서 유형·실패 정책·대표 샘플 행렬은 여전히 미착수다. 이번 합성 fixture는 Unit 1.3 렌더 경로만 검증한다.
+- Unit 1.4: 페이지 이동과 빠른 연속 이동·파일 교체의 현재 페이지 계약을 구현·검증해야 한다.
+- Unit 1.5/1.6: 확대·너비 맞춤·고유 회전 실물·Canvas 픽셀·메모리·시간·50 MiB 상한과 오프라인 통합 예산을 측정해야 한다.
+- PDF 바이트의 IPC 복사 비용은 50 MiB 상한 안에서만 검증했다. 측정 결과가 필요하면 전송/수명 구조를 재검토한다.
+
+### Unit 1.3 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 1.3의 PDF.js 기능 검사는 통과했지만 전체 오류 없음 기준을 충족하려면 OPEN-09를 해결해야 한다. Unit 0.4·Phase 0·Unit 1.1~1.3을 무조건 완료로 표시하지 않는다. Unit 1.4 페이지 이동과 이후 기능은 이번 요청에 포함하지 않았으며 별도 요청 전에는 진행하지 않는다.
+
+### Unit 1.3 — 10. Git Commit Message
+
+제안: `feat(pdf): render first page offline for unit 1.3`
+
+---
+
 ## 0.1.2 작업 기록 — 2026-09-01
 
 **Unit 1.2 파일 드롭 구현·기능 검사 통과. 기존 GPU 종료 회귀가 실패하여 전체 무오류 완료 판정은 보류한다.**

@@ -21,12 +21,13 @@ export function createContentSecurityPolicy(isDevelopment) {
   return [
     "default-src 'none'",
     "script-src 'self'",
+    "worker-src 'self'",
     isDevelopment ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
     "img-src 'self'",
     "font-src 'self'",
     isDevelopment
       ? `connect-src 'self' ${DEV_SOCKET_ORIGIN}`
-      : "connect-src 'none'",
+      : "connect-src 'self'",
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
