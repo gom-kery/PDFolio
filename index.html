@@ -131,13 +131,25 @@
                 <dt>페이지</dt>
                 <dd id="pdf-page-count">—</dd>
               </div>
+              <div class="status-item">
+                <dt>텍스트 분석</dt>
+                <dd
+                  id="text-analysis-status"
+                  class="text-analysis-status"
+                  role="status"
+                  aria-atomic="true"
+                  data-state="idle"
+                >
+                  PDF를 열면 현재 페이지의 텍스트를 확인합니다.
+                </dd>
+              </div>
             </dl>
             <div class="scope-note">
-              <h3>원문 Viewer 단계</h3>
+              <h3>텍스트 품질 확인 단계</h3>
               <p>
                 선택하거나 드롭한 PDF를 한 페이지씩 이동하고 50–200% 범위로
-                확대·축소하거나 높이에 맞춰 표시합니다. 문제풀이는 아직 지원하지
-                않으며 선택은 저장되지 않습니다.
+                확대·축소하거나 높이에 맞춰 표시합니다. 현재 페이지의 텍스트
+                분석 가능 여부만 확인하며 문제풀이는 아직 지원하지 않습니다.
               </p>
             </div>
           </aside>
@@ -190,7 +202,7 @@
           data-state="idle"
           hidden
         ></p>
-        <p>Unit 1.6 · Viewer 사이드 제어·높이 맞춤</p>
+        <p>Unit 2.1 · 페이지 텍스트 품질 분류</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>

@@ -132,6 +132,10 @@ export async function checkPdfSelection(application, page, artifacts) {
     await select({ canceled: false, filePaths: [files.valid] }, 'selected');
     performance.firstPageMs = Date.now() - firstRenderStartedAt;
     assert.ok(performance.firstPageMs < performanceSanityLimitMs);
+    await page.waitForSelector(
+      '#text-analysis-status[data-state="text-usable"]',
+      { timeout: 10_000 },
+    );
     assert.equal(
       await page.locator('#selected-file-name').innerText(),
       '한글 문서 & 연습.PDF',
@@ -173,6 +177,10 @@ export async function checkPdfSelection(application, page, artifacts) {
         statusHidden: document.querySelector('#viewer-status').hidden,
         selectionHidden: document.querySelector('#selection-status').hidden,
         footer: document.querySelector('#footer-status').textContent,
+        textAnalysis: document.querySelector('#text-analysis-status')
+          .textContent,
+        textAnalysisState: document.querySelector('#text-analysis-status')
+          .dataset.state,
       };
     });
     assert.equal(renderedPage.hidden, false);
@@ -185,6 +193,16 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(
       renderedPage.footer,
       'PDF를 열었습니다. 원본 파일은 변경하지 않았습니다.',
+    );
+    assert.equal(renderedPage.textAnalysisState, 'text-usable');
+    assert.equal(
+      renderedPage.textAnalysis,
+      '현재 페이지의 텍스트를 분석할 수 있습니다.',
+    );
+    assert.ok(
+      !(await page.locator('body').innerText()).includes(
+        'PDF.js가 한글과 포함된 이미지를 오프라인으로 표시합니다.',
+      ),
     );
     assert.ok(
       !(await page.locator('body').innerText()).includes(
@@ -199,7 +217,17 @@ export async function checkPdfSelection(application, page, artifacts) {
     const cases = [];
 
     await select({ canceled: false, filePaths: [files.multipage] }, 'selected');
+    await page.waitForSelector(
+      '#text-analysis-status[data-state="text-insufficient"]',
+      { timeout: 10_000 },
+    );
     assert.equal(await page.locator('#pdf-page-count').innerText(), '1 / 5');
+    assert.equal(
+      await page
+        .locator('#text-analysis-status')
+        .getAttribute('data-reason-codes'),
+      'NO_TEXT_ITEMS',
+    );
     assert.equal(await page.locator('#page-number').inputValue(), '1');
     assert.equal(await page.locator('#first-page').isDisabled(), true);
     assert.equal(await page.locator('#previous-page').isDisabled(), true);
@@ -330,6 +358,9 @@ export async function checkPdfSelection(application, page, artifacts) {
       'side-navigation',
       'zoom-bounds',
       'fit-height-resize',
+      'page-text-usable',
+      'page-text-insufficient',
+      'page-text-not-in-dom',
     );
 
     const lastPageStartedAt = Date.now();

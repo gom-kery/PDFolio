@@ -55,7 +55,6 @@ test('PDF adapter opens page 1 and renders bounded page numbers with local asset
       evidence.pageNumbers.push(number);
       return page;
     },
-    destroy: async () => evidence.destroyed++,
   };
   const pdfjsApi = {
     ...errorApi,
@@ -63,7 +62,7 @@ test('PDF adapter opens page 1 and renders bounded page numbers with local asset
       evidence.options = options;
       return {
         promise: Promise.resolve(pdfDocument),
-        destroy: () => assert.fail('Loaded document owns cleanup'),
+        destroy: async () => evidence.destroyed++,
       };
     },
   };
@@ -154,9 +153,8 @@ test('scale, fit height, intrinsic rotation and Canvas limits are enforced', asy
         promise: Promise.resolve({
           numPages: 2,
           getPage: async (pageNumber) => makePage(pageNumber),
-          destroy: async () => {},
         }),
-        destroy: () => assert.fail(),
+        destroy: async () => {},
       }),
     },
     assetBaseUrl: 'http://127.0.0.1:5173/',
@@ -270,9 +268,8 @@ test('rapid page requests cancel older work and keep the newest page', async () 
         promise: Promise.resolve({
           numPages: 4,
           getPage: async (pageNumber) => makePage(pageNumber),
-          destroy: async () => {},
         }),
-        destroy: () => assert.fail(),
+        destroy: async () => {},
       }),
     },
     assetBaseUrl: 'http://127.0.0.1:5173/',
@@ -321,7 +318,7 @@ test('disposing an in-flight render cancels it and prevents a late result', asyn
   let renderStarted;
   const started = new Promise((resolve) => (renderStarted = resolve));
   let renderCanceled = 0;
-  let documentDestroyed = 0;
+  let loadingTaskDestroyed = 0;
   const adapter = createPdfAdapterCore({
     pdfjsApi: {
       ...errorApi,
@@ -346,9 +343,8 @@ test('disposing an in-flight render cancels it and prevents a late result', asyn
             },
             cleanup: () => assert.fail('Canceled pages are not completed'),
           }),
-          destroy: async () => documentDestroyed++,
         }),
-        destroy: () => assert.fail(),
+        destroy: async () => loadingTaskDestroyed++,
       }),
     },
     assetBaseUrl: 'http://127.0.0.1:5173/',
@@ -361,5 +357,303 @@ test('disposing an in-flight render cancels it and prevents a late result', asyn
   await adapter.dispose();
   assert.deepEqual(await pending, { status: 'canceled', code: 'CANCELED' });
   assert.equal(renderCanceled, 1);
-  assert.equal(documentDestroyed, 1);
+  assert.equal(loadingTaskDestroyed, 1);
+});
+
+function textContent(sourceText = '전기기능사 필기 문제 분석용 텍스트입니다.') {
+  return {
+    items: [
+      {
+        str: sourceText,
+        dir: 'ltr',
+        transform: [12, 0, 0, 12, 30, 160],
+        width: 180,
+        height: 12,
+        fontName: 'fixture-font',
+        hasEOL: true,
+      },
+    ],
+    styles: {
+      'fixture-font': {
+        ascent: 0.9,
+        descent: -0.2,
+        vertical: false,
+        fontFamily: 'sans-serif',
+      },
+    },
+    lang: 'ko',
+  };
+}
+
+function textPage({ getTextContent = async () => textContent() } = {}) {
+  return {
+    view: [0, 0, 200, 200],
+    userUnit: 1,
+    rotate: 0,
+    getViewport: ({ scale }) => ({
+      width: 200 * scale,
+      height: 200 * scale,
+      rotation: 0,
+    }),
+    render: () => ({ promise: Promise.resolve(), cancel: () => assert.fail() }),
+    cleanup: () => {},
+    getTextContent,
+  };
+}
+
+function textDocumentApi(documentFactory, onDestroy = async () => {}) {
+  return {
+    ...errorApi,
+    getDocument: () => ({
+      promise: Promise.resolve(documentFactory()),
+      destroy: onDestroy,
+    }),
+  };
+}
+
+test('text extraction returns a copied PageTextSource with stable options and no PDF.js objects', async () => {
+  const raw = textContent('전기기능사 ');
+  raw.items.push({
+    str: '한글 분절 항목을 순서대로 보존합니다.',
+    dir: 'ltr',
+    transform: [12, 0, 0, 12, 30, 140],
+    width: 190,
+    height: 12,
+    fontName: 'fixture-font',
+    hasEOL: false,
+  });
+  raw.styles.unused = { privateValue: 'must not escape' };
+  let options;
+  let destroyed = 0;
+  const page = textPage({
+    getTextContent: async (value) => {
+      options = value;
+      return raw;
+    },
+  });
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: textDocumentApi(
+      () => ({ numPages: 2, getPage: async () => page }),
+      async () => destroyed++,
+    ),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+
+  assert.deepEqual(await adapter.extractPageText({ pageNumber: 1 }), {
+    status: 'error',
+    code: 'NO_DOCUMENT',
+  });
+  await adapter.open({ data: new Uint8Array(9), canvas: { style: {} } });
+  assert.deepEqual(await adapter.extractPageText({ pageNumber: 0 }), {
+    status: 'error',
+    code: 'INVALID_PAGE_NUMBER',
+    documentRevision: 1,
+    pageNumber: 1,
+    pageCount: 2,
+  });
+  const result = await adapter.extractPageText({ pageNumber: 1 });
+  assert.deepEqual(options, {
+    includeMarkedContent: false,
+    disableNormalization: false,
+  });
+  assert.equal(result.status, 'extracted');
+  assert.deepEqual(result.source, {
+    contractVersion: 1,
+    documentRevision: 1,
+    pageNumber: 1,
+    pageCount: 2,
+    language: 'ko',
+    page: { viewBox: [0, 0, 200, 200], userUnit: 1, rotation: 0 },
+    items: [
+      {
+        sourceIndex: 0,
+        sourceText: '전기기능사 ',
+        direction: 'ltr',
+        transform: [12, 0, 0, 12, 30, 160],
+        width: 180,
+        height: 12,
+        fontName: 'fixture-font',
+        hasEOL: true,
+      },
+      {
+        sourceIndex: 1,
+        sourceText: '한글 분절 항목을 순서대로 보존합니다.',
+        direction: 'ltr',
+        transform: [12, 0, 0, 12, 30, 140],
+        width: 190,
+        height: 12,
+        fontName: 'fixture-font',
+        hasEOL: false,
+      },
+    ],
+    styles: [
+      {
+        fontName: 'fixture-font',
+        ascent: 0.9,
+        descent: -0.2,
+        vertical: false,
+        fontFamily: 'sans-serif',
+      },
+    ],
+  });
+  raw.items[0].transform[0] = 999;
+  raw.styles['fixture-font'].ascent = 999;
+  page.view[0] = 999;
+  assert.equal(result.source.items[0].transform[0], 12);
+  assert.equal(result.source.styles[0].ascent, 0.9);
+  assert.equal(result.source.page.viewBox[0], 0);
+  assert.ok(!JSON.stringify(result).includes('privateValue'));
+  assert.ok(!JSON.stringify(result).includes('loadingTask'));
+  await adapter.dispose();
+  assert.equal(destroyed, 1);
+});
+
+test('malformed TextContent and extraction exceptions have stable private-data-free results', async () => {
+  let mode = 'malformed';
+  const page = textPage({
+    getTextContent: async () => {
+      if (mode === 'failure') throw new Error('C:\\private\\personal.pdf');
+      const malformed = textContent();
+      malformed.items[0].transform = [1, 0];
+      return malformed;
+    },
+  });
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: textDocumentApi(() => ({
+      numPages: 1,
+      getPage: async () => page,
+    })),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+  await adapter.open({ data: new Uint8Array(9), canvas: { style: {} } });
+  assert.deepEqual(await adapter.extractPageText({ pageNumber: 1 }), {
+    status: 'error',
+    code: 'INVALID_TEXT_SOURCE',
+    documentRevision: 1,
+    pageNumber: 1,
+  });
+  mode = 'failure';
+  const failure = await adapter.extractPageText({ pageNumber: 1 });
+  assert.deepEqual(failure, {
+    status: 'error',
+    code: 'TEXT_EXTRACTION_FAILED',
+    documentRevision: 1,
+    pageNumber: 1,
+  });
+  assert.ok(!JSON.stringify(failure).includes('personal.pdf'));
+  await adapter.dispose();
+});
+
+test('rapid text requests discard the older page result', async () => {
+  let releasePageTwo;
+  let pageTwoStarted;
+  const started = new Promise((resolve) => (pageTwoStarted = resolve));
+  const pages = new Map([
+    [1, textPage()],
+    [
+      2,
+      textPage({
+        getTextContent: () => {
+          pageTwoStarted();
+          return new Promise((resolve) => (releasePageTwo = resolve));
+        },
+      }),
+    ],
+    [
+      3,
+      textPage({
+        getTextContent: async () =>
+          textContent('세 번째 페이지의 최신 텍스트입니다.'),
+      }),
+    ],
+  ]);
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: textDocumentApi(() => ({
+      numPages: 3,
+      getPage: async (pageNumber) => pages.get(pageNumber),
+    })),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+  await adapter.open({ data: new Uint8Array(9), canvas: { style: {} } });
+  const pageTwo = adapter.extractPageText({ pageNumber: 2 });
+  await started;
+  const pageThree = await adapter.extractPageText({ pageNumber: 3 });
+  releasePageTwo(textContent('폐기할 두 번째 페이지 텍스트입니다.'));
+  assert.equal(pageThree.status, 'extracted');
+  assert.equal(pageThree.source.pageNumber, 3);
+  assert.deepEqual(await pageTwo, { status: 'canceled', code: 'CANCELED' });
+  await adapter.dispose();
+});
+
+test('document replacement and dispose invalidate late text results by revision', async () => {
+  let documentNumber = 0;
+  let releaseFirstDocument;
+  let firstTextStarted;
+  let releaseDisposedPage;
+  let disposedPageStarted;
+  const firstStarted = new Promise((resolve) => (firstTextStarted = resolve));
+  const disposeStarted = new Promise(
+    (resolve) => (disposedPageStarted = resolve),
+  );
+  let destroyed = 0;
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: textDocumentApi(
+      () => {
+        documentNumber++;
+        if (documentNumber === 1) {
+          return {
+            numPages: 1,
+            getPage: async () =>
+              textPage({
+                getTextContent: () => {
+                  firstTextStarted();
+                  return new Promise(
+                    (resolve) => (releaseFirstDocument = resolve),
+                  );
+                },
+              }),
+          };
+        }
+        return {
+          numPages: 2,
+          getPage: async (pageNumber) =>
+            pageNumber === 1
+              ? textPage({
+                  getTextContent: async () =>
+                    textContent('교체된 문서의 현재 텍스트입니다.'),
+                })
+              : textPage({
+                  getTextContent: () => {
+                    disposedPageStarted();
+                    return new Promise(
+                      (resolve) => (releaseDisposedPage = resolve),
+                    );
+                  },
+                }),
+        };
+      },
+      async () => destroyed++,
+    ),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+  const canvas = { style: {} };
+  await adapter.open({ data: new Uint8Array(9), canvas });
+  const oldText = adapter.extractPageText({ pageNumber: 1 });
+  await firstStarted;
+  await adapter.open({ data: new Uint8Array(10), canvas });
+  releaseFirstDocument(textContent('교체 전 문서의 늦은 텍스트입니다.'));
+  assert.deepEqual(await oldText, { status: 'canceled', code: 'CANCELED' });
+  const currentText = await adapter.extractPageText({ pageNumber: 1 });
+  assert.equal(currentText.status, 'extracted');
+  assert.equal(currentText.source.documentRevision, 2);
+
+  const disposedText = adapter.extractPageText({ pageNumber: 2 });
+  await disposeStarted;
+  await adapter.dispose();
+  releaseDisposedPage(textContent('dispose 뒤 늦은 텍스트입니다.'));
+  assert.deepEqual(await disposedText, {
+    status: 'canceled',
+    code: 'CANCELED',
+  });
+  assert.equal(destroyed, 2);
 });

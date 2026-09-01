@@ -1,12 +1,12 @@
 # Local PDF CBT — Project Bible
 
-- 문서 버전: `0.1.6`
+- 문서 버전: `0.2.1`
 - 작성일: 2026-08-31
 - 갱신일: 2026-09-01
-- 상태: Unit 1.6 Viewer 사이드 제어·높이 맞춤·PDF 기초 통합 검증 통과 / 최종 종료 검사 17/18, OPEN-09 재현으로 전체 완료 보류
-- 현재 산출물: 기준 문서, 한국어 Shell, 제한된 PDF 선택·드롭, 로컬 PDF.js 현재 페이지 Canvas·페이지 이동·50–200% 배율·높이 맞춤, 오른쪽 Viewer 제어 카드, Windows x64 패키지와 반복 가능한 검사. Text Layer·분석·CBT 기능은 아직 없다.
+- 상태: Unit 2.1 현재 페이지 Text Content 추출·품질 분류 완료. 앱은 버전 0.2.1이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: 원문 Viewer, PageTextSource/PageTextAssessment v1, 페이지별 텍스트 품질 요약과 반복 가능한 검사. 좌표 분석·Text Layer·키워드·영역·CBT 기능은 아직 구현하지 않았다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
-- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 1.6의 Viewer 사이드 제어·높이 맞춤·PDF 기초 통합 검증에 한하며 Phase 2 이후의 일괄 실행을 뜻하지 않는다.
+- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.1에 한하며 Unit 2.2 이후의 구현을 뜻하지 않는다.
 
 관련 문서: [개발 계획](ROADMAP.md), [요구사항 검토·기술 결정](DECISIONS.md), [변경·Unit 완료 기록](CHANGELOG.md), [후속 아이디어](IDEA_PARKING.md).
 
@@ -14,7 +14,7 @@
 
 사용자가 소유한 문제·보기·해설·정답 PDF를 로컬에서 열어, 답과 해설을 가린 상태로 객관식 문제를 풀게 한다. 답 선택 → 답 확인 → 해당 문제의 해설 공개 → 가능한 경우 채점이 기본 흐름이다. **원본 PDF는 읽기 전용**이며 가림은 화면에서만 수행한다.
 
-사용자가 **검토했던 Viewer 재배치 아이디어를 Unit 1.6으로 추가하고 진행할 것을 명시적으로 요청**했다. Unit 1.5의 50–200% 단계 배율과 좌우 보조 이동은 유지하되 페이지·배율 도구를 기본 창의 오른쪽 사이드 영역으로 옮기고 `너비 맞춤`을 `높이 맞춤`으로 교체한다. 56rem 이하에서는 제어 카드를 PDF 아래, 앱 상태보다 앞에 배치하고 40rem 이하에서는 좌우 보조 버튼을 숨긴다. 높이 맞춤은 PDF 스크롤 영역의 실제 세로 가용 공간을 사용하며 창 크기가 바뀌면 다시 계산한다. 패키지의 오프라인 PDF 표시·자산 접근과 거부·문서 교체/새로고침 정리·원본 해시·기본 시간 안전 기준도 함께 검증한다. Unit 0.4의 GPU 문제와 Unit 1.0 미착수는 완료로 바꾸지 않는다. 사용자 회전 버튼·Text Layer·분석·CBT·저장은 구현하지 않는다. Unit 1.6 기능·통합 검사는 통과했지만 최종 종료 반복에서 OPEN-09가 개발 모드 즉시 종료 1회에 재현되어 전체 무오류 완료 판정은 보류한다.
+사용자가 Unit 2.0 구조 검토 뒤 **Unit 2.1 Text Content 추출·품질 분류를 명시적으로 요청**했다. PDF 어댑터가 현재 페이지 하나의 TextContent를 PageTextSource v1으로 복사하고, 순수 분석 모듈이 PageTextAssessment v1의 세 품질 상태와 reason code를 만든다. UI에는 원문 대신 현재 페이지의 분석 가능·보류·확인 불가 요약만 표시한다. 좌표 계산, Debug Overlay, 키워드·영역 추정, 마스크·CBT는 구현하지 않는다. 앱과 package.json은 0.2.1이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
 
 ### 첫 MVP 범위 — 승인 전 제안
 
@@ -61,7 +61,7 @@ Unit 1.3에서 `pdfjs-dist` 6.3.289를 정확한 버전으로 고정했다. 본�
 
 ## 4. 전체 아키텍처
 
-아래는 전체 목표 설계다. Unit 1.6에서는 선택·드롭이 같은 main 읽기 전용 경계를 사용하고, 승인된 PDF의 이름·크기·바이트만 renderer에 전달한다. 경로는 반환하지 않는다. PDF 어댑터가 PDF.js 객체·worker·현재 한 페이지 렌더·배율·고유 회전·backing pixel 상한·요청 식별자·취소·정리를 소유하며 UI는 1부터 시작하는 페이지 번호, CSS 배율과 Canvas 상태만 다룬다. 분석·CBT·데이터 저장은 아직 없다. [Electron 프로세스 모델](https://www.electronjs.org/docs/latest/tutorial/process-model).
+아래는 전체 목표 설계다. 선택·드롭은 같은 main 읽기 전용 경계를 사용하고 승인된 PDF의 이름·크기·바이트만 renderer에 전달하며 경로는 반환하지 않는다. PDF 어댑터는 PDF.js document/page/TextContent 객체와 worker·렌더·추출 수명을 소유한다. 분석 모듈에는 버전 있는 순수 데이터 레코드만 전달하고, Unit 2.1의 분석 모듈은 페이지 텍스트 품질만 판단한다. UI는 어댑터나 분석 모듈의 원시 객체·추출 원문을 보관하지 않고 공개 상태 요약만 표시한다. 키워드·영역·CBT·데이터 저장 코드는 아직 없다. [Electron 프로세스 모델](https://www.electronjs.org/docs/latest/tutorial/process-model).
 
 ```mermaid
 flowchart LR
@@ -90,7 +90,7 @@ flowchart LR
 
 현재 프로젝트 문서 루트는 `outputs/local-pdf-cbt/docs/`이다. `local-pdf-cbt/`를 프로젝트 루트로 사용할 수 있도록 문서 내부 경로는 모두 상대 경로로 유지한다. 프로젝트를 이동해도 연결이 유지되어야 한다.
 
-**Unit 1.6에서 사용하는 주요 구조:**
+**Unit 2.1 완료 시점의 현재 구조:**
 
 ```text
 local-pdf-cbt/
@@ -98,7 +98,9 @@ local-pdf-cbt/
 ├─ electron/            main·preload·로컬 프로토콜·PDF 선택/드롭/검사
 ├─ src/main.js          화면 초기화
 ├─ src/pdf/             PDF.js 어댑터·요청 취소·자원 정리
-├─ src/ui/              실행 환경·파일 입력·페이지·배율·Canvas 상태 표시
+├─ src/analysis/        페이지 Text Content 품질의 순수 분류
+├─ src/shared/          PageTextSource/PageTextAssessment 계약 버전
+├─ src/ui/              실행 환경·파일 입력·페이지·배율·Canvas·품질 상태 표시
 ├─ src/styles/          기본 스타일·Shell 배치
 ├─ scripts/             Node 검사·개발 실행·패키징
 ├─ tests/               보안 경계·PDF 어댑터·실제 Electron 환경 검사와 합성 PDF
@@ -159,13 +161,66 @@ tests/fixtures/       재배포 가능한 합성 PDF와 기대 결과
 
 ## 9. PDF 처리 원칙
 
+### 9.0 Phase 2 분석 경계
+
+Unit 2.0은 아래 경계를 승인했고 Unit 2.1은 추출·품질 분류 부분만 구현했다. 이후 책임은 해당 Unit에서만 추가한다.
+
+```text
+승인된 PDF bytes
+  → PDF adapter: PDF.js document/page/TextContent 수명과 추출
+  → PageTextSource v1: 직렬화 가능한 페이지 근거
+  → Analysis: 문자열 요약·페이지 품질·후속 후보 판단
+  → UI: 진행·품질·실패 요약만 표시
+```
+
+- PDF 어댑터만 PDF.js 객체를 소유한다. 분석 모듈이나 UI에 `PDFDocumentProxy`, `PDFPageProxy`, `TextContent`, render task를 반환하지 않는다.
+- Unit 2.1에서 어댑터에 `extractPageText({ pageNumber })` 경계를 추가한다. 현재 열린 문서의 유효한 1부터 시작하는 페이지 한 개만 추출하며 전체 문서를 자동 선행 추출하지 않는다. 텍스트 추출 실패가 Canvas 원문 열람을 실패시키면 안 된다.
+- 어댑터는 새 문서 open 시도가 시작되거나 dispose될 때 세션 한정 `documentRevision`을 증가시킨다. 성공한 현재 문서 record가 그 revision을 소유하며 값은 파일명·경로·내용 해시가 아닌 불투명한 번호다. 추출 결과에는 revision과 pageNumber를 포함한다. 실패한 새 open도 이전 revision을 무효화하며, 파일 교체·dispose 뒤 이전 revision이나 이전 분석 요청의 늦은 결과는 `canceled`로 버리고 현재 화면·품질 상태를 바꾸지 않는다.
+- PDF.js 6.3.289의 `getTextContent({ includeMarkedContent: false, disableNormalization: false })`를 기준으로 검증한다. PDF.js가 반환한 `str`을 `sourceText`로 보존하고 앱이 임의로 원문을 교정하지 않는다. 검색용 정규화·줄/블록 복원·키워드 판단은 이 경계의 책임이 아니다.
+- 추출 텍스트·파일 경로·개인 정보는 Console, 자동 진단 파일, 외부 서비스에 기록하지 않는다. 분석 결과는 현재 PDF 세션 메모리에만 두고 파일 교체·새로고침·종료 때 폐기한다.
+
+`PageTextSource v1`은 다음 필드만 갖는 순수 데이터다. 배열과 객체는 새로 복사하며 `NaN`, `Infinity`, 함수, prototype 의존 객체를 허용하지 않는다.
+
+| 필드 | 계약 |
+| --- | --- |
+| `contractVersion` | 숫자 `1`. 호환되지 않는 변경은 버전을 올리고 묵시적으로 해석하지 않음 |
+| `documentRevision` | 현재 앱 세션의 불투명 문서 revision. 영구 ID나 파일 식별자가 아님 |
+| `pageNumber`, `pageCount` | 1부터 시작하는 안전한 정수 |
+| `language` | PDF.js의 문서 언어 문자열 또는 `null`. 페이지 품질의 단독 근거로 쓰지 않음 |
+| `page` | `viewBox[4]`, `userUnit`, 고유 `rotation`. Unit 2.2 좌표 변환 근거이며 Unit 2.1은 의미 좌표를 계산하지 않음 |
+| `items` | 원래 순서의 텍스트 항목. 각 항목은 `sourceIndex`, `sourceText`, `direction`, `transform[6]`, `width`, `height`, `fontName`, `hasEOL`만 포함 |
+| `styles` | 실제 항목이 참조하는 style의 배열. 각 원소는 `fontName`, `ascent`, `descent`, `vertical`, `fontFamily`만 포함해 임의 fontName을 객체 key로 사용하지 않음 |
+
+Unit 2.1의 `PageTextAssessment v1`은 PageTextSource 또는 현재 문서의 추출 실패 결과를 입력으로 받는 순수 분류 결과다. `documentRevision`, `pageNumber`, `quality`, `reasonCodes[]`, 이름 있는 `metrics`와 진단용 `plainText`를 제공한다. `plainText`는 sourceText를 원래 순서로 이어 붙이고 `hasEOL` 뒤에만 줄바꿈을 넣은 값이다. 항목 사이에 추정 공백을 넣지 않으며 읽기 순서나 문단 복원 결과로 사용하지 않는다. `TEXT_EXTRACTION_FAILED`와 `INVALID_TEXT_SOURCE`에서는 plainText를 빈 문자열로 두고 원문을 추정하지 않는다. `NO_DOCUMENT`, 잘못된 pageNumber, `canceled`에는 assessment를 만들지 않는다. 근거 추적은 sourceIndex와 metric으로 유지하고 사용자 원문 전체를 로그에 쓰지 않는다.
+
+품질 상태의 의미는 다음과 같다. Unit 2.1은 고정 합성 샘플과 설치된 PDF.js 6.3.289의 한글+이미지 fixture를 측정해 `MIN_USABLE_NON_WHITESPACE_CHARACTERS = 12`, `MIN_READABLE_CHARACTER_RATIO = 0.8`을 초기 상수로 정했다. 문자는 Unicode code point로 세고 공백은 문자량과 비율의 분모에서 제외한다. replacement character·제어/비공개 문자처럼 문자·숫자·결합 기호·문장부호·기호로 판독할 수 없는 비공백 문자는 suspicious로 센다. 판독 가능 문자가 12개 이상인데 비율이 0.8 미만이면 `unknown / CONFLICTING_SIGNALS`, 그보다 근거가 적으면 `text-insufficient`로 보류한다. 이 값은 범용 정확도 주장이 아니며 Unit 1.0 실제 샘플 행렬에서 재검토한다.
+
+| `quality` | 의미 | 후속 처리 |
+| --- | --- | --- |
+| `text-usable` | 추출 성공 후 유효한 비공백 문자열과 문자 품질 근거가 현재 분석 입력으로 사용 가능 | Unit 2.2 이후 분석 후보가 될 수 있음. CBT 지원을 의미하지 않음 |
+| `text-insufficient` | 추출은 성공했지만 비어 있음, 공백뿐임, 페이지 번호 수준, 문자량/품질 부족 등 명시적 근거가 있음 | 자동 텍스트 분석 보류. 스캔이라고 단정하지 않음 |
+| `unknown` | 추출 실패, 잘못된 레코드, 상충 신호 또는 현재 근거로 판정할 수 없음 | 자동 분석 보류하고 reason code 유지 |
+
+최소 reason code 집합은 `NO_TEXT_ITEMS`, `WHITESPACE_ONLY`, `TOO_LITTLE_TEXT`, `LOW_TEXT_QUALITY`, `INVALID_TEXT_SOURCE`, `CONFLICTING_SIGNALS`, `TEXT_EXTRACTION_FAILED`다. Unit 2.1에서 샘플에 근거해 필요한 코드만 실제 사용하고, 임계값 미충족을 추출 오류로 바꾸지 않는다. 빈 텍스트나 이미지가 있다는 사실만으로 스캔 PDF라고 판정하지 않는다.
+
+페이지와 문제는 계속 분리한다. PageTextSource와 PageTextAssessment에는 `questionId`, 정답, 해설, 영역, 지원 여부를 넣지 않는다. 페이지 번호를 questionId로 사용하지 않는다. Question/Region 생성은 키워드·영역·지원 판정이 끝난 뒤의 별도 Unit 책임이다.
+
+검증 순서는 다음과 같다.
+
+1. Unit 2.1 완료: 한글 분절 항목, 빈/벡터·이미지 위주, 텍스트+이미지 혼합, 페이지 번호 수준, 비정상 문자열 고정 샘플에서 세 상태와 reason code를 확인했다.
+2. Unit 2.1 완료: 잘못된 페이지, 문서 없음, 추출 예외, 빠른 페이지 요청, 파일 교체·dispose 후 늦은 결과 폐기를 documentRevision/request id로 확인했다.
+3. Unit 2.1 완료: 실제 PDF.js 한글+이미지 fixture에서 6개 item·비공백 73자·판독 비율 1을 확인했고 경로·PDF.js 객체·원문 DOM 비노출, 원본 해시, Viewer와 오프라인 패키지 경계를 확인했다.
+4. Unit 2.2: 보존한 transform·style·page metadata로 회전 전 PDF user space의 TextItemRecord bbox를 계산하고 회전·DPI·확대와 대조한다.
+5. Unit 2.5: 일반 사용자 기능과 분리한 Debug Overlay에서 sourceIndex와 bbox를 시각 대조한다.
+6. Unit 2.3~2.6: 키워드, 영역, 지원 판정을 각각 독립 검증하며 품질 상태만으로 CBT를 승인하지 않는다.
+
 ### 9.1 추출과 분석은 다른 일이다
 
 `getTextContent()`는 텍스트 항목을 제공한다. 항목의 `str`, `transform`, `width`, `height`, `dir`, `hasEOL` 등을 이용할 수 있지만 문제·해설이라는 의미는 앱이 판단해야 한다. [PDF.js TextItem 계약](https://mozilla.github.io/pdf.js/api/draft/module-pdfjsLib.html#~TextItem).
 
 Text Content는 분석 입력이고 Text Layer는 표시·선택을 위한 DOM이다. 렌더된 DOM의 순서나 화면 픽셀을 분석의 원본으로 사용하지 않는다. 텍스트 추출 가능 여부와 정상적인 읽기 순서·한글 품질은 별도로 검증한다.
 
-내부 `TextItemRecord`는 `text`, `x`, `y`, `width`, `height`, `page`를 제공한다. 이 필드는 원시 API 값을 그대로 복사한 것이 아니라 아래 기준으로 정규화한 값이다. 원문, 원시 transform, font 정보, 항목 ID도 근거 추적에 필요한 만큼 유지한다.
+Unit 2.2의 내부 `TextItemRecord`는 `text`, `x`, `y`, `width`, `height`, `page`를 제공한다. 이 필드는 PageTextSource를 그대로 복사한 것이 아니라 아래 좌표 계약으로 정규화한 값이다. `sourceIndex`, `sourceText`, raw transform, font 정보는 근거 추적을 위해 PageTextSource에 유지한다.
 
 ### 9.2 좌표 계약
 

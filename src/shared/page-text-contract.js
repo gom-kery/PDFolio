@@ -1,0 +1,1 @@
+export const PAGE_TEXT_CONTRACT_VERSION = 1;

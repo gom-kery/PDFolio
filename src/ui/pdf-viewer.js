@@ -1,4 +1,5 @@
 import { MAX_RENDER_SCALE, MIN_RENDER_SCALE } from '../pdf/pdf-adapter-core.js';
+import { assessPageText } from '../analysis/page-text-assessment.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -30,6 +31,7 @@ export function initializePdfViewer(document, adapter) {
   const pageForm = document.querySelector('#page-number-form');
   const pageInput = document.querySelector('#page-number');
   const pageTotal = document.querySelector('#page-total');
+  const textAnalysisStatus = document.querySelector('#text-analysis-status');
   const zoomOutButton = document.querySelector('#zoom-out');
   const zoomInButton = document.querySelector('#zoom-in');
   const fitHeightButton = document.querySelector('#fit-height');
@@ -42,6 +44,74 @@ export function initializePdfViewer(document, adapter) {
   let requestedScale = 1;
   let scaleMode = 'fixed';
   let resizeTimer = null;
+  let analysisRequestId = 0;
+
+  const showTextAnalysisStatus = (state, message, reasonCodes = []) => {
+    textAnalysisStatus.dataset.state = state;
+    textAnalysisStatus.textContent = message;
+    if (reasonCodes.length > 0)
+      textAnalysisStatus.dataset.reasonCodes = reasonCodes.join(' ');
+    else delete textAnalysisStatus.dataset.reasonCodes;
+  };
+
+  const resetTextAnalysis = (message) => {
+    analysisRequestId++;
+    showTextAnalysisStatus('idle', message);
+  };
+
+  const analyzePageText = async (pageNumber) => {
+    const ownAnalysisRequestId = ++analysisRequestId;
+    showTextAnalysisStatus(
+      'analyzing',
+      `${pageNumber.toLocaleString('ko-KR')}페이지의 텍스트를 확인하고 있습니다.`,
+    );
+    let extraction;
+    try {
+      extraction = await adapter.extractPageText({ pageNumber });
+    } catch {
+      extraction = null;
+    }
+    if (
+      ownAnalysisRequestId !== analysisRequestId ||
+      extraction?.status === 'canceled'
+    )
+      return;
+    const assessment = assessPageText(extraction);
+    if (!assessment) {
+      showTextAnalysisStatus(
+        'unknown',
+        '현재 페이지의 텍스트 상태를 확인할 수 없습니다.',
+      );
+      return;
+    }
+    if (assessment.quality === 'text-usable') {
+      showTextAnalysisStatus(
+        'text-usable',
+        '현재 페이지의 텍스트를 분석할 수 있습니다.',
+      );
+      return;
+    }
+    if (assessment.quality === 'unknown') {
+      showTextAnalysisStatus(
+        'unknown',
+        '현재 페이지의 텍스트 상태를 확인할 수 없습니다.',
+        assessment.reasonCodes,
+      );
+      return;
+    }
+    const message = assessment.reasonCodes.includes('NO_TEXT_ITEMS')
+      ? '현재 페이지에서 분석할 텍스트를 찾지 못했습니다.'
+      : assessment.reasonCodes.includes('WHITESPACE_ONLY')
+        ? '현재 페이지에서 유효한 텍스트를 찾지 못했습니다.'
+        : assessment.reasonCodes.includes('TOO_LITTLE_TEXT')
+          ? '현재 페이지는 분석하기에 텍스트가 너무 적습니다.'
+          : '현재 페이지의 텍스트 품질이 충분하지 않습니다.';
+    showTextAnalysisStatus(
+      'text-insufficient',
+      message,
+      assessment.reasonCodes,
+    );
+  };
 
   const showViewer = (state, message, { preserveCanvas = false } = {}) => {
     empty.hidden = true;
@@ -101,6 +171,7 @@ export function initializePdfViewer(document, adapter) {
   };
 
   const applyRenderedPage = (rendered, { resetScroll = false } = {}) => {
+    const pageChanged = currentPage !== rendered.pageNumber;
     currentPage = rendered.pageNumber;
     requestedPage = rendered.pageNumber;
     totalPages = rendered.pageCount;
@@ -127,6 +198,7 @@ export function initializePdfViewer(document, adapter) {
       pageScroll.scrollTop = 0;
       pageScroll.scrollLeft = 0;
     }
+    if (pageChanged) void analyzePageText(rendered.pageNumber);
   };
 
   const showInvalidPage = () => {
@@ -154,6 +226,8 @@ export function initializePdfViewer(document, adapter) {
     }
 
     requestedPage = pageNumber;
+    if (pageNumber !== currentPage)
+      resetTextAnalysis('페이지를 표시한 뒤 텍스트를 확인합니다.');
     updateControls();
     showViewer(
       'loading',
@@ -169,6 +243,7 @@ export function initializePdfViewer(document, adapter) {
     else {
       requestedPage = currentPage;
       updateControls();
+      resetTextAnalysis('페이지를 표시한 뒤 텍스트를 확인합니다.');
       showViewer(
         'error',
         VIEWER_FAILURE_MESSAGES[rendered.code] ||
@@ -253,6 +328,7 @@ export function initializePdfViewer(document, adapter) {
       currentScale = 1;
       requestedScale = 1;
       scaleMode = 'fixed';
+      resetTextAnalysis('PDF를 열면 현재 페이지의 텍스트를 확인합니다.');
       for (const key of [
         'pageNumber',
         'scale',
@@ -289,6 +365,7 @@ export function initializePdfViewer(document, adapter) {
 
     async dispose() {
       requestId++;
+      resetTextAnalysis('PDF를 열면 현재 페이지의 텍스트를 확인합니다.');
       resizeObserver?.disconnect();
       if (resizeTimer !== null) document.defaultView?.clearTimeout(resizeTimer);
       await adapter.dispose();

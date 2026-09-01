@@ -1,12 +1,12 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.1.2`
+- 문서 버전: `0.2.1`
 - 갱신일: 2026-09-01
-- 상태: Unit 1.2 파일 드롭 구현·기능 검사 통과. 기존 종료 GPU 오류로 전체 완료 보류. Unit 1.0과 1.3 이후 기능은 미착수.
+- 상태: Unit 2.1 현재 페이지 Text Content 추출·품질 분류 완료. 앱은 버전 0.2.1이며 OPEN-09와 Unit 1.0은 미해결.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
-이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 0.2의 실행 환경, 0.3의 기본 Shell에 이어 0.4에서 Windows x64 패키지와 실행 경계를 검증했다. 문제 PDF, 인식 실험, PDF 벤치마크는 여전히 없다.
+이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 실제 Text Content 추출과 품질 분류를 검증했다. 좌표·문제 인식 실험은 아직 시작하지 않았다.
 
 ## 1. 요구사항 분석
 
@@ -353,6 +353,33 @@
 - 완료 판단: 형식 검사, Node 49개, 빌드·패키지, Electron 3경로, 실제 Windows 선택 창 1개는 통과했다. 종료 반복은 개발 모드 즉시 종료 1회에서 기존 GPU 진단이 재현되어 17/18이었다. 패키지 9/9, 개발 250ms·1500ms 6/6, 모든 종료 코드 0과 포트 해제는 정상이다. OPEN-09를 숨기거나 그래픽·보안 설정을 낮추지 않는다.
 - 한계: Unit 1.0의 전체 샘플 행렬은 미착수다. 모든 실제 PDF의 자원 사용·파서 시간·렌더 시간과 캐시 정책을 확정하지 않았고, 실제 다중 모니터·여러 Windows 디스플레이 배율·스크린 리더 검증도 남아 있다. Phase 2 기능은 이번 결정에 포함되지 않는다.
 
+### ADR-024 — Phase 2 텍스트 분석 경계와 실패 정책
+
+- 상태: **채택 — Unit 2.0 구조 검토 완료**, 2026-09-01. 문서 결정이며 앱 코드는 버전 0.1.6 그대로다.
+- 현재 구조 판단: PDF.js document/page/TextContent 객체는 이미 PDF 어댑터 안에 격리돼 있어 기존 렌더 경계를 확장할 수 있다. `src/analysis/`는 아직 없으며 Unit 2.1에서 실제 책임이 생길 때만 만든다. 빈 폴더·추상 service·DB·IPC를 미리 추가하지 않는다.
+- 추출 경계: Unit 2.1에서 PDF 어댑터에 현재 문서의 한 페이지를 받는 `extractPageText({ pageNumber })`를 추가한다. PDF.js 6.3.289의 `getTextContent({ includeMarkedContent: false, disableNormalization: false })`를 사용하고 원래 항목 순서를 보존한다. 전체 페이지 선행 추출·OCR·Text Layer DOM 읽기·키워드 검색은 하지 않는다. 추출 실패는 Canvas 원문 Viewer를 닫거나 실패 상태로 바꾸지 않는다.
+- 데이터 경계: 어댑터는 PDF.js 객체 대신 `PageTextSource v1` 순수 데이터를 반환한다. 필수 필드는 `contractVersion`, 세션 `documentRevision`, 1부터 시작하는 `pageNumber/pageCount`, `language`, page `viewBox/userUnit/rotation`, 텍스트 item의 `sourceIndex/sourceText/direction/transform[6]/width/height/fontName/hasEOL`이다. font style은 임의 fontName을 객체 key로 쓰지 않고 `fontName/ascent/descent/vertical/fontFamily`의 배열로 복사한다. 값은 새 배열·객체로 복사하고 유한한 숫자·문자열·불리언·null만 허용한다. 경로·파일 바이트·PDF.js prototype 객체는 포함하지 않는다. 형식이 잘못된 TextContent를 부분 정상화하지 않고 `INVALID_TEXT_SOURCE`로 보류한다.
+- 분석 경계: Unit 2.1의 순수 분석 함수는 PageTextSource 또는 현재 문서의 추출 실패 결과에서 `PageTextAssessment v1`을 만든다. 결과는 `documentRevision`, `pageNumber`, `quality`, `reasonCodes[]`, 이름 있는 `metrics`, 진단용 `plainText`를 포함한다. plainText는 sourceText를 원래 순서로 연결하고 `hasEOL` 뒤에만 줄바꿈을 넣는다. 추정 공백·줄/문단 복원·검색용 정규화는 수행하지 않으며 sourceIndex를 근거로 유지한다. 추출 실패나 잘못된 source에서는 unknown과 빈 plainText를 반환한다. 문서 없음·잘못된 페이지·canceled 결과에는 assessment를 만들지 않는다.
+- 품질 상태: `text-usable`은 현재 텍스트 분석 입력으로 쓸 근거가 있다는 뜻일 뿐 CBT 지원이나 올바른 읽기 순서를 뜻하지 않는다. `text-insufficient`는 추출 성공 후 빈 항목·공백뿐·페이지 번호 수준·문자량/품질 부족 같은 명시적 근거가 있는 정상 결과다. `unknown`은 추출 실패, 잘못된 source, 상충 신호 또는 현재 근거로 판정할 수 없는 상태다. 후자의 두 상태에서는 자동 분석을 보류한다. 텍스트 없음이나 이미지 존재만으로 스캔이라고 단정하지 않는다.
+- reason code: 최소 후보를 `NO_TEXT_ITEMS`, `WHITESPACE_ONLY`, `TOO_LITTLE_TEXT`, `LOW_TEXT_QUALITY`, `INVALID_TEXT_SOURCE`, `CONFLICTING_SIGNALS`, `TEXT_EXTRACTION_FAILED`로 정한다. Unit 2.1에서 한글 분절·빈/이미지 위주·혼합·페이지 번호 수준·비정상 문자열 고정 샘플을 측정한 뒤 실제 사용 코드와 숫자 임계값을 이름 있는 상수로 확정한다. 샘플 없이 문자 수·비율을 결정하지 않는다.
+- 수명과 취소: 새 document open 시도가 시작되거나 dispose될 때 파일명·경로·해시와 무관한 세션 한정 `documentRevision`을 증가시킨다. 성공한 현재 document record가 그 revision을 소유하며 실패한 새 open도 이전 revision을 무효화한다. `getTextContent()` Promise를 즉시 중단할 수 없더라도 늦은 결과는 documentRevision과 추출 request id가 모두 최신일 때만 채택한다. 현재 페이지 표시용 상태와 페이지별 분석 상태를 섞지 않는다. 캐시를 도입하지 않고 현재 세션 메모리만 사용한다.
+- 페이지/문제 구분: PageTextSource와 PageTextAssessment는 PDF page 자료다. `questionId`, 정답, 해설, Region, 지원 여부를 만들지 않으며 pageNumber를 questionId로 사용하지 않는다. TextItemRecord bbox는 Unit 2.2, Debug Overlay는 2.5, 키워드는 2.3, 영역은 2.4, 지원 판정은 2.6, Question/CBT는 이후 Unit의 책임이다.
+- 개인정보와 UI: 원문 텍스트·경로를 Console, 자동 결과 JSON, 외부 서비스에 기록하지 않는다. 일반 UI에는 원문 추출 덤프를 표시하지 않고 진행·품질·공개 실패 요약만 전달한다. Debug Overlay는 Unit 2.5에서 일반 사용 경로와 분리한다. 파일 교체·새로고침·종료 때 텍스트와 평가 결과를 폐기한다.
+- 검증 계획: Unit 2.1에서 어댑터 성공/문서 없음/잘못된 페이지/추출 예외/논리 취소, 순수 분류의 세 상태와 reason code, 한글 분절·혼합 샘플, 경로·PDF.js 객체 비노출, 원본 해시, 기존 Viewer 회귀를 검사한다. Unit 2.2에서 raw transform/style/page metadata를 회전 전 PDF user space bbox로 바꾸고 회전·DPI·확대와 대조한다. Unit 2.5에서 sourceIndex-bbox를 화면으로 대조한 뒤 2.3~2.6 의미 분석을 각각 검증한다.
+- 제외 범위: 실제 추출·분류 코드, 품질 숫자, 좌표 계산, Text Layer, Debug Overlay, 키워드·영역·정답, 마스크, CBT, 영구 저장, OCR/AI는 Unit 2.0에 포함하지 않는다. Unit 1.0과 OPEN-09 상태도 바꾸지 않는다.
+
+### ADR-025 — Unit 2.1 현재 페이지 텍스트 추출과 품질 기준
+
+- 상태: **채택 — Unit 2.1 구현·검증 완료**, 2026-09-02. 앱과 Windows x64/ASAR 패키지는 버전 0.2.1이다.
+- 추출 구현: PDF 어댑터의 `extractPageText({ pageNumber })`는 현재 문서의 유효한 페이지 한 개에만 `getTextContent({ includeMarkedContent: false, disableNormalization: false })`를 호출한다. 성공 결과는 `status: extracted`와 PageTextSource v1이고, 문서 없음·잘못된 페이지·논리 취소·추출 실패·잘못된 TextContent는 원문 예외 없이 안정된 공개 코드로 반환한다. 전체 문서 선행 추출이나 페이지 캐시는 없다.
+- 복사·검증: sourceIndex와 sourceText 순서를 유지하고 direction·transform[6]·width·height·fontName·hasEOL, page viewBox·userUnit·rotation, 실제 참조 font style만 새 객체·배열로 복사한다. 필수 값이 없거나 유한하지 않은 TextContent는 부분 복구하지 않고 `INVALID_TEXT_SOURCE`로 보류한다. 결과에는 경로·파일 바이트·PDF.js 객체·임의 style key가 없다.
+- 품질 상수: 한글 분절, 빈/벡터·이미지 위주, 혼합, 페이지 번호 수준, replacement character 고정 샘플과 설치된 PDF.js 6.3.289의 한글+이미지 fixture를 근거로 `MIN_USABLE_NON_WHITESPACE_CHARACTERS = 12`, `MIN_READABLE_CHARACTER_RATIO = 0.8`을 채택한다. 실제 fixture는 6개 item·비공백 73자·판독 가능 비율 1이었다. 이 기준은 후속 분석 입력 보류선이며 정확도·CBT 지원 확률이 아니다.
+- 분류 규칙: 항목 없음은 `text-insufficient / NO_TEXT_ITEMS`, 공백뿐이면 `WHITESPACE_ONLY`, 12자 미만이면 `TOO_LITTLE_TEXT`, 판독 가능 비율 0.8 미만이면 `LOW_TEXT_QUALITY`다. 판독 가능 문자가 12개 이상인데 품질 비율은 낮은 상충 결과만 `unknown / CONFLICTING_SIGNALS`로 둔다. 잘못된 source와 추출 실패도 각각 `unknown`이고 canceled·문서 없음·잘못된 페이지에는 assessment를 만들지 않는다.
+- 수명·정리: documentRevision은 open 시도와 dispose에서 증가하고 별도 text request id가 빠른 추출을 구분한다. 늦은 결과는 두 값이 모두 최신일 때만 채택한다. PDF.js 6.3.289가 자원 해제를 `PDFDocumentLoadingTask.destroy()`에 제공하고 PDFDocumentProxy에는 destroy를 제공하지 않음을 실제 타입·fixture로 확인해 loading task를 정리 주체로 사용한다. 텍스트 실패는 Canvas 상태를 바꾸지 않는다.
+- UI·개인정보: 페이지 표시가 바뀔 때만 품질을 다시 확인하고 같은 페이지의 배율·높이 맞춤 재렌더에서는 재추출하지 않는다. UI에는 `텍스트 분석 가능`, `분석 보류`, `확인 불가`의 공개 문구와 reason code 상태만 두며 plainText와 PDF 원문을 DOM·Console·자동 결과 JSON에 기록하지 않는다. 문서 교체·새로고침·종료에서 상태와 추출을 무효화한다.
+- 검증: 형식, Node 60개, 실제 PDF.js 한글+이미지 추출·원본 SHA-256, 빌드·Windows x64/ASAR 패키지, 개발·빌드·패키지 Electron 3경로, 실제 Windows 선택 창 검사가 통과했다. 종료 반복은 개발 9/9·패키지 8/9이며 패키지 250ms 1회에서 OPEN-09 GPU 진단이 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
+- 제외 범위: PDF user space bbox, Text Layer, Debug Overlay, 줄/블록, 키워드, 해설·정답 영역, 지원 판정, Question·CBT, 저장, OCR/AI는 Unit 2.1에 포함하지 않는다. 품질이 text-usable이어도 올바른 읽기 순서나 CBT 지원을 의미하지 않는다.
+
 ## 5. 유보 항목과 해결 상태
 
 | ID | 항목 | 결정 시점 | 지금의 처리 |
@@ -361,9 +388,9 @@
 | OPEN-02 | renderer ESM과 sandbox preload 연결·로컬 자산 프로토콜 | Unit 0.2~1.3 | 해결: ADR-012/015/016/020. Windows x64 패키지와 PDF.js worker·CMap·ICC·표준 글꼴·WASM의 로컬 경로·거부 경로 재검증 완료 |
 | OPEN-03 | 실제 대표 PDF와 지원 프로파일 목록 | Unit 1.0~2.6 | 샘플 행렬만 작성. 사용자 문서 업로드/공유 요청 없음 |
 | OPEN-04 | 파일 크기·Canvas 픽셀·캐시·시간 예산 | Unit 1.1 / 1.6 | 부분 해결: 50 MiB 입력 상한, 현재 Canvas 16,777,216픽셀·한 변 8,192픽셀 상한, 작은 합성 PDF의 첫 페이지·높이 맞춤·마지막 페이지 10초 안전 기준을 적용했다. 모든 실물 PDF의 파서/렌더 시간과 캐시 예산은 샘플 행렬·실사용 측정 전까지 유보 |
-| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 근거 없는 고정값을 확정하지 않음 |
+| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1에서 최소 비공백 12자·판독 가능 비율 0.8과 세 상태/reason code를 고정 샘플로 검증. 실제 샘플 행렬에서 재검토하며 bbox는 2.2, 줄/블록·키워드·영역 임계값은 2.3~2.6 증거 전까지 확정하지 않음 |
 | OPEN-06 | 서명·설치형/포터블 공개 배포·업데이트 정책 | MVP 검증 후 | 로컬 테스트 패키지와 구분; 이번 범위 밖 |
-| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 1.6 최종 종료 반복에서 개발 모드 즉시 종료 1회 재현, 결과 17/18. 패키지 9/9와 개발 250ms·1500ms 6/6, 모든 종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
+| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.1 종료 반복에서 패키지 250ms 1회 재현, 결과 개발 9/9·패키지 8/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
 | OPEN-07 | 저장 경로·문서 해시·SQLite 스키마·백업 형식 | Phase 5.0 | 메모리만 사용 |
 | OPEN-08 | OCR/AI 엔진·언어·모델·서비스 비용 | Phase 9.0 / 10.0 | 의존성 추가 없음 |
 

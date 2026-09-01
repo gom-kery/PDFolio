@@ -1,3 +1,5 @@
+import { PAGE_TEXT_CONTRACT_VERSION } from '../shared/page-text-contract.js';
+
 function isErrorType(error, constructor, name) {
   return (
     (typeof constructor === 'function' && error instanceof constructor) ||
@@ -31,6 +33,102 @@ function asUint8Array(data) {
   if (ArrayBuffer.isView(data))
     return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
   throw new TypeError('PDF data must be binary');
+}
+
+function isFiniteNumberArray(value, length) {
+  return (
+    Array.isArray(value) &&
+    value.length === length &&
+    value.every(Number.isFinite)
+  );
+}
+
+function invalidTextSource() {
+  return Object.assign(new Error('Invalid TextContent'), {
+    code: 'INVALID_TEXT_SOURCE',
+  });
+}
+
+function copyPageTextSource({ record, page, pageNumber, textContent }) {
+  if (
+    !textContent ||
+    !Array.isArray(textContent.items) ||
+    textContent.styles === null ||
+    typeof textContent.styles !== 'object' ||
+    !(textContent.lang === null || typeof textContent.lang === 'string') ||
+    !isFiniteNumberArray(page.view, 4) ||
+    !Number.isFinite(page.userUnit) ||
+    page.userUnit <= 0 ||
+    !Number.isFinite(page.rotate)
+  )
+    throw invalidTextSource();
+
+  const items = textContent.items.map((item, sourceIndex) => {
+    if (
+      !item ||
+      typeof item.str !== 'string' ||
+      !['ltr', 'rtl', 'ttb'].includes(item.dir) ||
+      !isFiniteNumberArray(item.transform, 6) ||
+      !Number.isFinite(item.width) ||
+      !Number.isFinite(item.height) ||
+      typeof item.fontName !== 'string' ||
+      typeof item.hasEOL !== 'boolean'
+    )
+      throw invalidTextSource();
+    return {
+      sourceIndex,
+      sourceText: item.str,
+      direction: item.dir,
+      transform: [...item.transform],
+      width: item.width,
+      height: item.height,
+      fontName: item.fontName,
+      hasEOL: item.hasEOL,
+    };
+  });
+
+  const referencedFonts = [];
+  const seenFonts = new Set();
+  for (const item of items) {
+    if (seenFonts.has(item.fontName)) continue;
+    seenFonts.add(item.fontName);
+    referencedFonts.push(item.fontName);
+  }
+  const styles = referencedFonts.map((fontName) => {
+    if (!Object.prototype.hasOwnProperty.call(textContent.styles, fontName))
+      throw invalidTextSource();
+    const style = textContent.styles[fontName];
+    if (
+      !style ||
+      !Number.isFinite(style.ascent) ||
+      !Number.isFinite(style.descent) ||
+      typeof style.vertical !== 'boolean' ||
+      typeof style.fontFamily !== 'string'
+    )
+      throw invalidTextSource();
+    return {
+      fontName,
+      ascent: style.ascent,
+      descent: style.descent,
+      vertical: style.vertical,
+      fontFamily: style.fontFamily,
+    };
+  });
+
+  return {
+    contractVersion: PAGE_TEXT_CONTRACT_VERSION,
+    documentRevision: record.documentRevision,
+    pageNumber,
+    pageCount: record.pageCount,
+    language: textContent.lang,
+    page: {
+      viewBox: [...page.view],
+      userUnit: page.userUnit,
+      rotation: page.rotate,
+    },
+    items,
+    styles,
+  };
 }
 
 export const MIN_RENDER_SCALE = 0.5;
@@ -96,6 +194,7 @@ export function createPdfAdapterCore({
 }) {
   let documentRequestId = 0;
   let renderRequestId = 0;
+  let textRequestId = 0;
   let current = null;
 
   const disposeCurrent = async () => {
@@ -107,8 +206,7 @@ export function createPdfAdapterCore({
       // A completed PDF.js render may already have released its task.
     }
     try {
-      if (previous?.document) await previous.document.destroy();
-      else if (previous?.loadingTask) await previous.loadingTask.destroy();
+      await previous?.loadingTask?.destroy();
     } catch {
       // Cleanup failure must not prevent a newly approved document from opening.
     }
@@ -254,6 +352,7 @@ export function createPdfAdapterCore({
       fitHeight,
     }) {
       const ownRequestId = ++documentRequestId;
+      textRequestId++;
       await disposeCurrent();
       if (ownRequestId !== documentRequestId)
         return { status: 'canceled', code: 'CANCELED' };
@@ -262,6 +361,7 @@ export function createPdfAdapterCore({
         loadingTask: null,
         document: null,
         renderTask: null,
+        documentRevision: ownRequestId,
         pageNumber: 0,
         pageCount: 0,
       };
@@ -281,7 +381,7 @@ export function createPdfAdapterCore({
         });
         const pdfDocument = await record.loadingTask.promise;
         if (current !== record) {
-          await pdfDocument.destroy();
+          await record.loadingTask.destroy();
           return { status: 'canceled', code: 'CANCELED' };
         }
         record.document = pdfDocument;
@@ -297,7 +397,7 @@ export function createPdfAdapterCore({
         if (rendered.status !== 'error') return rendered;
         if (current === record) current = null;
         try {
-          await record.document.destroy();
+          await record.loadingTask.destroy();
         } catch {
           // Preserve the original public failure code.
         }
@@ -307,8 +407,7 @@ export function createPdfAdapterCore({
         const code = classifyPdfError(error, pdfjsApi);
         current = null;
         try {
-          if (record.document) await record.document.destroy();
-          else await record.loadingTask?.destroy();
+          await record.loadingTask?.destroy();
         } catch {
           // Preserve the original public failure code.
         }
@@ -335,9 +434,83 @@ export function createPdfAdapterCore({
       });
     },
 
+    async extractPageText({ pageNumber }) {
+      const record = current;
+      if (!record?.document) return { status: 'error', code: 'NO_DOCUMENT' };
+      if (
+        !Number.isSafeInteger(pageNumber) ||
+        pageNumber < 1 ||
+        pageNumber > record.pageCount
+      )
+        return {
+          status: 'error',
+          code: 'INVALID_PAGE_NUMBER',
+          documentRevision: record.documentRevision,
+          pageNumber: record.pageNumber,
+          pageCount: record.pageCount,
+        };
+
+      const ownTextRequestId = ++textRequestId;
+      try {
+        const page = await record.document.getPage(pageNumber);
+        if (
+          current !== record ||
+          ownTextRequestId !== textRequestId ||
+          record.documentRevision !== documentRequestId
+        )
+          return { status: 'canceled', code: 'CANCELED' };
+        const textContent = await page.getTextContent({
+          includeMarkedContent: false,
+          disableNormalization: false,
+        });
+        if (
+          current !== record ||
+          ownTextRequestId !== textRequestId ||
+          record.documentRevision !== documentRequestId
+        )
+          return { status: 'canceled', code: 'CANCELED' };
+        try {
+          return {
+            status: 'extracted',
+            source: copyPageTextSource({
+              record,
+              page,
+              pageNumber,
+              textContent,
+            }),
+          };
+        } catch (error) {
+          if (error?.code !== 'INVALID_TEXT_SOURCE') throw error;
+          return {
+            status: 'error',
+            code: 'INVALID_TEXT_SOURCE',
+            documentRevision: record.documentRevision,
+            pageNumber,
+          };
+        }
+      } catch (error) {
+        if (
+          current !== record ||
+          ownTextRequestId !== textRequestId ||
+          record.documentRevision !== documentRequestId
+        )
+          return { status: 'canceled', code: 'CANCELED' };
+        const code = classifyPdfError(error, pdfjsApi);
+        if (code === 'CANCELED')
+          return { status: 'canceled', code: 'CANCELED' };
+        return {
+          status: 'error',
+          code: 'TEXT_EXTRACTION_FAILED',
+          documentRevision: record.documentRevision,
+          pageNumber,
+        };
+      }
+    },
+
     async dispose() {
       documentRequestId++;
       renderRequestId++;
+      textRequestId++;
       await disposeCurrent();
     },
   };

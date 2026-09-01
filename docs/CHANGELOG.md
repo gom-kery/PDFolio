@@ -2,6 +2,173 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.2.1 작업 기록 — 2026-09-02
+
+**Unit 2.1 현재 페이지 Text Content 추출과 페이지별 품질 분류를 구현했다. 좌표·키워드·영역·CBT는 추가하지 않았으며 기존 원문 Viewer는 그대로 동작한다.**
+
+작업 전에 현재 프로젝트 파일·PROJECT_BIBLE·ROADMAP·DECISIONS와 Git 상태를 확인했다. Unit 2.0의 미커밋 문서 변경을 보존하고 ADR-024의 어댑터/순수 데이터 경계를 구현했다. 기존 한글+이미지 합성 PDF와 고정 JS 샘플로 임계값을 정했으며 실제 사용자 PDF를 새로 수집하거나 외부로 전송하지 않았다.
+
+### Unit 2.1 — 1. 구현한 내용
+
+- PDF 어댑터에 현재 문서의 유효한 페이지 한 개만 처리하는 `extractPageText({ pageNumber })`를 추가했다. PDF.js TextContent를 PageTextSource v1의 새 객체·배열로 복사하며 원시 PDF.js 객체·경로·파일 바이트를 반환하지 않는다.
+- open/dispose의 documentRevision과 별도 text request id로 빠른 요청·파일 교체·종료 뒤의 늦은 추출 결과를 `canceled`로 폐기한다. PDF.js 6.3.289의 실제 정리 API에 맞춰 loading task를 파기한다.
+- 순수 `assessPageText()`가 `text-usable / text-insufficient / unknown`, 7개 reason code와 근거 metric, 원래 item 순서·hasEOL만 반영한 진단용 plainText를 만든다.
+- 고정 샘플과 실제 fixture를 근거로 최소 비공백 12자·판독 가능 문자 비율 0.8을 초기 품질 기준으로 채택했다. 실제 한글+이미지 fixture는 6개 item·비공백 73자·판독 비율 1이었다.
+- 앱 상태에 현재 페이지의 `텍스트 분석 가능 / 분석 보류 / 확인 불가`만 표시한다. 추출 원문은 DOM이나 Console에 표시하지 않고 같은 페이지의 배율·높이 맞춤 재렌더에서는 재추출하지 않는다.
+- 앱과 Windows x64/ASAR 패키지 버전을 0.2.1로 올렸다. 기존 0.1.6 패키지는 `work/unit-2.1-before-package/release/`에 보존했다.
+
+### Unit 2.1 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 계약 | `src/shared/page-text-contract.js` — PageText 계약 버전 |
+| 추출 | `src/pdf/pdf-adapter-core.js` — TextContent 복사·실패·revision/request id·loading task 정리 |
+| 분석 | `src/analysis/page-text-assessment.js` — 품질 metric·상태·reason code·임계값 |
+| UI | `src/ui/pdf-viewer.js`, `index.html`, `src/styles/shell.css` — 현재 페이지 품질 요약과 상태 스타일 |
+| 단위·통합 검사 | `tests/pdf-adapter.test.js`, `tests/page-text-assessment.test.js`, `tests/pdf-text-integration.test.js` |
+| 실제 앱 검사 | `tests/helpers/pdf-selection-checks.js`, `tests/native-dialog.test.js` — 상태·원문 DOM 비노출·원본 해시 |
+| 버전·실행 | `package.json`, `package-lock.json`, `README.md` — 0.2.1과 검사 절차 |
+| 문서 | `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다.
+
+### Unit 2.1 — 3. 실행 방법
+
+프로젝트 루트에서 `npm run dev`로 개발 앱을 실행한다. `npm run build` 후 `npm start`는 빌드 자산 모드이고 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`는 버전 0.2.1 패키지다. 이전 앱이 실행 중이면 완전히 닫고 다시 시작한다.
+
+### Unit 2.1 — 4. 사용자가 직접 테스트할 방법
+
+1. 한글 본문이 충분한 PDF를 열고 앱 상태의 `텍스트 분석`이 `현재 페이지의 텍스트를 분석할 수 있습니다.`로 바뀌는지 확인한다.
+2. 빈 페이지나 글자 없이 그림·도형만 있는 PDF를 열고 Viewer는 유지되면서 `분석할 텍스트를 찾지 못했습니다.`가 표시되는지 확인한다.
+3. 페이지 번호 정도의 매우 짧은 텍스트 페이지에서는 `분석하기에 텍스트가 너무 적습니다.`가 표시되는지 확인한다.
+4. 여러 페이지를 빠르게 이동하고 마지막에 표시된 페이지의 텍스트 상태만 남는지 확인한다. 확대·축소와 높이 맞춤은 같은 페이지의 상태를 바꾸지 않아야 한다.
+5. 다른 PDF로 교체하거나 앱을 닫아도 이전 페이지의 늦은 분석 결과가 새 화면을 덮지 않는지 확인한다.
+6. 원문 Viewer, 페이지 이동, 50–200% 배율, 높이 맞춤과 footer의 원본 불변 안내가 이전과 같이 동작하는지 확인한다.
+
+자동 검사는 `npm run format:check`, `npm test`, `npm run build`, `npm run test:electron`, `npm run test:native`, `npm run test:shutdown` 순서로 실행한다. Electron·native·shutdown은 Windows 데스크톱 창 실행 권한이 필요하다.
+
+### Unit 2.1 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 전체 프로젝트 형식 |
+| `npm test` | 60/60 통과 | 기존 경계 49개, 추출·품질·실제 PDF.js 11개 |
+| 실제 PDF.js fixture | 통과 | 한글+이미지 6 item, 비공백 73자, 비율 1, 원본 SHA-256 유지 |
+| `npm run build` | 통과 | Vite 15 modules, 로컬 PDF.js 자산 포함 |
+| `npm run package` | 통과 | Electron 44.0.0 Windows x64/ASAR 버전 0.2.1 |
+| `npm run test:electron` | 3/3 통과 | 개발·빌드·패키지 UI, usable/insufficient, 원문 DOM 비노출, Viewer·오프라인·보안 회귀 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창, 한글 PDF usable, 취소, 원본 해시 |
+| `npm run test:shutdown` | 17/18 | 개발 9/9, 패키지 8/9. 패키지 250ms 1회에서 OPEN-09 GPU 진단 재현 |
+
+종료 18회 모두 창이 닫히고 프로세스 종료 코드 0과 개발 포트 해제를 확인했다. GPU 오류를 숨기거나 그래픽·sandbox 설정을 낮추지 않았다.
+
+### Unit 2.1 — 6. 예상되는 Edge Case
+
+- 빈 TextContent는 빈 페이지·이미지·윤곽선 글자·인코딩 문제일 수 있으므로 스캔 PDF라고 단정하지 않는다.
+- 한글이 여러 item으로 분리돼도 sourceIndex와 sourceText를 유지하며 항목 사이에 공백을 추정하지 않는다.
+- replacement character나 제어 문자가 많지만 판독 가능한 텍스트도 충분하면 상충 신호로 `unknown` 처리한다.
+- 잘못된 transform·font style·page metadata는 부분 기본값으로 복구하지 않고 `INVALID_TEXT_SOURCE`로 보류한다.
+- getTextContent가 파일 교체·dispose 뒤 완료되거나 빠른 페이지 요청 순서가 뒤집혀도 이전 revision/request 결과를 표시하지 않는다.
+- 텍스트 추출 실패는 Canvas 원문 Viewer와 파일 선택 성공 상태를 실패로 바꾸지 않는다.
+
+### Unit 2.1 — 7. 알려진 제한사항
+
+12자·0.8 기준은 합성 샘플과 기존 한글+이미지 fixture의 초기 보류선이다. 실제 사용자 PDF 전체, OCR 텍스트, 복잡한 수식·희귀 문자·읽기 순서의 정확도를 보장하지 않는다. text-usable은 좌표·문제·해설·정답·CBT 지원을 뜻하지 않는다. Unit 1.0 전체 샘플 행렬은 미착수이고 OPEN-09도 미해결이다.
+
+### Unit 2.1 — 8. Technical Debt
+
+- OPEN-05의 텍스트 품질 부분은 초기 상수만 정했으며 실제 샘플 행렬에서 재검토해야 한다.
+- PDF user space bbox와 회전·DPI 검증은 Unit 2.2, 시각 대조는 Unit 2.5에 남아 있다.
+- 줄/블록·키워드·영역·지원 판정은 Unit 2.3~2.6에 남아 있다.
+- OPEN-09는 이번 종료 반복에서도 한 번 재현됐다.
+
+### Unit 2.1 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 2.1 기능의 확인된 선행 수정 사항은 없다. 다음 순서는 Unit 2.2지만 사용자의 명시적 요청 전에는 착수하지 않는다. Unit 2.2에서는 보존한 raw transform·style·page metadata를 사용한 bbox만 구현하고 Debug Overlay·키워드·영역을 앞당기면 안 된다. 프로젝트 전체 무오류 완료에는 OPEN-09 해결과 Unit 1.0 샘플 행렬이 계속 필요하다.
+
+### Unit 2.1 — 10. Git Commit Message
+
+제안 메시지: `feat(analysis): assess current page text quality`
+
+실제 Git 커밋은 만들지 않았다. Unit 2.0 문서 변경도 현재 작업 트리에 함께 남아 있으므로 커밋 전 전체 diff를 함께 검토한다.
+
+## Unit 2.0 구조 검토 기록 — 2026-09-01
+
+**Phase 2의 PDF 어댑터·분석 데이터 경계, 페이지/문제 구분, 실패 상태와 Unit 2.1~2.6 검증 계획을 확정했다. 앱 기능과 패키지 버전 0.1.6은 변경하지 않았다.**
+
+작업 전에 현재 프로젝트 파일·PROJECT_BIBLE·ROADMAP·DECISIONS와 Git 상태를 확인했다. 기존 PDF 어댑터가 PDF.js document/page/render 수명을 소유하고 분석 폴더·추출 API가 아직 없음을 확인했다. 사용자의 Unit 2.0 요청에 따라 문서 구조 검토만 수행했으며 Text Content 추출·품질 임계값·좌표·UI·키워드·영역·CBT 코드는 추가하지 않았다. Unit 1.0과 OPEN-09 상태도 유지했다.
+
+### Unit 2.0 — 1. 구현한 내용
+
+- PDF 어댑터가 PDF.js 객체와 추출 수명을 소유하고 분석 모듈에는 `PageTextSource v1` 순수 데이터만 전달하도록 경계를 정했다.
+- `contractVersion`, 세션 `documentRevision`, page metadata, sourceIndex·sourceText·raw transform·font style을 근거로 보존하고 경로·파일 바이트·PDF.js 객체를 제외하도록 정했다.
+- Unit 2.1의 `PageTextAssessment v1`과 `text-usable / text-insufficient / unknown`, 최소 reason code, 진단용 plainText 규칙을 정했다. 숫자 임계값은 샘플 측정 전 확정하지 않았다.
+- 새 문서·dispose·빠른 요청에서 늦은 추출 결과를 revision/request id로 폐기하고, 텍스트 실패가 Canvas 원문 열람을 막지 않도록 정했다.
+- PageTextSource/Assessment에 questionId·정답·해설·영역·지원 여부를 넣지 않고 페이지 번호를 문제 ID로 쓰지 않도록 확정했다.
+- Unit 2.1 추출/품질, 2.2 좌표, 2.5 Debug Overlay, 2.3 키워드, 2.4 영역, 2.6 지원 판정의 검증 관문과 순서를 구체화했다.
+
+### Unit 2.0 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 기준 | `docs/PROJECT_BIBLE.md` — Phase 2 분석 흐름, PageTextSource/Assessment, 품질·수명·검증 계약 |
+| 일정 | `docs/ROADMAP.md` — Unit 2.0 완료와 Unit 2.1 착수 조건 |
+| 결정 | `docs/DECISIONS.md` — ADR-024와 OPEN-05 진행 상태 |
+| 기록 | `docs/CHANGELOG.md` — Unit 2.0의 10항목 완료 기록 |
+
+소스 코드, 테스트 코드, package.json, package-lock.json, dist와 release는 변경하지 않았다. 문서 버전은 0.2.0이며 실행 앱은 계속 0.1.6이다.
+
+### Unit 2.0 — 3. 실행 방법
+
+문서 전용 Unit이므로 런타임 실행은 해당 없다. PROJECT_BIBLE 9.0, ROADMAP Phase 2, DECISIONS ADR-024를 함께 열어 같은 경계와 순서인지 검토한다.
+
+### Unit 2.0 — 4. 사용자가 직접 테스트할 방법
+
+1. PROJECT_BIBLE 9.0에서 `PDF adapter → PageTextSource v1 → Analysis → UI` 흐름과 두 레코드의 필드를 확인한다.
+2. ROADMAP에서 Unit 2.0이 완료이고 Unit 2.1만 다음 착수 대상인지 확인한다.
+3. DECISIONS ADR-024에서 실제 `getTextContent()` 옵션, documentRevision, 세 품질 상태, reason code와 제외 범위를 확인한다.
+4. 세 문서 모두 좌표를 Unit 2.2, Debug Overlay를 2.5, 키워드를 2.3, 영역을 2.4, 지원 판정을 2.6으로 남겼는지 비교한다.
+5. `git diff --name-only`에서 문서 네 개만 변경되고 앱 코드·package.json이 변경되지 않았는지 확인한다.
+
+### Unit 2.0 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| 현재 파일·Git 상태 확인 | 통과 | Unit 1.6 커밋 기준의 깨끗한 작업 트리와 기존 어댑터/검사 구조 |
+| 로컬 PDF.js 6.3.289 API 확인 | 통과 | 설치된 타입·빌드에서 getTextContent, TextContent, TextItem, TextStyle 계약 확인 |
+| 문서 교차 검토 | 통과 | 경계·상태·실행 순서·제외 범위가 PROJECT_BIBLE/ROADMAP/DECISIONS에 일치 |
+| `npm run format:check` | 통과 | 전체 문서 형식 |
+| 런타임·Electron 검사 | 해당 없음 | 코드와 패키지를 변경하지 않은 구조 검토 Unit |
+
+### Unit 2.0 — 6. 예상되는 Edge Case
+
+- PDF.js 추출 성공과 유용한 텍스트는 다르며 빈 결과를 추출 오류나 스캔 확정으로 바꾸지 않는다.
+- 한글이 여러 item으로 분리되거나 item 순서가 시각적 순서와 다를 수 있으므로 plainText를 문단·읽기 순서 증명으로 쓰지 않는다.
+- `getTextContent()`의 늦은 Promise가 파일 교체 후 끝날 수 있으므로 물리적 중단 여부와 관계없이 revision/request id가 다른 결과를 폐기한다.
+- 텍스트와 이미지가 함께 있거나 페이지 번호만 추출되는 페이지는 문자 존재만으로 `text-usable`을 선언하지 않는다.
+- 언어·font style·transform 값이 없거나 비정상일 때 임의 기본값으로 정상화하지 않고 reason code와 `unknown` 후보로 남긴다.
+
+### Unit 2.0 — 7. 알려진 제한사항
+
+실제 Text Content와 품질 분류를 실행하지 않았으며 품질 숫자·한글 품질·혼합 페이지 판정은 검증되지 않았다. PageTextSource 필드는 Unit 2.1/2.2 실험에서 PDF.js 6.3.289의 실제 값과 맞지 않으면 버전 있는 결정으로 조정해야 한다. 실제 사용자 PDF와 Unit 1.0 전체 샘플 행렬은 없다.
+
+### Unit 2.0 — 8. Technical Debt
+
+- OPEN-05의 품질·bbox·줄/블록·인식 임계값은 의도적으로 미확정이다.
+- `getTextContent()`의 논리 취소와 문서 destroy가 실제 개발·빌드·패키지에서 같은 결과를 내는지 Unit 2.1에서 검증해야 한다.
+- 원문 텍스트가 자동 검사 결과·Console에 남지 않는지 구현 후 점검해야 한다.
+- OPEN-09와 Unit 1.0 미착수는 이번 문서 Unit에서 해결하지 않았다.
+
+### Unit 2.0 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+확인된 문서 충돌은 없다. Unit 2.1은 ADR-024의 범위에 맞춰 현재 페이지 Text Content 추출, 순수 데이터 복사, 세 품질 상태와 고정 샘플 검증까지만 구현할 수 있다. 좌표 bbox·Debug Overlay·키워드·영역·CBT를 함께 추가하면 안 된다.
+
+### Unit 2.0 — 10. Git Commit Message
+
+제안 메시지: `docs(analysis): define phase 2 boundaries for unit 2.0`
+
+실제 Git 커밋은 만들지 않았다. 메시지는 사용자가 문서 변경을 검토한 뒤 사용할 제안이다.
+
 ## 0.1.6 작업 기록 — 2026-09-01
 
 **Unit 1.6 Viewer 사이드 제어·높이 맞춤과 PDF 기초 통합 검증을 구현하고 기능·통합 검사를 통과했다. 최종 종료 반복에서 기존 OPEN-09가 1회 재현되어 전체 무오류 완료 판정은 보류한다.**

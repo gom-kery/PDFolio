@@ -116,6 +116,16 @@ test(
           await page.locator('#selected-file-name').innerText(),
           '한글 문서 & 연습.PDF',
         );
+        if (action === 'select') {
+          await page.waitForSelector(
+            '#text-analysis-status[data-state="text-usable"]',
+            { timeout: 10_000 },
+          );
+          assert.equal(
+            await page.locator('#text-analysis-status').innerText(),
+            '현재 페이지의 텍스트를 분석할 수 있습니다.',
+          );
+        }
         evidence.nativeActions.push({ action, result: 'passed' });
       }
       evidence.originalHashUnchanged = before === (await hash());
