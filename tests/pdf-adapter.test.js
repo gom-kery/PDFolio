@@ -133,7 +133,7 @@ test('PDF adapter opens page 1 and renders bounded page numbers with local asset
   });
 });
 
-test('scale, fit width, intrinsic rotation and Canvas limits are enforced', async () => {
+test('scale, fit height, intrinsic rotation and Canvas limits are enforced', async () => {
   const renderParameters = [];
   const makePage = (pageNumber) => ({
     getViewport: ({ scale }) => ({
@@ -169,7 +169,7 @@ test('scale, fit width, intrinsic rotation and Canvas limits are enforced', asyn
   const fitted = await adapter.renderPage({
     pageNumber: 1,
     canvas,
-    fitWidth: 360,
+    fitHeight: 180,
   });
   assert.equal(fitted.scale, 1.5);
   assert.equal(fitted.width, 360);
@@ -182,7 +182,7 @@ test('scale, fit width, intrinsic rotation and Canvas limits are enforced', asyn
       'INVALID_SCALE',
     );
   assert.equal(
-    (await adapter.renderPage({ pageNumber: 1, canvas, fitWidth: 0 })).code,
+    (await adapter.renderPage({ pageNumber: 1, canvas, fitHeight: 0 })).code,
     'INVALID_SCALE',
   );
 

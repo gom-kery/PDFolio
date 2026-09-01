@@ -210,25 +210,36 @@
 
 .pdf-page-navigation {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--color-border);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
   background: var(--color-surface);
 }
 
-.page-controls,
-.zoom-controls {
+.pdf-page-navigation[hidden] {
+  display: none;
+}
+
+.page-controls {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.page-button-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
 .zoom-controls {
-  margin-left: auto;
+  display: grid;
+  grid-template-columns: auto minmax(3.5rem, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .zoom-controls output {
@@ -238,7 +249,11 @@
   text-align: center;
 }
 
-#fit-width[aria-pressed='true'] {
+#fit-height {
+  grid-column: 1 / -1;
+}
+
+#fit-height[aria-pressed='true'] {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
   color: var(--color-accent);
@@ -256,8 +271,14 @@
 }
 
 .pdf-page-navigation button {
+  min-width: 0;
   padding: 0.375rem 0.75rem;
   cursor: pointer;
+}
+
+.page-button-row button {
+  padding-inline: 0.25rem;
+  white-space: nowrap;
 }
 
 .pdf-page-navigation button:disabled {
@@ -275,6 +296,7 @@
 .page-number-form {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   color: var(--color-muted);
   font-size: 0.8125rem;
@@ -328,6 +350,7 @@
 
 .pdf-page-scroll {
   display: flex;
+  height: calc(100vh - 16rem);
   min-width: 0;
   min-height: 20rem;
   max-height: calc(100vh - 16rem);
@@ -349,8 +372,15 @@
   background: white;
 }
 
-.status-panel {
+.viewer-sidebar {
+  display: flex;
   align-self: start;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.status-panel {
   min-width: 0;
   padding: 1.5rem;
   background: var(--color-surface);
@@ -459,17 +489,14 @@
   }
 
   .pdf-page-scroll {
+    height: 65vh;
     max-height: 65vh;
     padding: 1rem;
   }
 
   .pdf-page-navigation {
-    padding-inline: 0.75rem;
-  }
-
-  .page-controls,
-  .zoom-controls {
-    justify-content: center;
+    order: -1;
+    padding: 1rem;
   }
 
   .status-panel {
@@ -513,7 +540,6 @@
 
   .zoom-controls {
     width: 100%;
-    margin-left: 0;
   }
 }
 

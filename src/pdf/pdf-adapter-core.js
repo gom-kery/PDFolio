@@ -46,22 +46,22 @@ function isValidScale(scale) {
   );
 }
 
-function isValidFitWidth(fitWidth) {
-  return Number.isFinite(fitWidth) && fitWidth > 0;
+function isValidFitHeight(fitHeight) {
+  return Number.isFinite(fitHeight) && fitHeight > 0;
 }
 
-function resolveRenderScale({ baseWidth, scale, fitWidth }) {
-  if (fitWidth !== undefined) {
+function resolveRenderScale({ baseHeight, scale, fitHeight }) {
+  if (fitHeight !== undefined) {
     if (
-      !isValidFitWidth(fitWidth) ||
-      !Number.isFinite(baseWidth) ||
-      baseWidth <= 0
+      !isValidFitHeight(fitHeight) ||
+      !Number.isFinite(baseHeight) ||
+      baseHeight <= 0
     ) {
       return null;
     }
     return Math.min(
       MAX_RENDER_SCALE,
-      Math.max(MIN_RENDER_SCALE, fitWidth / baseWidth),
+      Math.max(MIN_RENDER_SCALE, fitHeight / baseHeight),
     );
   }
   return isValidScale(scale) ? scale : null;
@@ -120,7 +120,7 @@ export function createPdfAdapterCore({
     canvas,
     pixelRatio,
     scale,
-    fitWidth,
+    fitHeight,
   }) => {
     const ownRenderRequestId = ++renderRequestId;
     try {
@@ -142,8 +142,8 @@ export function createPdfAdapterCore({
       };
 
     if (
-      (fitWidth === undefined && !isValidScale(scale)) ||
-      (fitWidth !== undefined && !isValidFitWidth(fitWidth))
+      (fitHeight === undefined && !isValidScale(scale)) ||
+      (fitHeight !== undefined && !isValidFitHeight(fitHeight))
     )
       return {
         status: 'error',
@@ -165,9 +165,9 @@ export function createPdfAdapterCore({
 
       const baseViewport = page.getViewport({ scale: 1 });
       const renderScale = resolveRenderScale({
-        baseWidth: baseViewport.width,
+        baseHeight: baseViewport.height,
         scale,
-        fitWidth,
+        fitHeight,
       });
       if (renderScale === null) {
         page.cleanup();
@@ -251,7 +251,7 @@ export function createPdfAdapterCore({
       canvas,
       pixelRatio = globalThis.devicePixelRatio || 1,
       scale = 1,
-      fitWidth,
+      fitHeight,
     }) {
       const ownRequestId = ++documentRequestId;
       await disposeCurrent();
@@ -292,7 +292,7 @@ export function createPdfAdapterCore({
           canvas,
           pixelRatio,
           scale,
-          fitWidth,
+          fitHeight,
         });
         if (rendered.status !== 'error') return rendered;
         if (current === record) current = null;
@@ -321,7 +321,7 @@ export function createPdfAdapterCore({
       canvas,
       pixelRatio = globalThis.devicePixelRatio || 1,
       scale = 1,
-      fitWidth,
+      fitHeight,
     }) {
       const record = current;
       if (!record?.document) return { status: 'error', code: 'NO_DOCUMENT' };
@@ -331,7 +331,7 @@ export function createPdfAdapterCore({
         canvas,
         pixelRatio,
         scale,
-        fitWidth,
+        fitHeight,
       });
     },
 

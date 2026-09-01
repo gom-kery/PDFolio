@@ -8,6 +8,8 @@ import { createPdfFixtures } from './pdf-fixtures.js';
 
 /** Use controlled native-dialog results, but real IPC, filesystem checks and renderer UI. */
 export async function checkPdfSelection(application, page, artifacts) {
+  const performanceSanityLimitMs = 10_000;
+  const performance = {};
   const files = await createPdfFixtures(path.join(artifacts, 'pdf-inputs'));
   await application.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].setSize(1120, 760),
@@ -126,7 +128,10 @@ export async function checkPdfSelection(application, page, artifacts) {
       await page.locator('#selected-file-name').innerText(),
       '선택한 파일 없음',
     );
+    const firstRenderStartedAt = Date.now();
     await select({ canceled: false, filePaths: [files.valid] }, 'selected');
+    performance.firstPageMs = Date.now() - firstRenderStartedAt;
+    assert.ok(performance.firstPageMs < performanceSanityLimitMs);
     assert.equal(
       await page.locator('#selected-file-name').innerText(),
       '한글 문서 & 연습.PDF',
@@ -200,16 +205,23 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(await page.locator('#previous-page').isDisabled(), true);
 
     const layout = await page.evaluate(() => {
+      const workspace = document.querySelector('.workspace');
       const stage = document.querySelector('.pdf-page-stage');
       const navigation = document.querySelector('#pdf-page-navigation');
+      const statusPanel = document.querySelector('.status-panel');
       const sideNext = document.querySelector('#side-next-page');
       return {
+        workspaceRight: workspace.getBoundingClientRect().right,
         stageBottom: stage.getBoundingClientRect().bottom,
+        navigationLeft: navigation.getBoundingClientRect().left,
         navigationTop: navigation.getBoundingClientRect().top,
+        statusBottom: statusPanel.getBoundingClientRect().bottom,
         sideNextDisplay: getComputedStyle(sideNext).display,
       };
     });
-    assert.ok(layout.navigationTop >= layout.stageBottom - 1);
+    assert.ok(layout.navigationLeft >= layout.workspaceRight);
+    assert.ok(layout.navigationTop >= layout.statusBottom);
+    assert.ok(layout.navigationTop < layout.stageBottom);
     assert.notEqual(layout.sideNextDisplay, 'none');
     assert.equal(await page.locator('#side-previous-page').isDisabled(), true);
     assert.equal(await page.locator('#side-next-page').isDisabled(), false);
@@ -242,31 +254,34 @@ export async function checkPdfSelection(application, page, artifacts) {
     });
     await page.waitForSelector('#pdf-canvas[data-scale="0.5"]');
     assert.equal(await page.locator('#zoom-out').isDisabled(), true);
-    await page.locator('#fit-width').click();
+    const fitHeightStartedAt = Date.now();
+    await page.locator('#fit-height').click();
     await page.waitForFunction(() => {
-      const fit = document.querySelector('#fit-width');
+      const fit = document.querySelector('#fit-height');
       const canvas = document.querySelector('#pdf-canvas');
       return (
         fit.getAttribute('aria-pressed') === 'true' &&
         canvas.dataset.scale !== '0.5'
       );
     });
+    performance.fitHeightMs = Date.now() - fitHeightStartedAt;
+    assert.ok(performance.fitHeightMs < performanceSanityLimitMs);
     const defaultFit = await page.evaluate(() => {
       const scroll = document.querySelector('.pdf-page-scroll');
       const canvas = document.querySelector('#pdf-canvas');
       const styles = getComputedStyle(scroll);
       const available =
-        scroll.clientWidth -
-        Number.parseFloat(styles.paddingLeft) -
-        Number.parseFloat(styles.paddingRight);
+        scroll.clientHeight -
+        Number.parseFloat(styles.paddingTop) -
+        Number.parseFloat(styles.paddingBottom);
       return {
         available,
-        width: canvas.getBoundingClientRect().width,
+        height: canvas.getBoundingClientRect().height,
         scale: canvas.dataset.scale,
       };
     });
-    assert.ok(defaultFit.width <= defaultFit.available + 1);
-    assert.ok(defaultFit.width >= defaultFit.available - 2);
+    assert.ok(defaultFit.height <= defaultFit.available + 1);
+    assert.ok(defaultFit.height >= defaultFit.available - 2);
     await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(640, 480),
     );
@@ -284,6 +299,20 @@ export async function checkPdfSelection(application, page, artifacts) {
       ),
       true,
     );
+    const narrowLayout = await page.evaluate(() => {
+      const navigation = document.querySelector('#pdf-page-navigation');
+      const statusPanel = document.querySelector('.status-panel');
+      const navigationBounds = navigation.getBoundingClientRect();
+      return {
+        navigationTop: navigationBounds.top,
+        navigationLeft: navigationBounds.left,
+        navigationRight: navigationBounds.right,
+        statusTop: statusPanel.getBoundingClientRect().top,
+      };
+    });
+    assert.ok(narrowLayout.navigationTop < narrowLayout.statusTop);
+    assert.ok(narrowLayout.navigationLeft >= 0);
+    assert.ok(narrowLayout.navigationRight <= 640);
     await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(1120, 760),
     );
@@ -295,10 +324,19 @@ export async function checkPdfSelection(application, page, artifacts) {
         document.querySelector('#pdf-viewer').dataset.state === 'ready',
       defaultFit.scale,
     );
-    cases.push('side-navigation', 'zoom-bounds', 'fit-width-resize');
+    cases.push(
+      'right-side-controls',
+      'narrow-controls-before-status',
+      'side-navigation',
+      'zoom-bounds',
+      'fit-height-resize',
+    );
 
+    const lastPageStartedAt = Date.now();
     await page.locator('#last-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="5"]');
+    performance.lastPageMs = Date.now() - lastPageStartedAt;
+    assert.ok(performance.lastPageMs < performanceSanityLimitMs);
     assert.equal(await page.locator('#pdf-page-count').innerText(), '5 / 5');
     assert.equal(await page.locator('#next-page').isDisabled(), true);
     assert.equal(await page.locator('#last-page').isDisabled(), true);
@@ -642,6 +680,10 @@ export async function checkPdfSelection(application, page, artifacts) {
       concurrentRequest: 'busy',
       rendered: 'Korean text and embedded raster image on Canvas',
       parserFailures: ['password required', 'damaged structure'],
+      performance: {
+        sanityLimitMs: performanceSanityLimitMs,
+        ...performance,
+      },
       reloadedSelection: 'empty',
       dialog: 'controlled results; actual native picker checked separately',
     };

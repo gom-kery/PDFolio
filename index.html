@@ -95,85 +95,90 @@
                 <span aria-hidden="true">›</span>
               </button>
             </div>
-            <nav
-              id="pdf-page-navigation"
-              class="pdf-page-navigation"
-              aria-label="PDF 페이지 및 배율"
-              hidden
-            >
-              <div class="page-controls" aria-label="페이지 이동">
-                <button id="first-page" type="button">처음</button>
-                <button id="previous-page" type="button">이전</button>
-                <form id="page-number-form" class="page-number-form" novalidate>
-                  <label for="page-number">페이지</label>
-                  <input
-                    id="page-number"
-                    type="number"
-                    min="1"
-                    step="1"
-                    inputmode="numeric"
-                    autocomplete="off"
-                  />
-                  <span aria-hidden="true">/</span>
-                  <output id="page-total" for="page-number">—</output>
-                </form>
-                <button id="next-page" type="button">다음</button>
-                <button id="last-page" type="button">마지막</button>
-              </div>
-              <div class="zoom-controls" aria-label="PDF 배율">
-                <button id="zoom-out" type="button" aria-label="축소">−</button>
-                <output id="zoom-level" aria-label="현재 배율">100%</output>
-                <button id="zoom-in" type="button" aria-label="확대">+</button>
-                <button id="fit-width" type="button" aria-pressed="false">
-                  너비 맞춤
-                </button>
-              </div>
-            </nav>
           </div>
         </section>
 
-        <aside class="status-panel" aria-labelledby="status-title">
-          <h2 id="status-title">앱 상태</h2>
-          <dl class="status-list">
-            <div class="status-item">
-              <dt>실행 환경</dt>
-              <dd
-                id="runtime-status"
-                role="status"
-                aria-atomic="true"
-                data-state="checking"
-              >
-                <p class="runtime-label">
-                  <span class="status-dot" aria-hidden="true"></span>
-                  <span data-status-label>확인 중</span>
-                </p>
-                <p class="runtime-detail" data-status-detail>
-                  실행 환경을 확인하고 있습니다.
-                </p>
-              </dd>
+        <div class="viewer-sidebar">
+          <aside class="status-panel" aria-labelledby="status-title">
+            <h2 id="status-title">앱 상태</h2>
+            <dl class="status-list">
+              <div class="status-item">
+                <dt>실행 환경</dt>
+                <dd
+                  id="runtime-status"
+                  role="status"
+                  aria-atomic="true"
+                  data-state="checking"
+                >
+                  <p class="runtime-label">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span data-status-label>확인 중</span>
+                  </p>
+                  <p class="runtime-detail" data-status-detail>
+                    실행 환경을 확인하고 있습니다.
+                  </p>
+                </dd>
+              </div>
+              <div class="status-item">
+                <dt>선택한 파일</dt>
+                <dd id="selected-file-name">선택한 파일 없음</dd>
+              </div>
+              <div class="status-item">
+                <dt>파일 크기</dt>
+                <dd id="selected-file-size">—</dd>
+              </div>
+              <div class="status-item">
+                <dt>페이지</dt>
+                <dd id="pdf-page-count">—</dd>
+              </div>
+            </dl>
+            <div class="scope-note">
+              <h3>원문 Viewer 단계</h3>
+              <p>
+                선택하거나 드롭한 PDF를 한 페이지씩 이동하고 50–200% 범위로
+                확대·축소하거나 높이에 맞춰 표시합니다. 문제풀이는 아직 지원하지
+                않으며 선택은 저장되지 않습니다.
+              </p>
             </div>
-            <div class="status-item">
-              <dt>선택한 파일</dt>
-              <dd id="selected-file-name">선택한 파일 없음</dd>
+          </aside>
+
+          <nav
+            id="pdf-page-navigation"
+            class="pdf-page-navigation"
+            aria-label="PDF 페이지 및 배율"
+            hidden
+          >
+            <div class="page-controls" aria-label="페이지 이동">
+              <form id="page-number-form" class="page-number-form" novalidate>
+                <label for="page-number">페이지</label>
+                <input
+                  id="page-number"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  autocomplete="off"
+                />
+                <span aria-hidden="true">/</span>
+                <output id="page-total" for="page-number">—</output>
+              </form>
+              <div class="page-button-row">
+                <button id="first-page" type="button">처음</button>
+                <button id="previous-page" type="button">이전</button>
+                <button id="next-page" type="button">다음</button>
+                <button id="last-page" type="button">마지막</button>
+              </div>
             </div>
-            <div class="status-item">
-              <dt>파일 크기</dt>
-              <dd id="selected-file-size">—</dd>
+            <div class="zoom-controls" aria-label="PDF 배율">
+              <button id="zoom-out" type="button" aria-label="축소">−</button>
+              <output id="zoom-level" aria-label="현재 배율">100%</output>
+              <button id="zoom-in" type="button" aria-label="확대">+</button>
+              <button id="fit-height" type="button" aria-pressed="false">
+                높이 맞춤
+              </button>
             </div>
-            <div class="status-item">
-              <dt>페이지</dt>
-              <dd id="pdf-page-count">—</dd>
-            </div>
-          </dl>
-          <div class="scope-note">
-            <h3>원문 Viewer 단계</h3>
-            <p>
-              선택하거나 드롭한 PDF를 한 페이지씩 이동하고 50–200% 범위로
-              확대·축소하거나 너비에 맞춰 표시합니다. 문제풀이는 아직 지원하지
-              않으며 선택은 저장되지 않습니다.
-            </p>
-          </div>
-        </aside>
+          </nav>
+        </div>
       </main>
 
       <footer class="app-footer">
@@ -185,7 +190,7 @@
           data-state="idle"
           hidden
         ></p>
-        <p>Unit 1.5 · PDF 확대·축소·너비 맞춤</p>
+        <p>Unit 1.6 · Viewer 사이드 제어·높이 맞춤</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>

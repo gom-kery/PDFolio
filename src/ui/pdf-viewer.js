@@ -32,7 +32,7 @@ export function initializePdfViewer(document, adapter) {
   const pageTotal = document.querySelector('#page-total');
   const zoomOutButton = document.querySelector('#zoom-out');
   const zoomInButton = document.querySelector('#zoom-in');
-  const fitWidthButton = document.querySelector('#fit-width');
+  const fitHeightButton = document.querySelector('#fit-height');
   const zoomLevel = document.querySelector('#zoom-level');
   let requestId = 0;
   let currentPage = 0;
@@ -53,20 +53,20 @@ export function initializePdfViewer(document, adapter) {
     canvas.hidden = state !== 'ready' && !preserveCanvas;
   };
 
-  const getFitWidth = () => {
+  const getFitHeight = () => {
     const styles = document.defaultView?.getComputedStyle(pageScroll);
-    const horizontalPadding = styles
-      ? Number.parseFloat(styles.paddingLeft) +
-        Number.parseFloat(styles.paddingRight)
+    const verticalPadding = styles
+      ? Number.parseFloat(styles.paddingTop) +
+        Number.parseFloat(styles.paddingBottom)
       : 0;
-    return Math.max(1, pageScroll.clientWidth - horizontalPadding);
+    return Math.max(1, pageScroll.clientHeight - verticalPadding);
   };
 
   const getRenderOptions = (pageNumber) => ({
     pageNumber,
     canvas,
-    ...(scaleMode === 'fit-width'
-      ? { fitWidth: getFitWidth() }
+    ...(scaleMode === 'fit-height'
+      ? { fitHeight: getFitHeight() }
       : { scale: requestedScale }),
   });
 
@@ -89,13 +89,13 @@ export function initializePdfViewer(document, adapter) {
     sideNextButton.disabled = atLastPage;
     lastButton.disabled = atLastPage;
     const displayedScale =
-      scaleMode === 'fit-width' ? currentScale : requestedScale;
+      scaleMode === 'fit-height' ? currentScale : requestedScale;
     zoomOutButton.disabled = !hasDocument || displayedScale <= MIN_RENDER_SCALE;
     zoomInButton.disabled = !hasDocument || displayedScale >= MAX_RENDER_SCALE;
-    fitWidthButton.disabled = !hasDocument;
-    fitWidthButton.setAttribute(
+    fitHeightButton.disabled = !hasDocument;
+    fitHeightButton.setAttribute(
       'aria-pressed',
-      String(scaleMode === 'fit-width'),
+      String(scaleMode === 'fit-height'),
     );
     zoomLevel.textContent = `${Math.round(displayedScale * 100)}%`;
   };
@@ -184,7 +184,7 @@ export function initializePdfViewer(document, adapter) {
   const changeZoom = (direction) => {
     if (totalPages < 1) return;
     const referenceScale =
-      scaleMode === 'fit-width' ? currentScale : requestedScale;
+      scaleMode === 'fit-height' ? currentScale : requestedScale;
     const nextScale =
       direction > 0
         ? ZOOM_STEPS.find((step) => step > referenceScale + 0.001)
@@ -215,9 +215,9 @@ export function initializePdfViewer(document, adapter) {
   lastButton.addEventListener('click', () => void goToPage(totalPages));
   zoomOutButton.addEventListener('click', () => changeZoom(-1));
   zoomInButton.addEventListener('click', () => changeZoom(1));
-  fitWidthButton.addEventListener('click', () => {
+  fitHeightButton.addEventListener('click', () => {
     if (totalPages < 1) return;
-    scaleMode = 'fit-width';
+    scaleMode = 'fit-height';
     updateControls();
     void renderPage(currentPage);
   });
@@ -231,12 +231,12 @@ export function initializePdfViewer(document, adapter) {
   const ResizeObserverClass = document.defaultView?.ResizeObserver;
   const resizeObserver = ResizeObserverClass
     ? new ResizeObserverClass(() => {
-        if (scaleMode !== 'fit-width' || totalPages < 1) return;
+        if (scaleMode !== 'fit-height' || totalPages < 1) return;
         if (resizeTimer !== null)
           document.defaultView.clearTimeout(resizeTimer);
         resizeTimer = document.defaultView.setTimeout(() => {
           resizeTimer = null;
-          if (scaleMode === 'fit-width' && totalPages > 0)
+          if (scaleMode === 'fit-height' && totalPages > 0)
             void renderPage(currentPage);
         }, FIT_RESIZE_DELAY_MS);
       })
