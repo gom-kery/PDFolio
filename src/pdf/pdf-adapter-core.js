@@ -33,6 +33,62 @@ function asUint8Array(data) {
   throw new TypeError('PDF data must be binary');
 }
 
+export const MIN_RENDER_SCALE = 0.5;
+export const MAX_RENDER_SCALE = 2;
+export const MAX_CANVAS_PIXELS = 16_777_216;
+export const MAX_CANVAS_DIMENSION = 8192;
+
+function isValidScale(scale) {
+  return (
+    Number.isFinite(scale) &&
+    scale >= MIN_RENDER_SCALE &&
+    scale <= MAX_RENDER_SCALE
+  );
+}
+
+function isValidFitWidth(fitWidth) {
+  return Number.isFinite(fitWidth) && fitWidth > 0;
+}
+
+function resolveRenderScale({ baseWidth, scale, fitWidth }) {
+  if (fitWidth !== undefined) {
+    if (
+      !isValidFitWidth(fitWidth) ||
+      !Number.isFinite(baseWidth) ||
+      baseWidth <= 0
+    ) {
+      return null;
+    }
+    return Math.min(
+      MAX_RENDER_SCALE,
+      Math.max(MIN_RENDER_SCALE, fitWidth / baseWidth),
+    );
+  }
+  return isValidScale(scale) ? scale : null;
+}
+
+function resolveOutputScale({ cssWidth, cssHeight, requestedPixelRatio }) {
+  const safePixelRatio = Number.isFinite(requestedPixelRatio)
+    ? Math.max(1, requestedPixelRatio)
+    : 1;
+  const pixelLimitScale = Math.sqrt(MAX_CANVAS_PIXELS / (cssWidth * cssHeight));
+  const dimensionLimitScale = Math.min(
+    MAX_CANVAS_DIMENSION / cssWidth,
+    MAX_CANVAS_DIMENSION / cssHeight,
+  );
+  const pixelRatio = Math.min(
+    safePixelRatio,
+    pixelLimitScale,
+    dimensionLimitScale,
+  );
+
+  return {
+    pixelRatio,
+    requestedPixelRatio: safePixelRatio,
+    resolutionLimited: pixelRatio < safePixelRatio,
+  };
+}
+
 /** Keep PDF.js objects inside this adapter and render one current page only. */
 export function createPdfAdapterCore({
   pdfjsApi,
@@ -58,7 +114,14 @@ export function createPdfAdapterCore({
     }
   };
 
-  const renderPage = async ({ record, pageNumber, canvas, pixelRatio }) => {
+  const renderPage = async ({
+    record,
+    pageNumber,
+    canvas,
+    pixelRatio,
+    scale,
+    fitWidth,
+  }) => {
     const ownRenderRequestId = ++renderRequestId;
     try {
       record.renderTask?.cancel();
@@ -78,6 +141,19 @@ export function createPdfAdapterCore({
         pageCount: record.pageCount,
       };
 
+    if (
+      (fitWidth === undefined && !isValidScale(scale)) ||
+      (fitWidth !== undefined && !isValidFitWidth(fitWidth))
+    )
+      return {
+        status: 'error',
+        code: 'INVALID_SCALE',
+        pageNumber: record.pageNumber,
+        pageCount: record.pageCount,
+        minimumScale: MIN_RENDER_SCALE,
+        maximumScale: MAX_RENDER_SCALE,
+      };
+
     let page;
     let task;
     try {
@@ -87,17 +163,46 @@ export function createPdfAdapterCore({
         return { status: 'canceled', code: 'CANCELED' };
       }
 
-      const viewport = page.getViewport({ scale: 1 });
-      const outputScale = Math.max(1, Number(pixelRatio) || 1);
-      canvas.width = Math.max(1, Math.floor(viewport.width * outputScale));
-      canvas.height = Math.max(1, Math.floor(viewport.height * outputScale));
+      const baseViewport = page.getViewport({ scale: 1 });
+      const renderScale = resolveRenderScale({
+        baseWidth: baseViewport.width,
+        scale,
+        fitWidth,
+      });
+      if (renderScale === null) {
+        page.cleanup();
+        return {
+          status: 'error',
+          code: 'INVALID_SCALE',
+          pageNumber: record.pageNumber,
+          pageCount: record.pageCount,
+          minimumScale: MIN_RENDER_SCALE,
+          maximumScale: MAX_RENDER_SCALE,
+        };
+      }
+      const viewport = page.getViewport({ scale: renderScale });
+      const output = resolveOutputScale({
+        cssWidth: viewport.width,
+        cssHeight: viewport.height,
+        requestedPixelRatio: pixelRatio,
+      });
+      canvas.width = Math.max(
+        1,
+        Math.floor(viewport.width * output.pixelRatio),
+      );
+      canvas.height = Math.max(
+        1,
+        Math.floor(viewport.height * output.pixelRatio),
+      );
       canvas.style.width = `${Math.floor(viewport.width)}px`;
       canvas.style.height = `${Math.floor(viewport.height)}px`;
       task = page.render({
         canvas,
         viewport,
         transform:
-          outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0],
+          output.pixelRatio === 1
+            ? null
+            : [output.pixelRatio, 0, 0, output.pixelRatio, 0, 0],
       });
       record.renderTask = task;
       await task.promise;
@@ -110,12 +215,19 @@ export function createPdfAdapterCore({
       record.pageNumber = pageNumber;
       record.width = viewport.width;
       record.height = viewport.height;
+      record.scale = renderScale;
       return {
         status: 'rendered',
         pageNumber,
         pageCount: record.pageCount,
         width: viewport.width,
         height: viewport.height,
+        scale: renderScale,
+        rotation: viewport.rotation,
+        pixelRatio: output.pixelRatio,
+        requestedPixelRatio: output.requestedPixelRatio,
+        resolutionLimited: output.resolutionLimited,
+        canvasPixels: canvas.width * canvas.height,
       };
     } catch (error) {
       if (current !== record || ownRenderRequestId !== renderRequestId)
@@ -138,6 +250,8 @@ export function createPdfAdapterCore({
       data,
       canvas,
       pixelRatio = globalThis.devicePixelRatio || 1,
+      scale = 1,
+      fitWidth,
     }) {
       const ownRequestId = ++documentRequestId;
       await disposeCurrent();
@@ -177,6 +291,8 @@ export function createPdfAdapterCore({
           pageNumber: 1,
           canvas,
           pixelRatio,
+          scale,
+          fitWidth,
         });
         if (rendered.status !== 'error') return rendered;
         if (current === record) current = null;
@@ -204,10 +320,19 @@ export function createPdfAdapterCore({
       pageNumber,
       canvas,
       pixelRatio = globalThis.devicePixelRatio || 1,
+      scale = 1,
+      fitWidth,
     }) {
       const record = current;
       if (!record?.document) return { status: 'error', code: 'NO_DOCUMENT' };
-      return renderPage({ record, pageNumber, canvas, pixelRatio });
+      return renderPage({
+        record,
+        pageNumber,
+        canvas,
+        pixelRatio,
+        scale,
+        fitWidth,
+      });
     },
 
     async dispose() {

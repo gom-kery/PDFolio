@@ -31,6 +31,9 @@ const FAILURE_MESSAGES = {
 const sizeFormat = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 });
 const KIB_BYTES = 1024;
 const MIB_BYTES = KIB_BYTES * KIB_BYTES;
+const DEFAULT_FOOTER_STATUS = '';
+const OPENED_FOOTER_STATUS =
+  'PDF를 열었습니다. 원본 파일은 변경하지 않았습니다.';
 
 function formatFileSize(sizeBytes) {
   const bytes = `${sizeBytes.toLocaleString('ko-KR')} 바이트`;
@@ -54,6 +57,7 @@ export function initializePdfSelection(
 ) {
   const button = document.querySelector('#select-pdf');
   const message = document.querySelector('#selection-status');
+  const footerStatus = document.querySelector('#footer-status');
   const workspace = document.querySelector('.workspace');
   let selected = null;
   let isSelecting = false;
@@ -61,6 +65,12 @@ export function initializePdfSelection(
   const showMessage = (state, text) => {
     message.dataset.state = state;
     message.textContent = text;
+    message.hidden = state === 'selected';
+  };
+  const showFooterStatus = (state, text) => {
+    footerStatus.dataset.state = state;
+    footerStatus.textContent = text;
+    footerStatus.hidden = !text;
   };
 
   const showFailure = (code) => {
@@ -79,6 +89,7 @@ export function initializePdfSelection(
       )
         throw new Error('Invalid file metadata');
       selected = result.document;
+      showFooterStatus('idle', DEFAULT_FOOTER_STATUS);
       document.querySelector('#document-title').textContent = selected.name;
       document.querySelector('#document-description').textContent =
         'PDF 구조를 확인하고 첫 페이지를 불러오고 있습니다.';
@@ -100,15 +111,11 @@ export function initializePdfSelection(
         }
         if (rendered?.status === 'rendered') {
           document.querySelector('#document-description').textContent =
-            `PDF 첫 페이지를 표시했습니다. 전체 ${rendered.pageCount.toLocaleString('ko-KR')}페이지이며 페이지 이동 컨트롤을 사용할 수 있습니다.`;
+            `PDF를 표시했습니다. 전체 ${rendered.pageCount.toLocaleString('ko-KR')}페이지이며 페이지 이동과 배율 컨트롤을 사용할 수 있습니다.`;
           document.querySelector('#document-state').textContent =
             `원문 보기 · 1 / ${rendered.pageCount}`;
-          showMessage(
-            'selected',
-            source === 'drop'
-              ? 'PDF 파일 드롭과 첫 페이지 표시를 완료했습니다. 원본 파일은 변경하지 않았습니다.'
-              : 'PDF 파일 선택과 첫 페이지 표시를 완료했습니다. 원본 파일은 변경하지 않았습니다.',
-          );
+          showMessage('selected', '');
+          showFooterStatus('selected', OPENED_FOOTER_STATUS);
         } else if (rendered?.status === 'error') {
           document.querySelector('#document-description').textContent =
             '파일 입력은 완료했지만 첫 페이지를 표시할 수 없습니다. 아래 오류 안내를 확인해주세요.';
@@ -121,7 +128,8 @@ export function initializePdfSelection(
         }
       } else {
         document.querySelector('#document-state').textContent = '파일 선택됨';
-        showMessage('selected', '파일 선택을 완료했습니다.');
+        showMessage('selected', '');
+        showFooterStatus('selected', OPENED_FOOTER_STATUS);
       }
     } else if (result?.status === 'canceled') {
       showMessage(

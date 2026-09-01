@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  MAX_CANVAS_DIMENSION,
+  MAX_CANVAS_PIXELS,
   classifyPdfError,
   createPdfAdapterCore,
 } from '../src/pdf/pdf-adapter-core.js';
@@ -35,10 +37,11 @@ const errorApi = {
 test('PDF adapter opens page 1 and renders bounded page numbers with local assets', async () => {
   const evidence = { cleanup: 0, destroyed: 0 };
   const page = {
-    getViewport: ({ scale }) => {
-      assert.equal(scale, 1);
-      return { width: 210.5, height: 297.5 };
-    },
+    getViewport: ({ scale }) => ({
+      width: 210.5 * scale,
+      height: 297.5 * scale,
+      rotation: 0,
+    }),
     render: (parameters) => {
       evidence.render = parameters;
       return { promise: Promise.resolve(), cancel: () => assert.fail() };
@@ -76,6 +79,12 @@ test('PDF adapter opens page 1 and renders bounded page numbers with local asset
     pageCount: 7,
     width: 210.5,
     height: 297.5,
+    scale: 1,
+    rotation: 0,
+    pixelRatio: 2,
+    requestedPixelRatio: 2,
+    resolutionLimited: false,
+    canvasPixels: 250495,
   });
   assert.equal(evidence.options.data, data);
   assert.equal(evidence.options.verbosity, 0);
@@ -107,6 +116,12 @@ test('PDF adapter opens page 1 and renders bounded page numbers with local asset
     pageCount: 7,
     width: 210.5,
     height: 297.5,
+    scale: 1,
+    rotation: 0,
+    pixelRatio: 1,
+    requestedPixelRatio: 1,
+    resolutionLimited: false,
+    canvasPixels: 62370,
   });
   assert.deepEqual(evidence.pageNumbers, [1, 7]);
   assert.equal(evidence.cleanup, 2);
@@ -116,6 +131,78 @@ test('PDF adapter opens page 1 and renders bounded page numbers with local asset
     status: 'error',
     code: 'NO_DOCUMENT',
   });
+});
+
+test('scale, fit width, intrinsic rotation and Canvas limits are enforced', async () => {
+  const renderParameters = [];
+  const makePage = (pageNumber) => ({
+    getViewport: ({ scale }) => ({
+      width: (pageNumber === 1 ? 240 : 4000) * scale,
+      height: (pageNumber === 1 ? 120 : 4000) * scale,
+      rotation: pageNumber === 1 ? 90 : 0,
+    }),
+    render: (parameters) => {
+      renderParameters.push(parameters);
+      return { promise: Promise.resolve(), cancel: () => assert.fail() };
+    },
+    cleanup: () => {},
+  });
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: {
+      ...errorApi,
+      getDocument: () => ({
+        promise: Promise.resolve({
+          numPages: 2,
+          getPage: async (pageNumber) => makePage(pageNumber),
+          destroy: async () => {},
+        }),
+        destroy: () => assert.fail(),
+      }),
+    },
+    assetBaseUrl: 'http://127.0.0.1:5173/',
+  });
+  const canvas = { style: {} };
+  const opened = await adapter.open({ data: new Uint8Array(9), canvas });
+  assert.equal(opened.rotation, 90);
+  assert.equal(opened.scale, 1);
+
+  const fitted = await adapter.renderPage({
+    pageNumber: 1,
+    canvas,
+    fitWidth: 360,
+  });
+  assert.equal(fitted.scale, 1.5);
+  assert.equal(fitted.width, 360);
+  assert.equal(fitted.height, 180);
+  assert.equal(fitted.rotation, 90);
+
+  for (const scale of [0.49, 2.01, Number.NaN])
+    assert.equal(
+      (await adapter.renderPage({ pageNumber: 1, canvas, scale })).code,
+      'INVALID_SCALE',
+    );
+  assert.equal(
+    (await adapter.renderPage({ pageNumber: 1, canvas, fitWidth: 0 })).code,
+    'INVALID_SCALE',
+  );
+
+  const limited = await adapter.renderPage({
+    pageNumber: 2,
+    canvas,
+    scale: 2,
+    pixelRatio: 4,
+  });
+  assert.equal(limited.scale, 2);
+  assert.equal(limited.requestedPixelRatio, 4);
+  assert.equal(limited.resolutionLimited, true);
+  assert.ok(limited.pixelRatio < 1);
+  assert.ok(limited.canvasPixels <= MAX_CANVAS_PIXELS);
+  assert.ok(canvas.width <= MAX_CANVAS_DIMENSION);
+  assert.ok(canvas.height <= MAX_CANVAS_DIMENSION);
+  assert.equal(canvas.style.width, '8000px');
+  assert.equal(canvas.style.height, '8000px');
+  assert.equal(renderParameters.at(-1).viewport.width, 8000);
+  await adapter.dispose();
 });
 
 test('PDF parser failures become stable public states', async () => {
@@ -157,7 +244,11 @@ test('rapid page requests cancel older work and keep the newest page', async () 
   const pageTwoReady = new Promise((resolve) => (pageTwoStarted = resolve));
   const evidence = { canceled: [], cleanup: [] };
   const makePage = (pageNumber) => ({
-    getViewport: () => ({ width: 100 + pageNumber, height: 200 }),
+    getViewport: ({ scale }) => ({
+      width: (100 + pageNumber) * scale,
+      height: 200 * scale,
+      rotation: 0,
+    }),
     render: () => {
       if (pageNumber !== 2)
         return { promise: Promise.resolve(), cancel: () => assert.fail() };
@@ -191,16 +282,22 @@ test('rapid page requests cancel older work and keep the newest page', async () 
     (await adapter.open({ data: new Uint8Array(9), canvas })).pageNumber,
     1,
   );
-  const pageTwo = adapter.renderPage({ pageNumber: 2, canvas });
+  const pageTwo = adapter.renderPage({ pageNumber: 2, canvas, scale: 1.25 });
   await pageTwoReady;
-  const pageFour = adapter.renderPage({ pageNumber: 4, canvas });
+  const pageFour = adapter.renderPage({ pageNumber: 4, canvas, scale: 1.5 });
   assert.deepEqual(await pageTwo, { status: 'canceled', code: 'CANCELED' });
   assert.deepEqual(await pageFour, {
     status: 'rendered',
     pageNumber: 4,
     pageCount: 4,
-    width: 104,
-    height: 200,
+    width: 156,
+    height: 300,
+    scale: 1.5,
+    rotation: 0,
+    pixelRatio: 1,
+    requestedPixelRatio: 1,
+    resolutionLimited: false,
+    canvasPixels: 46800,
   });
   assert.deepEqual(evidence.canceled, [2]);
   assert.deepEqual(evidence.cleanup, [1, 4]);
@@ -232,7 +329,11 @@ test('disposing an in-flight render cancels it and prevents a late result', asyn
         promise: Promise.resolve({
           numPages: 1,
           getPage: async () => ({
-            getViewport: () => ({ width: 100, height: 100 }),
+            getViewport: ({ scale }) => ({
+              width: 100 * scale,
+              height: 100 * scale,
+              rotation: 0,
+            }),
             render: () => {
               renderStarted();
               return {

@@ -1,3 +1,5 @@
+import { MAX_RENDER_SCALE, MIN_RENDER_SCALE } from '../pdf/pdf-adapter-core.js';
+
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
     '암호가 필요한 PDF는 현재 표시할 수 없습니다. 암호를 해제한 복사본을 선택해주세요.',
@@ -6,6 +8,8 @@ const VIEWER_FAILURE_MESSAGES = {
   PDF_RENDER_FAILED:
     'PDF 페이지를 표시하지 못했습니다. 다른 페이지나 PDF를 선택해주세요.',
 };
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const FIT_RESIZE_DELAY_MS = 120;
 
 /** Present one adapter-owned Canvas and keep PDF.js details out of selection UI. */
 export function initializePdfViewer(document, adapter) {
@@ -19,15 +23,25 @@ export function initializePdfViewer(document, adapter) {
   const navigation = document.querySelector('#pdf-page-navigation');
   const firstButton = document.querySelector('#first-page');
   const previousButton = document.querySelector('#previous-page');
+  const sidePreviousButton = document.querySelector('#side-previous-page');
   const nextButton = document.querySelector('#next-page');
+  const sideNextButton = document.querySelector('#side-next-page');
   const lastButton = document.querySelector('#last-page');
   const pageForm = document.querySelector('#page-number-form');
   const pageInput = document.querySelector('#page-number');
   const pageTotal = document.querySelector('#page-total');
+  const zoomOutButton = document.querySelector('#zoom-out');
+  const zoomInButton = document.querySelector('#zoom-in');
+  const fitWidthButton = document.querySelector('#fit-width');
+  const zoomLevel = document.querySelector('#zoom-level');
   let requestId = 0;
   let currentPage = 0;
   let requestedPage = 0;
   let totalPages = 0;
+  let currentScale = 1;
+  let requestedScale = 1;
+  let scaleMode = 'fixed';
+  let resizeTimer = null;
 
   const showViewer = (state, message, { preserveCanvas = false } = {}) => {
     empty.hidden = true;
@@ -35,8 +49,26 @@ export function initializePdfViewer(document, adapter) {
     viewer.dataset.state = state;
     status.dataset.state = state;
     status.textContent = message;
+    status.hidden = !message;
     canvas.hidden = state !== 'ready' && !preserveCanvas;
   };
+
+  const getFitWidth = () => {
+    const styles = document.defaultView?.getComputedStyle(pageScroll);
+    const horizontalPadding = styles
+      ? Number.parseFloat(styles.paddingLeft) +
+        Number.parseFloat(styles.paddingRight)
+      : 0;
+    return Math.max(1, pageScroll.clientWidth - horizontalPadding);
+  };
+
+  const getRenderOptions = (pageNumber) => ({
+    pageNumber,
+    canvas,
+    ...(scaleMode === 'fit-width'
+      ? { fitWidth: getFitWidth() }
+      : { scale: requestedScale }),
+  });
 
   const updateControls = () => {
     const hasDocument = totalPages > 0;
@@ -48,42 +80,66 @@ export function initializePdfViewer(document, adapter) {
       ? totalPages.toLocaleString('ko-KR')
       : '—';
     const targetPage = requestedPage || currentPage;
-    firstButton.disabled = !hasDocument || targetPage <= 1;
-    previousButton.disabled = !hasDocument || targetPage <= 1;
-    nextButton.disabled = !hasDocument || targetPage >= totalPages;
-    lastButton.disabled = !hasDocument || targetPage >= totalPages;
+    const atFirstPage = !hasDocument || targetPage <= 1;
+    const atLastPage = !hasDocument || targetPage >= totalPages;
+    firstButton.disabled = atFirstPage;
+    previousButton.disabled = atFirstPage;
+    sidePreviousButton.disabled = atFirstPage;
+    nextButton.disabled = atLastPage;
+    sideNextButton.disabled = atLastPage;
+    lastButton.disabled = atLastPage;
+    const displayedScale =
+      scaleMode === 'fit-width' ? currentScale : requestedScale;
+    zoomOutButton.disabled = !hasDocument || displayedScale <= MIN_RENDER_SCALE;
+    zoomInButton.disabled = !hasDocument || displayedScale >= MAX_RENDER_SCALE;
+    fitWidthButton.disabled = !hasDocument;
+    fitWidthButton.setAttribute(
+      'aria-pressed',
+      String(scaleMode === 'fit-width'),
+    );
+    zoomLevel.textContent = `${Math.round(displayedScale * 100)}%`;
   };
 
-  const applyRenderedPage = (rendered) => {
+  const applyRenderedPage = (rendered, { resetScroll = false } = {}) => {
     currentPage = rendered.pageNumber;
     requestedPage = rendered.pageNumber;
     totalPages = rendered.pageCount;
+    currentScale = rendered.scale;
+    requestedScale = scaleMode === 'fixed' ? rendered.scale : requestedScale;
     pageCount.textContent = `${currentPage} / ${totalPages}`;
     canvas.dataset.pageNumber = String(currentPage);
+    canvas.dataset.scale = String(rendered.scale);
+    canvas.dataset.rotation = String(rendered.rotation);
+    canvas.dataset.pixelRatio = String(rendered.pixelRatio);
+    canvas.dataset.resolutionLimited = String(rendered.resolutionLimited);
     canvas.setAttribute(
       'aria-label',
-      `선택한 PDF의 ${currentPage.toLocaleString('ko-KR')}페이지`,
+      `선택한 PDF의 ${currentPage.toLocaleString('ko-KR')}페이지, ${Math.round(rendered.scale * 100)}퍼센트`,
     );
     documentState.textContent = `원문 보기 · ${currentPage} / ${totalPages}`;
+    navigation.dataset.resolutionLimited = String(rendered.resolutionLimited);
+    zoomLevel.title = rendered.resolutionLimited
+      ? '메모리 보호를 위해 화면 배율은 유지하고 렌더 해상도만 제한했습니다.'
+      : '';
     updateControls();
-    showViewer(
-      'ready',
-      `${currentPage.toLocaleString('ko-KR')}페이지를 표시했습니다. 전체 ${totalPages.toLocaleString('ko-KR')}페이지입니다.`,
-    );
-    pageScroll.scrollTop = 0;
-    pageScroll.scrollLeft = 0;
+    showViewer('ready', '');
+    if (resetScroll) {
+      pageScroll.scrollTop = 0;
+      pageScroll.scrollLeft = 0;
+    }
   };
 
   const showInvalidPage = () => {
     requestedPage = currentPage;
     updateControls();
     viewer.dataset.state = 'ready';
+    status.hidden = false;
     status.dataset.state = 'error';
     status.textContent = `페이지 번호는 1부터 ${totalPages.toLocaleString('ko-KR')} 사이의 정수여야 합니다. 현재 페이지를 유지합니다.`;
     canvas.hidden = false;
   };
 
-  const goToPage = async (pageNumber) => {
+  const renderPage = async (pageNumber, { resetScroll = false } = {}) => {
     if (totalPages < 1) return { status: 'error', code: 'INVALID_PAGE_NUMBER' };
 
     const ownRequestId = ++requestId;
@@ -92,7 +148,7 @@ export function initializePdfViewer(document, adapter) {
       pageNumber < 1 ||
       pageNumber > totalPages
     ) {
-      const rejected = await adapter.renderPage({ pageNumber, canvas });
+      const rejected = await adapter.renderPage(getRenderOptions(pageNumber));
       if (ownRequestId === requestId) showInvalidPage();
       return rejected;
     }
@@ -104,10 +160,11 @@ export function initializePdfViewer(document, adapter) {
       `${pageNumber.toLocaleString('ko-KR')}페이지를 불러오고 있습니다.`,
       { preserveCanvas: currentPage > 0 },
     );
-    const rendered = await adapter.renderPage({ pageNumber, canvas });
+    const rendered = await adapter.renderPage(getRenderOptions(pageNumber));
     if (ownRequestId !== requestId || rendered.status === 'canceled')
       return rendered;
-    if (rendered.status === 'rendered') applyRenderedPage(rendered);
+    if (rendered.status === 'rendered')
+      applyRenderedPage(rendered, { resetScroll });
     else if (rendered.code === 'INVALID_PAGE_NUMBER') showInvalidPage();
     else {
       requestedPage = currentPage;
@@ -121,13 +178,49 @@ export function initializePdfViewer(document, adapter) {
     return rendered;
   };
 
+  const goToPage = (pageNumber) =>
+    renderPage(pageNumber, { resetScroll: true });
+
+  const changeZoom = (direction) => {
+    if (totalPages < 1) return;
+    const referenceScale =
+      scaleMode === 'fit-width' ? currentScale : requestedScale;
+    const nextScale =
+      direction > 0
+        ? ZOOM_STEPS.find((step) => step > referenceScale + 0.001)
+        : [...ZOOM_STEPS]
+            .reverse()
+            .find((step) => step < referenceScale - 0.001);
+    if (nextScale === undefined) return;
+    scaleMode = 'fixed';
+    requestedScale = nextScale;
+    updateControls();
+    void renderPage(currentPage);
+  };
+
   firstButton.addEventListener('click', () => void goToPage(1));
   previousButton.addEventListener(
     'click',
     () => void goToPage(requestedPage - 1),
   );
+  sidePreviousButton.addEventListener(
+    'click',
+    () => void goToPage(requestedPage - 1),
+  );
   nextButton.addEventListener('click', () => void goToPage(requestedPage + 1));
+  sideNextButton.addEventListener(
+    'click',
+    () => void goToPage(requestedPage + 1),
+  );
   lastButton.addEventListener('click', () => void goToPage(totalPages));
+  zoomOutButton.addEventListener('click', () => changeZoom(-1));
+  zoomInButton.addEventListener('click', () => changeZoom(1));
+  fitWidthButton.addEventListener('click', () => {
+    if (totalPages < 1) return;
+    scaleMode = 'fit-width';
+    updateControls();
+    void renderPage(currentPage);
+  });
   pageForm.addEventListener('submit', (event) => {
     event.preventDefault();
     const rawPage = pageInput.value.trim();
@@ -135,6 +228,20 @@ export function initializePdfViewer(document, adapter) {
     void goToPage(pageNumber);
   });
 
+  const ResizeObserverClass = document.defaultView?.ResizeObserver;
+  const resizeObserver = ResizeObserverClass
+    ? new ResizeObserverClass(() => {
+        if (scaleMode !== 'fit-width' || totalPages < 1) return;
+        if (resizeTimer !== null)
+          document.defaultView.clearTimeout(resizeTimer);
+        resizeTimer = document.defaultView.setTimeout(() => {
+          resizeTimer = null;
+          if (scaleMode === 'fit-width' && totalPages > 0)
+            void renderPage(currentPage);
+        }, FIT_RESIZE_DELAY_MS);
+      })
+    : null;
+  resizeObserver?.observe(pageScroll);
   updateControls();
 
   return {
@@ -143,14 +250,30 @@ export function initializePdfViewer(document, adapter) {
       currentPage = 0;
       requestedPage = 0;
       totalPages = 0;
-      delete canvas.dataset.pageNumber;
+      currentScale = 1;
+      requestedScale = 1;
+      scaleMode = 'fixed';
+      for (const key of [
+        'pageNumber',
+        'scale',
+        'rotation',
+        'pixelRatio',
+        'resolutionLimited',
+      ]) {
+        delete canvas.dataset[key];
+      }
       updateControls();
       showViewer('loading', 'PDF 첫 페이지를 불러오고 있습니다.');
       pageCount.textContent = '확인 중';
-      const rendered = await adapter.open({ data: result.data, canvas });
+      const rendered = await adapter.open({
+        data: result.data,
+        canvas,
+        scale: 1,
+      });
       if (ownRequestId !== requestId || rendered.status === 'canceled')
         return rendered;
-      if (rendered.status === 'rendered') applyRenderedPage(rendered);
+      if (rendered.status === 'rendered')
+        applyRenderedPage(rendered, { resetScroll: true });
       else {
         pageCount.textContent = '표시 불가';
         showViewer(
@@ -166,6 +289,8 @@ export function initializePdfViewer(document, adapter) {
 
     async dispose() {
       requestId++;
+      resizeObserver?.disconnect();
+      if (resizeTimer !== null) document.defaultView?.clearTimeout(resizeTimer);
       await adapter.dispose();
     },
   };

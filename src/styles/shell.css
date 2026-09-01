@@ -200,6 +200,10 @@
   font-size: 0.75rem;
 }
 
+.viewer-status[hidden] {
+  display: none;
+}
+
 .viewer-status[data-state='error'] {
   color: var(--color-warning);
 }
@@ -207,12 +211,37 @@
 .pdf-page-navigation {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
   background: var(--color-surface);
+}
+
+.page-controls,
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.zoom-controls {
+  margin-left: auto;
+}
+
+.zoom-controls output {
+  min-width: 3.5rem;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+#fit-width[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 .pdf-page-navigation button,
@@ -262,13 +291,48 @@
   color: inherit;
 }
 
+.pdf-page-stage {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 3.25rem minmax(0, 1fr) 3.25rem;
+  min-width: 0;
+  min-height: 20rem;
+}
+
+.page-side-button {
+  align-self: stretch;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 2.5rem;
+}
+
+.page-side-button:hover:not(:disabled) {
+  background: rgb(28 104 88 / 7%);
+}
+
+.page-side-button:focus-visible {
+  z-index: 1;
+  outline: 3px solid var(--color-accent);
+  outline-offset: -3px;
+}
+
+.page-side-button:disabled {
+  color: var(--color-muted);
+  cursor: default;
+  opacity: 0.3;
+}
+
 .pdf-page-scroll {
   display: flex;
-  flex: 1;
   min-width: 0;
   min-height: 20rem;
   max-height: calc(100vh - 16rem);
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: 1.5rem;
 }
 
@@ -370,6 +434,10 @@
   font-size: 0.75rem;
 }
 
+#footer-status[data-state='selected'] {
+  color: var(--color-accent);
+}
+
 @media (max-width: 56rem) {
   .app-main {
     grid-template-columns: minmax(0, 1fr);
@@ -399,6 +467,11 @@
     padding-inline: 0.75rem;
   }
 
+  .page-controls,
+  .zoom-controls {
+    justify-content: center;
+  }
+
   .status-panel {
     padding: 1.25rem;
   }
@@ -421,6 +494,26 @@
 
   .app-footer {
     padding: 0.875rem 1.25rem;
+  }
+}
+
+@media (max-width: 40rem) {
+  .pdf-page-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-side-button {
+    display: none;
+  }
+
+  .pdf-page-navigation,
+  .zoom-controls {
+    justify-content: center;
+  }
+
+  .zoom-controls {
+    width: 100%;
+    margin-left: 0;
   }
 }
 

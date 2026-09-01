@@ -45,13 +45,24 @@ export function pagedPdf(pageCount = 5) {
   ];
   for (const [index, pageObjectNumber] of pageObjectNumbers.entries()) {
     const contentObjectNumber = pageObjectNumber + 1;
-    const content = `q\n${colors[index % colors.length]} rg\n20 20 160 160 re\nf\nQ\n`;
+    const content = `q\n${colors[index % colors.length]} rg\n20 20 460 660 re\nf\nQ\n`;
     objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents ${contentObjectNumber} 0 R >>`,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 700] /Resources << >> /Contents ${contentObjectNumber} 0 R >>`,
       `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
     );
   }
   return serializePdf(objects);
+}
+
+/** A landscape source page whose intrinsic 90 degree rotation must swap the viewport. */
+export function rotatedPdf() {
+  const content = 'q\n0.15 0.35 0.75 rg\n10 10 220 100 re\nf\nQ\n';
+  return serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 240 120] /Rotate 90 /Resources << >> /Contents 4 0 R >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+  ]);
 }
 
 /** Create bounded input cases in the caller's test directory, never in user document folders. */
@@ -70,6 +81,7 @@ export async function createPdfFixtures(directory) {
     valid: path.join(directory, '한글 문서 & 연습.PDF'),
     replacement: path.join(directory, '다른 문서.pdf'),
     multipage: path.join(directory, '페이지 이동.pdf'),
+    rotated: path.join(directory, '고유 회전.pdf'),
     renamed: path.join(directory, '이름만 PDF.pdf'),
     text: path.join(directory, '일반 문서.txt'),
     empty: path.join(directory, '빈 파일.pdf'),
@@ -85,6 +97,7 @@ export async function createPdfFixtures(directory) {
     ['valid', renderedFixture],
     ['replacement', blankPdf()],
     ['multipage', pagedPdf()],
+    ['rotated', rotatedPdf()],
     ['renamed', 'NOT A PDF'],
     ['text', blankPdf()],
     ['empty', ''],

@@ -68,39 +68,67 @@
               aria-atomic="true"
               data-state="idle"
             ></p>
+            <div class="pdf-page-stage">
+              <button
+                id="side-previous-page"
+                class="page-side-button"
+                type="button"
+                aria-label="이전 페이지"
+              >
+                <span aria-hidden="true">‹</span>
+              </button>
+              <div class="pdf-page-scroll">
+                <div class="pdf-page-surface">
+                  <canvas
+                    id="pdf-canvas"
+                    aria-label="선택한 PDF 페이지"
+                    hidden
+                  ></canvas>
+                </div>
+              </div>
+              <button
+                id="side-next-page"
+                class="page-side-button"
+                type="button"
+                aria-label="다음 페이지"
+              >
+                <span aria-hidden="true">›</span>
+              </button>
+            </div>
             <nav
               id="pdf-page-navigation"
               class="pdf-page-navigation"
-              aria-label="PDF 페이지 이동"
+              aria-label="PDF 페이지 및 배율"
               hidden
             >
-              <button id="first-page" type="button">처음</button>
-              <button id="previous-page" type="button">이전</button>
-              <form id="page-number-form" class="page-number-form" novalidate>
-                <label for="page-number">페이지</label>
-                <input
-                  id="page-number"
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputmode="numeric"
-                  autocomplete="off"
-                />
-                <span aria-hidden="true">/</span>
-                <output id="page-total" for="page-number">—</output>
-              </form>
-              <button id="next-page" type="button">다음</button>
-              <button id="last-page" type="button">마지막</button>
-            </nav>
-            <div class="pdf-page-scroll">
-              <div class="pdf-page-surface">
-                <canvas
-                  id="pdf-canvas"
-                  aria-label="선택한 PDF 페이지"
-                  hidden
-                ></canvas>
+              <div class="page-controls" aria-label="페이지 이동">
+                <button id="first-page" type="button">처음</button>
+                <button id="previous-page" type="button">이전</button>
+                <form id="page-number-form" class="page-number-form" novalidate>
+                  <label for="page-number">페이지</label>
+                  <input
+                    id="page-number"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    autocomplete="off"
+                  />
+                  <span aria-hidden="true">/</span>
+                  <output id="page-total" for="page-number">—</output>
+                </form>
+                <button id="next-page" type="button">다음</button>
+                <button id="last-page" type="button">마지막</button>
               </div>
-            </div>
+              <div class="zoom-controls" aria-label="PDF 배율">
+                <button id="zoom-out" type="button" aria-label="축소">−</button>
+                <output id="zoom-level" aria-label="현재 배율">100%</output>
+                <button id="zoom-in" type="button" aria-label="확대">+</button>
+                <button id="fit-width" type="button" aria-pressed="false">
+                  너비 맞춤
+                </button>
+              </div>
+            </nav>
           </div>
         </section>
 
@@ -140,8 +168,9 @@
           <div class="scope-note">
             <h3>원문 Viewer 단계</h3>
             <p>
-              선택하거나 드롭한 PDF를 한 페이지씩 이동해 표시합니다. 확대·축소와
-              문제풀이는 아직 지원하지 않으며 선택은 저장되지 않습니다.
+              선택하거나 드롭한 PDF를 한 페이지씩 이동하고 50–200% 범위로
+              확대·축소하거나 너비에 맞춰 표시합니다. 문제풀이는 아직 지원하지
+              않으며 선택은 저장되지 않습니다.
             </p>
           </div>
         </aside>
@@ -149,7 +178,14 @@
 
       <footer class="app-footer">
         <p>파일이나 학습 데이터를 외부로 전송하지 않습니다.</p>
-        <p>Unit 1.4 · PDF 페이지 이동</p>
+        <p
+          id="footer-status"
+          role="status"
+          aria-atomic="true"
+          data-state="idle"
+          hidden
+        ></p>
+        <p>Unit 1.5 · PDF 확대·축소·너비 맞춤</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>

@@ -1,6 +1,6 @@
 {
   "name": "local-pdf-cbt",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Local-first PDF CBT desktop application with offline PDF rendering",
   "type": "module",

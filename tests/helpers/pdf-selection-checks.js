@@ -9,6 +9,10 @@ import { createPdfFixtures } from './pdf-fixtures.js';
 /** Use controlled native-dialog results, but real IPC, filesystem checks and renderer UI. */
 export async function checkPdfSelection(application, page, artifacts) {
   const files = await createPdfFixtures(path.join(artifacts, 'pdf-inputs'));
+  await application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setSize(1120, 760),
+  );
+  await page.waitForFunction(() => innerWidth > 1000);
   const hash = async (file = files.valid) =>
     createHash('sha256')
       .update(await readFile(file))
@@ -73,7 +77,11 @@ export async function checkPdfSelection(application, page, artifacts) {
       element.dataset.state = 'test-pending';
     });
     await page.locator('#select-pdf').click();
-    await page.waitForSelector(`#selection-status[data-state="${state}"]`);
+    await page.waitForFunction(
+      (expected) =>
+        document.querySelector('#selection-status').dataset.state === expected,
+      state,
+    );
     assert.equal(await page.locator('#select-pdf').isEnabled(), true);
   };
   try {
@@ -129,7 +137,7 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     assert.match(
       await page.locator('#document-description').innerText(),
-      /PDF 첫 페이지를 표시했습니다/,
+      /PDF를 표시했습니다/,
     );
     const renderedPage = await page.evaluate(() => {
       const canvas = document.querySelector('#pdf-canvas');
@@ -157,13 +165,22 @@ export async function checkPdfSelection(application, page, artifacts) {
         coloredSamples,
         page: document.querySelector('#pdf-page-count').textContent,
         status: document.querySelector('#viewer-status').textContent,
+        statusHidden: document.querySelector('#viewer-status').hidden,
+        selectionHidden: document.querySelector('#selection-status').hidden,
+        footer: document.querySelector('#footer-status').textContent,
       };
     });
     assert.equal(renderedPage.hidden, false);
     assert.ok(renderedPage.width > 400 && renderedPage.height > 500);
     assert.ok(renderedPage.coloredSamples > 100);
     assert.equal(renderedPage.page, '1 / 1');
-    assert.match(renderedPage.status, /1페이지를 표시했습니다/);
+    assert.equal(renderedPage.status, '');
+    assert.equal(renderedPage.statusHidden, true);
+    assert.equal(renderedPage.selectionHidden, true);
+    assert.equal(
+      renderedPage.footer,
+      'PDF를 열었습니다. 원본 파일은 변경하지 않았습니다.',
+    );
     assert.ok(
       !(await page.locator('body').innerText()).includes(
         path.dirname(files.valid),
@@ -181,6 +198,104 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(await page.locator('#page-number').inputValue(), '1');
     assert.equal(await page.locator('#first-page').isDisabled(), true);
     assert.equal(await page.locator('#previous-page').isDisabled(), true);
+
+    const layout = await page.evaluate(() => {
+      const stage = document.querySelector('.pdf-page-stage');
+      const navigation = document.querySelector('#pdf-page-navigation');
+      const sideNext = document.querySelector('#side-next-page');
+      return {
+        stageBottom: stage.getBoundingClientRect().bottom,
+        navigationTop: navigation.getBoundingClientRect().top,
+        sideNextDisplay: getComputedStyle(sideNext).display,
+      };
+    });
+    assert.ok(layout.navigationTop >= layout.stageBottom - 1);
+    assert.notEqual(layout.sideNextDisplay, 'none');
+    assert.equal(await page.locator('#side-previous-page').isDisabled(), true);
+    assert.equal(await page.locator('#side-next-page').isDisabled(), false);
+    await page.locator('#side-next-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="2"]');
+    await page.locator('#side-previous-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="1"]');
+
+    const initialCanvasWidth = await page
+      .locator('#pdf-canvas')
+      .evaluate((canvas) => canvas.getBoundingClientRect().width);
+    assert.equal(await page.locator('#zoom-level').innerText(), '100%');
+    await page.locator('#zoom-in').click();
+    await page.waitForSelector('#pdf-canvas[data-scale="1.25"]');
+    assert.ok(
+      (await page
+        .locator('#pdf-canvas')
+        .evaluate((canvas) => canvas.getBoundingClientRect().width)) >
+        initialCanvasWidth * 1.24,
+    );
+    await page.evaluate(() => {
+      for (let index = 0; index < 3; index++)
+        document.querySelector('#zoom-in').click();
+    });
+    await page.waitForSelector('#pdf-canvas[data-scale="2"]');
+    assert.equal(await page.locator('#zoom-in').isDisabled(), true);
+    await page.evaluate(() => {
+      for (let index = 0; index < 6; index++)
+        document.querySelector('#zoom-out').click();
+    });
+    await page.waitForSelector('#pdf-canvas[data-scale="0.5"]');
+    assert.equal(await page.locator('#zoom-out').isDisabled(), true);
+    await page.locator('#fit-width').click();
+    await page.waitForFunction(() => {
+      const fit = document.querySelector('#fit-width');
+      const canvas = document.querySelector('#pdf-canvas');
+      return (
+        fit.getAttribute('aria-pressed') === 'true' &&
+        canvas.dataset.scale !== '0.5'
+      );
+    });
+    const defaultFit = await page.evaluate(() => {
+      const scroll = document.querySelector('.pdf-page-scroll');
+      const canvas = document.querySelector('#pdf-canvas');
+      const styles = getComputedStyle(scroll);
+      const available =
+        scroll.clientWidth -
+        Number.parseFloat(styles.paddingLeft) -
+        Number.parseFloat(styles.paddingRight);
+      return {
+        available,
+        width: canvas.getBoundingClientRect().width,
+        scale: canvas.dataset.scale,
+      };
+    });
+    assert.ok(defaultFit.width <= defaultFit.available + 1);
+    assert.ok(defaultFit.width >= defaultFit.available - 2);
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(640, 480),
+    );
+    await page.waitForFunction(
+      (previousScale) =>
+        innerWidth < 640 &&
+        getComputedStyle(document.querySelector('#side-next-page')).display ===
+          'none' &&
+        document.querySelector('#pdf-canvas').dataset.scale !== previousScale,
+      defaultFit.scale,
+    );
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(1120, 760),
+    );
+    await page.waitForFunction(
+      (expectedScale) =>
+        getComputedStyle(document.querySelector('#side-next-page')).display !==
+          'none' &&
+        document.querySelector('#pdf-canvas').dataset.scale === expectedScale &&
+        document.querySelector('#pdf-viewer').dataset.state === 'ready',
+      defaultFit.scale,
+    );
+    cases.push('side-navigation', 'zoom-bounds', 'fit-width-resize');
 
     await page.locator('#last-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="5"]');
@@ -227,13 +342,31 @@ export async function checkPdfSelection(application, page, artifacts) {
     });
     await page.waitForSelector('#pdf-canvas[data-page-number="4"]');
     assert.equal(await page.locator('#pdf-page-count').innerText(), '4 / 5');
-    assert.match(await page.locator('#viewer-status').innerText(), /4페이지/);
+    assert.equal(await page.locator('#viewer-status').isHidden(), true);
+    assert.equal(
+      await page.locator('#document-state').innerText(),
+      '원문 보기 · 4 / 5',
+    );
     assert.equal(await hash(files.multipage), multipageHash);
     cases.push('first-last', 'invalid-page', 'rapid-page-navigation');
     await page.screenshot({
       path: path.join(artifacts, 'page-navigation.png'),
       fullPage: true,
     });
+
+    await select({ canceled: false, filePaths: [files.rotated] }, 'selected');
+    assert.equal(
+      await page.locator('#pdf-canvas').getAttribute('data-rotation'),
+      '90',
+    );
+    const rotatedSize = await page
+      .locator('#pdf-canvas')
+      .evaluate((canvas) => ({
+        width: canvas.getBoundingClientRect().width,
+        height: canvas.getBoundingClientRect().height,
+      }));
+    assert.ok(rotatedSize.height > rotatedSize.width);
+    cases.push('intrinsic-rotation');
 
     await select({ canceled: false, filePaths: [files.valid] }, 'selected');
     assert.equal(await page.locator('#pdf-page-count').innerText(), '1 / 1');
@@ -290,9 +423,10 @@ export async function checkPdfSelection(application, page, artifacts) {
         document.querySelector('#selection-status').dataset.state ===
           'selected',
     );
-    assert.match(
-      await page.locator('#selection-status').innerText(),
-      /PDF 파일 드롭.*완료/,
+    assert.equal(await page.locator('#selection-status').isHidden(), true);
+    assert.equal(
+      await page.locator('#footer-status').innerText(),
+      'PDF를 열었습니다. 원본 파일은 변경하지 않았습니다.',
     );
     assert.equal(await hash(files.replacement), replacementHash);
     await page.screenshot({

@@ -106,8 +106,11 @@ test(
         await page.locator('#select-pdf').click();
         const failure = await actionResult;
         if (failure) throw failure;
-        await page.waitForSelector(
-          `#selection-status[data-state="${action === 'select' ? 'selected' : 'canceled'}"]`,
+        await page.waitForFunction(
+          (expected) =>
+            document.querySelector('#selection-status').dataset.state ===
+            expected,
+          action === 'select' ? 'selected' : 'canceled',
         );
         assert.equal(
           await page.locator('#selected-file-name').innerText(),
