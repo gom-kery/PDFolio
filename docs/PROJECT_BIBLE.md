@@ -1,12 +1,12 @@
 # Local PDF CBT — Project Bible
 
-- 문서 버전: `0.2.1`
+- 문서 버전: `0.2.2`
 - 작성일: 2026-08-31
-- 갱신일: 2026-09-01
-- 상태: Unit 2.1 현재 페이지 Text Content 추출·품질 분류 완료. 앱은 버전 0.2.1이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: 원문 Viewer, PageTextSource/PageTextAssessment v1, 페이지별 텍스트 품질 요약과 반복 가능한 검사. 좌표 분석·Text Layer·키워드·영역·CBT 기능은 아직 구현하지 않았다.
+- 갱신일: 2026-09-02
+- 상태: Unit 2.2 Text Item 좌표 분석 완료. 앱은 버전 0.2.2이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: 원문 Viewer, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환. Debug Overlay·키워드·영역·CBT 기능은 아직 구현하지 않았다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
-- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.1에 한하며 Unit 2.2 이후의 구현을 뜻하지 않는다.
+- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.2에 한하며 Unit 2.5 이후의 구현을 뜻하지 않는다.
 
 관련 문서: [개발 계획](ROADMAP.md), [요구사항 검토·기술 결정](DECISIONS.md), [변경·Unit 완료 기록](CHANGELOG.md), [후속 아이디어](IDEA_PARKING.md).
 
@@ -14,7 +14,7 @@
 
 사용자가 소유한 문제·보기·해설·정답 PDF를 로컬에서 열어, 답과 해설을 가린 상태로 객관식 문제를 풀게 한다. 답 선택 → 답 확인 → 해당 문제의 해설 공개 → 가능한 경우 채점이 기본 흐름이다. **원본 PDF는 읽기 전용**이며 가림은 화면에서만 수행한다.
 
-사용자가 Unit 2.0 구조 검토 뒤 **Unit 2.1 Text Content 추출·품질 분류를 명시적으로 요청**했다. PDF 어댑터가 현재 페이지 하나의 TextContent를 PageTextSource v1으로 복사하고, 순수 분석 모듈이 PageTextAssessment v1의 세 품질 상태와 reason code를 만든다. UI에는 원문 대신 현재 페이지의 분석 가능·보류·확인 불가 요약만 표시한다. 좌표 계산, Debug Overlay, 키워드·영역 추정, 마스크·CBT는 구현하지 않는다. 앱과 package.json은 0.2.1이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
+사용자가 Unit 2.1 완료 뒤 **Unit 2.2 Text Item 좌표 분석을 명시적으로 요청**했다. 순수 분석 모듈은 PageTextSource v1의 raw transform·font style로 각 텍스트 항목의 근사 bbox를 회전 전 PDF user space에 만들고, PDF 좌표 모듈은 viewBox·`userUnit`·고유 회전을 반영해 viewport CSS 좌표와 왕복 변환한다. UI에는 원문 좌표를 그리지 않고 현재 페이지의 텍스트·위치 분석 가능 여부만 표시한다. Debug Overlay, 키워드·영역 추정, 마스크·CBT는 구현하지 않는다. 앱과 package.json은 0.2.2이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
 
 ### 첫 MVP 범위 — 승인 전 제안
 
@@ -61,7 +61,7 @@ Unit 1.3에서 `pdfjs-dist` 6.3.289를 정확한 버전으로 고정했다. 본�
 
 ## 4. 전체 아키텍처
 
-아래는 전체 목표 설계다. 선택·드롭은 같은 main 읽기 전용 경계를 사용하고 승인된 PDF의 이름·크기·바이트만 renderer에 전달하며 경로는 반환하지 않는다. PDF 어댑터는 PDF.js document/page/TextContent 객체와 worker·렌더·추출 수명을 소유한다. 분석 모듈에는 버전 있는 순수 데이터 레코드만 전달하고, Unit 2.1의 분석 모듈은 페이지 텍스트 품질만 판단한다. UI는 어댑터나 분석 모듈의 원시 객체·추출 원문을 보관하지 않고 공개 상태 요약만 표시한다. 키워드·영역·CBT·데이터 저장 코드는 아직 없다. [Electron 프로세스 모델](https://www.electronjs.org/docs/latest/tutorial/process-model).
+아래는 전체 목표 설계다. 선택·드롭은 같은 main 읽기 전용 경계를 사용하고 승인된 PDF의 이름·크기·바이트만 renderer에 전달하며 경로는 반환하지 않는다. PDF 어댑터는 PDF.js document/page/TextContent 객체와 worker·렌더·추출 수명을 소유한다. 분석 모듈에는 버전 있는 순수 데이터 레코드만 전달하고, Unit 2.2의 분석 모듈은 페이지 텍스트 품질과 PDF user space bbox만 만든다. UI는 어댑터나 분석 모듈의 원시 객체·추출 원문·좌표 결과를 보관하지 않고 공개 상태 요약만 표시한다. 키워드·영역·CBT·데이터 저장 코드는 아직 없다. [Electron 프로세스 모델](https://www.electronjs.org/docs/latest/tutorial/process-model).
 
 ```mermaid
 flowchart LR
@@ -90,17 +90,17 @@ flowchart LR
 
 현재 프로젝트 문서 루트는 `outputs/local-pdf-cbt/docs/`이다. `local-pdf-cbt/`를 프로젝트 루트로 사용할 수 있도록 문서 내부 경로는 모두 상대 경로로 유지한다. 프로젝트를 이동해도 연결이 유지되어야 한다.
 
-**Unit 2.1 완료 시점의 현재 구조:**
+**Unit 2.2 완료 시점의 현재 구조:**
 
 ```text
 local-pdf-cbt/
 ├─ docs/                기준 문서 5개
 ├─ electron/            main·preload·로컬 프로토콜·PDF 선택/드롭/검사
 ├─ src/main.js          화면 초기화
-├─ src/pdf/             PDF.js 어댑터·요청 취소·자원 정리
-├─ src/analysis/        페이지 Text Content 품질의 순수 분류
-├─ src/shared/          PageTextSource/PageTextAssessment 계약 버전
-├─ src/ui/              실행 환경·파일 입력·페이지·배율·Canvas·품질 상태 표시
+├─ src/pdf/             PDF.js 어댑터·요청 취소·자원 정리·viewport 좌표 변환
+├─ src/analysis/        페이지 Text Content 품질 분류·TextItemRecord bbox
+├─ src/shared/          PageTextSource v1 검증과 계약 버전
+├─ src/ui/              실행 환경·파일 입력·페이지·배율·Canvas·분석 상태 표시
 ├─ src/styles/          기본 스타일·Shell 배치
 ├─ scripts/             Node 검사·개발 실행·패키징
 ├─ tests/               보안 경계·PDF 어댑터·실제 Electron 환경 검사와 합성 PDF
@@ -210,7 +210,7 @@ Unit 2.1의 `PageTextAssessment v1`은 PageTextSource 또는 현재 문서의 �
 1. Unit 2.1 완료: 한글 분절 항목, 빈/벡터·이미지 위주, 텍스트+이미지 혼합, 페이지 번호 수준, 비정상 문자열 고정 샘플에서 세 상태와 reason code를 확인했다.
 2. Unit 2.1 완료: 잘못된 페이지, 문서 없음, 추출 예외, 빠른 페이지 요청, 파일 교체·dispose 후 늦은 결과 폐기를 documentRevision/request id로 확인했다.
 3. Unit 2.1 완료: 실제 PDF.js 한글+이미지 fixture에서 6개 item·비공백 73자·판독 비율 1을 확인했고 경로·PDF.js 객체·원문 DOM 비노출, 원본 해시, Viewer와 오프라인 패키지 경계를 확인했다.
-4. Unit 2.2: 보존한 transform·style·page metadata로 회전 전 PDF user space의 TextItemRecord bbox를 계산하고 회전·DPI·확대와 대조한다.
+4. Unit 2.2 완료: 보존한 transform·style·page metadata로 회전 전 PDF user space의 TextItemRecord bbox를 계산했다. viewBox 오프셋·`UserUnit 2`·0/90/180/270도·50/100/200% 합성 문서를 설치된 PDF.js 6.3.289의 `getViewport()`와 대조했고 Canvas DPR가 CSS 좌표에 섞이지 않음을 확인했다.
 5. Unit 2.5: 일반 사용자 기능과 분리한 Debug Overlay에서 sourceIndex와 bbox를 시각 대조한다.
 6. Unit 2.3~2.6: 키워드, 영역, 지원 판정을 각각 독립 검증하며 품질 상태만으로 CBT를 승인하지 않는다.
 
@@ -220,7 +220,7 @@ Unit 2.1의 `PageTextAssessment v1`은 PageTextSource 또는 현재 문서의 �
 
 Text Content는 분석 입력이고 Text Layer는 표시·선택을 위한 DOM이다. 렌더된 DOM의 순서나 화면 픽셀을 분석의 원본으로 사용하지 않는다. 텍스트 추출 가능 여부와 정상적인 읽기 순서·한글 품질은 별도로 검증한다.
 
-Unit 2.2의 내부 `TextItemRecord`는 `text`, `x`, `y`, `width`, `height`, `page`를 제공한다. 이 필드는 PageTextSource를 그대로 복사한 것이 아니라 아래 좌표 계약으로 정규화한 값이다. `sourceIndex`, `sourceText`, raw transform, font 정보는 근거 추적을 위해 PageTextSource에 유지한다.
+Unit 2.2의 `PageTextCoordinates v1`은 `documentRevision`, `pageNumber`, `coordinateSpace`, 복사한 page metadata와 `TextItemRecord[]`를 제공한다. 각 TextItemRecord는 `sourceIndex`, `text`, `x`, `y`, `width`, `height`, `page`만 가진다. 이 필드는 PageTextSource를 그대로 복사한 것이 아니라 아래 좌표 계약으로 정규화한 값이다. raw transform과 font 정보는 근거 추적을 위해 PageTextSource에만 유지한다.
 
 ### 9.2 좌표 계약
 
@@ -228,7 +228,9 @@ Unit 2.2의 내부 `TextItemRecord`는 `text`, `x`, `y`, `width`, `height`, `pag
 - 페이지의 view box, `userUnit`, 고유 회전을 함께 보관한다. 텍스트 기준선의 transform 위치를 bbox 왼쪽 위라고 단정하지 않는다. 글꼴 ascent/descent와 회전된 모서리를 고려한 경계 상자는 근사치이며 실물 검증이 필요하다.
 - 화면 배치는 동일 viewport로 모든 모서리를 변환한 후 CSS px 경계를 계산한다. Canvas의 고해상도 픽셀 배율과 overlay의 CSS 좌표를 분리한다. 확대·맞춤·회전·창 크기 변경마다 다시 투영한다.
 - PDF ↔ viewport 변환, 회전, view box, userUnit 처리는 PDF.js 공개 변환을 우선 사용한다. [PageViewport 공식 소스](https://raw.githubusercontent.com/mozilla/pdf.js/master/src/display/page_viewport.js), [HiDPI 렌더링 예제](https://mozilla.github.io/pdf.js/examples/).
-- Unit 2.2에서 버전별 API와 bbox 계산을 검증한다. 다각형·기울어진 글자는 향후 확장 가능성을 두되 MVP 지원 밖이면 명시적으로 보류한다.
+- 가로쓰기 bbox는 transform의 기준선 축과 `width`, 글꼴 축과 ascent/descent를 조합하고 네 모서리의 최소·최대값을 쓴다. 세로쓰기는 transform의 교차축과 진행축을 사용한 보수적 근사값이다. ascent/descent가 모두 0일 때만 이름 있는 기본값 0.8/-0.2를 사용한다. 유효하지 않은 page·font·text geometry는 부분 결과 없이 `UNSUPPORTED_*` 코드로 보류한다.
+- viewport 좌표는 PDF.js 6.3.289 `PageViewport`와 같은 viewBox·`userUnit`·고유 90도 단위 회전 규칙을 순수 데이터로 구현하고 실제 `PDFPageProxy.getViewport()` 결과와 대조했다. 확대 배율은 CSS 좌표에만 적용하고 Canvas device pixel ratio는 입력이나 결과에 포함하지 않는다.
+- bbox는 글리프 윤곽·클리핑 영역·정확한 잉크 경계가 아닌 근사 축 정렬 사각형이다. 회전·반사 transform의 네 모서리 계산은 검증했지만 실제 화면과 sourceIndex별 시각 대조는 Unit 2.5 Debug Overlay에 남긴다. 키워드·줄/블록·영역 의미는 계산하지 않는다.
 
 ### 9.3 영역 추정 파이프라인 — 설계 제안
 

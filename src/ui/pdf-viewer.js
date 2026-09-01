@@ -1,5 +1,6 @@
 import { MAX_RENDER_SCALE, MIN_RENDER_SCALE } from '../pdf/pdf-adapter-core.js';
 import { assessPageText } from '../analysis/page-text-assessment.js';
+import { createPageTextCoordinates } from '../analysis/page-text-coordinates.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -85,9 +86,18 @@ export function initializePdfViewer(document, adapter) {
       return;
     }
     if (assessment.quality === 'text-usable') {
+      const coordinateResult = createPageTextCoordinates(extraction.source);
+      if (coordinateResult.status !== 'coordinates-ready') {
+        showTextAnalysisStatus(
+          'unknown',
+          '현재 페이지의 텍스트 위치를 확인할 수 없습니다.',
+          [coordinateResult.code],
+        );
+        return;
+      }
       showTextAnalysisStatus(
         'text-usable',
-        '현재 페이지의 텍스트를 분석할 수 있습니다.',
+        '현재 페이지의 텍스트와 위치를 분석할 수 있습니다.',
       );
       return;
     }

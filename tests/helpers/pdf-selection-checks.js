@@ -197,7 +197,7 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(renderedPage.textAnalysisState, 'text-usable');
     assert.equal(
       renderedPage.textAnalysis,
-      '현재 페이지의 텍스트를 분석할 수 있습니다.',
+      '현재 페이지의 텍스트와 위치를 분석할 수 있습니다.',
     );
     assert.ok(
       !(await page.locator('body').innerText()).includes(

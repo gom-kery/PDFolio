@@ -65,6 +65,27 @@ export function rotatedPdf() {
   ]);
 }
 
+/** Four text pages share an offset box/UserUnit while intrinsic rotation changes. */
+export function coordinatePdf() {
+  const rotations = [0, 90, 180, 270];
+  const pageObjectNumbers = rotations.map((_, index) => 4 + index * 2);
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    `<< /Type /Pages /Kids [${pageObjectNumbers.map((number) => `${number} 0 R`).join(' ')}] /Count 4 >>`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  for (const [index, rotation] of rotations.entries()) {
+    const contentObjectNumber = pageObjectNumbers[index] + 1;
+    const content =
+      'BT\n/F1 12 Tf\n1 0 0 1 30 60 Tm\n(Coordinate sample) Tj\nET\n';
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [10 20 210 320] /CropBox [10 20 210 320] /UserUnit 2 /Rotate ${rotation} /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+    );
+  }
+  return serializePdf(objects);
+}
+
 /** Create bounded input cases in the caller's test directory, never in user document folders. */
 export async function createPdfFixtures(directory) {
   await mkdir(directory, { recursive: true });

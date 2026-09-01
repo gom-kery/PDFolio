@@ -1,12 +1,12 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.2.1`
-- 갱신일: 2026-09-01
-- 상태: Unit 2.1 현재 페이지 Text Content 추출·품질 분류 완료. 앱은 버전 0.2.1이며 OPEN-09와 Unit 1.0은 미해결.
+- 문서 버전: `0.2.2`
+- 갱신일: 2026-09-02
+- 상태: Unit 2.2 Text Item 좌표 분석 완료. 앱은 버전 0.2.2이며 OPEN-09와 Unit 1.0은 미해결.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
-이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 실제 Text Content 추출과 품질 분류를 검증했다. 좌표·문제 인식 실험은 아직 시작하지 않았다.
+이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환을 검증했다. 화면 bbox 대조와 문제 인식 실험은 아직 시작하지 않았다.
 
 ## 1. 요구사항 분석
 
@@ -380,6 +380,17 @@
 - 검증: 형식, Node 60개, 실제 PDF.js 한글+이미지 추출·원본 SHA-256, 빌드·Windows x64/ASAR 패키지, 개발·빌드·패키지 Electron 3경로, 실제 Windows 선택 창 검사가 통과했다. 종료 반복은 개발 9/9·패키지 8/9이며 패키지 250ms 1회에서 OPEN-09 GPU 진단이 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
 - 제외 범위: PDF user space bbox, Text Layer, Debug Overlay, 줄/블록, 키워드, 해설·정답 영역, 지원 판정, Question·CBT, 저장, OCR/AI는 Unit 2.1에 포함하지 않는다. 품질이 text-usable이어도 올바른 읽기 순서나 CBT 지원을 의미하지 않는다.
 
+### ADR-026 — Unit 2.2 PDF user space bbox와 viewport 변환
+
+- 상태: **채택 — Unit 2.2 구현·검증 완료**, 2026-09-02. 앱과 Windows x64/ASAR 패키지는 버전 0.2.2다.
+- 데이터 계약: PageTextSource v1은 변경하지 않는다. 순수 `createPageTextCoordinates()`가 `PageTextCoordinates v1`을 만들며 결과는 session `documentRevision`, 1부터 시작하는 pageNumber, `coordinateSpace: pdf-user-space`, 복사한 viewBox/userUnit/rotation과 TextItemRecord 배열을 가진다. 각 record는 `sourceIndex`, `text`, bbox의 최소 `x/y`, 크기 `width/height`, `page`만 포함하고 raw transform·font 정보는 PageTextSource에 남긴다.
+- bbox 계산: 가로쓰기는 transform의 기준선 축과 item width, 글꼴 축과 style ascent/descent로 네 모서리를 만든다. 회전·반사·비직교 transform도 네 모서리의 축 정렬 최소/최대 bbox로 근사한다. 세로쓰기는 transform의 교차축과 반대 진행축을 사용한 보수적 근사값을 만든다. ascent/descent가 모두 0인 경우에만 PDF.js Text Layer의 초기 ascent와 한 em 높이에 맞춘 이름 있는 기본값 0.8/-0.2를 사용한다.
+- 실패 정책: PageTextSource 계약이 다르면 `INVALID_TEXT_SOURCE`, 유효하지 않은 viewBox나 90도 단위가 아닌 고유 회전은 `UNSUPPORTED_PAGE_GEOMETRY`, font metric 역전은 `UNSUPPORTED_FONT_METRICS`, 퇴화 transform·음수 크기는 `UNSUPPORTED_TEXT_GEOMETRY`다. 항목 일부만 정상으로 반환하지 않고 페이지 좌표 분석 전체를 보류한다. 빈 TextContent는 정상적인 빈 좌표 배열이다.
+- 화면 투영: `createViewportGeometry()`는 설치된 PDF.js 6.3.289 PageViewport의 viewBox 오프셋·`userUnit`·0/90/180/270도·scale 규칙과 같은 순수 transform/크기를 만든다. PDF point ↔ viewport point 왕복과 PDF bbox → viewport CSS bbox를 제공한다. Canvas device pixel ratio와 backing bitmap은 좌표 API에 포함하지 않아 확대와 DPI를 분리한다.
+- 런타임·개인정보: `text-usable`인 현재 페이지에서 좌표 생성 성공까지 확인한 뒤 UI에 `현재 페이지의 텍스트와 위치를 분석할 수 있습니다.`만 표시한다. TextItemRecord의 text·bbox를 DOM, Console, 자동 결과 JSON에 기록하거나 UI 상태로 보관하지 않는다. 같은 페이지 배율 재렌더에서 다시 추출하지 않는 Unit 2.1 수명 계약도 유지한다.
+- 검증: 형식, Node 70개, 실제 한글+이미지 PDF의 6 bbox, offset viewBox `[10,20,210,320]`·`UserUnit 2`·0/90/180/270도 합성 PDF의 50/100/200% 투영을 실제 `PDFPageProxy.getViewport()`와 대조했다. 원본 SHA-256, 빌드, Windows x64/ASAR 패키지, 개발·빌드·패키지 Electron 3경로, 실제 Windows 선택 창이 통과했다. 종료 반복은 개발 8/9·패키지 9/9이며 개발 즉시 종료 1회에서 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
+- 한계·후속: bbox는 글리프 윤곽·잉크·클리핑 영역을 보장하지 않는 근사 축 정렬 사각형이고 세로쓰기 증거는 합성 데이터뿐이다. sourceIndex별 실제 화면 대조는 다음 실행 순서인 Unit 2.5 Debug Overlay에서 수행한다. Text Layer, 줄/블록, 키워드, 해설·정답 영역, 지원 판정, Question·CBT, 저장, OCR/AI는 이번 범위가 아니다.
+
 ## 5. 유보 항목과 해결 상태
 
 | ID | 항목 | 결정 시점 | 지금의 처리 |
@@ -388,9 +399,9 @@
 | OPEN-02 | renderer ESM과 sandbox preload 연결·로컬 자산 프로토콜 | Unit 0.2~1.3 | 해결: ADR-012/015/016/020. Windows x64 패키지와 PDF.js worker·CMap·ICC·표준 글꼴·WASM의 로컬 경로·거부 경로 재검증 완료 |
 | OPEN-03 | 실제 대표 PDF와 지원 프로파일 목록 | Unit 1.0~2.6 | 샘플 행렬만 작성. 사용자 문서 업로드/공유 요청 없음 |
 | OPEN-04 | 파일 크기·Canvas 픽셀·캐시·시간 예산 | Unit 1.1 / 1.6 | 부분 해결: 50 MiB 입력 상한, 현재 Canvas 16,777,216픽셀·한 변 8,192픽셀 상한, 작은 합성 PDF의 첫 페이지·높이 맞춤·마지막 페이지 10초 안전 기준을 적용했다. 모든 실물 PDF의 파서/렌더 시간과 캐시 예산은 샘플 행렬·실사용 측정 전까지 유보 |
-| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1에서 최소 비공백 12자·판독 가능 비율 0.8과 세 상태/reason code를 고정 샘플로 검증. 실제 샘플 행렬에서 재검토하며 bbox는 2.2, 줄/블록·키워드·영역 임계값은 2.3~2.6 증거 전까지 확정하지 않음 |
+| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1의 텍스트 품질 기준에 이어 Unit 2.2에서 transform·ascent/descent 기반 근사 bbox와 PDF ↔ viewport 변환을 검증. 실제 글리프/클리핑과 시각 정합은 2.5, 줄/블록·키워드·영역 임계값은 2.3~2.6 증거 전까지 미확정 |
 | OPEN-06 | 서명·설치형/포터블 공개 배포·업데이트 정책 | MVP 검증 후 | 로컬 테스트 패키지와 구분; 이번 범위 밖 |
-| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.1 종료 반복에서 패키지 250ms 1회 재현, 결과 개발 9/9·패키지 8/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
+| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.2 종료 반복에서 개발 즉시 종료 1회 재현, 결과 개발 8/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
 | OPEN-07 | 저장 경로·문서 해시·SQLite 스키마·백업 형식 | Phase 5.0 | 메모리만 사용 |
 | OPEN-08 | OCR/AI 엔진·언어·모델·서비스 비용 | Phase 9.0 / 10.0 | 의존성 추가 없음 |
 

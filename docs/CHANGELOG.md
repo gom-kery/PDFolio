@@ -2,6 +2,97 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.2.2 작업 기록 — 2026-09-02
+
+**Unit 2.2 Text Item 좌표 분석을 구현했다. 회전 전 PDF user space bbox와 viewport 좌표 변환만 추가했으며 Debug Overlay·키워드·영역·CBT는 구현하지 않았다.**
+
+작업 전에 현재 프로젝트 파일·PROJECT_BIBLE·ROADMAP·DECISIONS와 Git 상태를 확인했다. 작업 트리는 Unit 2.1 커밋 `c51fb3b` 기준으로 깨끗했다. 문서가 정한 실행 순서와 좌표 계약에 따라 PageTextSource v1은 유지하고 좌표 결과를 별도 순수 데이터로 만들었다.
+
+### Unit 2.2 — 1. 구현한 내용
+
+- 공통 PageTextSource v1 검증을 `src/shared/page-text-contract.js`로 모아 품질 분류와 좌표 분석이 동일한 엄격한 계약을 사용하게 했다.
+- `createPageTextCoordinates()`가 raw transform·item width/height·font ascent/descent로 가로·세로·회전·반사 Text Item의 네 모서리를 구하고 회전 전 PDF user space의 축 정렬 근사 bbox를 만든다.
+- `PageTextCoordinates v1`과 `TextItemRecord`는 documentRevision·page metadata·sourceIndex·text·x/y/width/height/page만 가진다. raw PDF.js 객체·transform·경로·파일 바이트는 결과에 넣지 않는다.
+- 글꼴 metric이 모두 0일 때만 기본 ascent/descent 0.8/-0.2를 사용한다. 잘못된 source, page geometry, font metric, text geometry는 공개 코드로 페이지 전체를 보류하고 부분 좌표를 반환하지 않는다.
+- PDF.js PageViewport와 같은 viewBox·`userUnit`·0/90/180/270도·scale의 순수 viewport geometry, PDF point 왕복, bbox CSS 투영을 추가했다. Canvas device pixel ratio는 좌표 API에서 분리했다.
+- `text-usable` 페이지는 좌표 생성까지 성공해야 일반 UI에서 `현재 페이지의 텍스트와 위치를 분석할 수 있습니다.`로 표시한다. 원문과 bbox는 DOM·Console·자동 결과에 기록하거나 UI 상태로 보관하지 않는다.
+- 앱과 Windows x64/ASAR 패키지 버전을 0.2.2로 올렸다. 이전 0.2.1 패키지는 `work/unit-2.2-before-package/release/`에 보존했다.
+
+### Unit 2.2 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 계약 | `src/shared/page-text-contract.js` — PageTextSource v1 공통 검증 |
+| 좌표 분석 | `src/analysis/page-text-coordinates.js` — PageTextCoordinates/TextItemRecord와 bbox 실패 정책 |
+| 좌표 투영 | `src/pdf/pdf-coordinate-space.js` — PDF user space ↔ viewport CSS point/rect 변환 |
+| 기존 분석·UI | `src/analysis/page-text-assessment.js`, `src/ui/pdf-viewer.js`, `index.html` — 공통 검증 재사용과 공개 좌표 상태 |
+| 단위·통합 검사 | `tests/page-text-coordinates.test.js`, `tests/pdf-text-integration.test.js`, `tests/helpers/pdf-fixtures.js` |
+| 실제 앱 검사 | `tests/helpers/pdf-selection-checks.js`, `tests/native-dialog.test.js` — 좌표 성공 문구와 기존 회귀 |
+| 버전·실행 | `package.json`, `package-lock.json`, `README.md` — 0.2.2와 검사 절차 |
+| 문서 | `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다.
+
+### Unit 2.2 — 3. 실행 방법
+
+프로젝트 루트에서 `npm run dev`로 개발 앱을 실행한다. `npm run build` 후 `npm start`는 빌드 자산 모드이고 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`는 버전 0.2.2 패키지다. 이전 앱이 실행 중이면 완전히 닫고 다시 시작한다.
+
+### Unit 2.2 — 4. 사용자가 직접 테스트할 방법
+
+1. 앱 footer에서 `Unit 2.2 · Text Item 좌표 분석`을 확인한다.
+2. 한글 본문이 충분한 PDF를 열고 앱 상태가 `현재 페이지의 텍스트와 위치를 분석할 수 있습니다.`로 바뀌는지 확인한다.
+3. 빈/도형 전용 페이지와 매우 짧은 페이지는 이전과 같이 분석 보류 안내가 나오면서 원문 Viewer는 유지되는지 확인한다.
+4. 고유 회전 PDF를 열고 페이지를 이동하거나 50–200% 확대·높이 맞춤을 사용해도 원문과 분석 상태가 유지되는지 확인한다.
+5. 일반 화면에는 Text Item 사각형·좌표 숫자·추출 원문이 표시되지 않는지 확인한다. 시각 Debug Overlay는 다음 Unit 2.5 범위다.
+6. PDF를 교체하거나 빠르게 페이지를 이동했을 때 이전 페이지의 상태가 돌아오지 않고 원본 불변 footer 안내가 유지되는지 확인한다.
+
+자동 검사는 `npm run format:check`, `npm test`, `npm run build`, `npm run package`, `npm run test:electron`, `npm run test:native`, `npm run test:shutdown` 순서로 실행한다. Electron·native·shutdown은 Windows 데스크톱 창 실행 권한이 필요하다.
+
+### Unit 2.2 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 전체 프로젝트 형식 |
+| `npm test` | 70/70 통과 | 기존 60개와 bbox·실패·viewport·실제 PDF.js 좌표 10개 |
+| 실제 PDF.js fixture | 통과 | 한글+이미지 6 bbox; offset viewBox·`UserUnit 2`·0/90/180/270도·50/100/200% 투영 일치; SHA-256 유지 |
+| `npm run build` | 통과 | Vite 16 modules, 로컬 PDF.js 자산 포함 |
+| `npm run package` | 통과 | Electron 44.0.0 Windows x64/ASAR 버전 0.2.2 |
+| `npm run test:electron` | 3/3 통과 | 개발·빌드·패키지 좌표 상태와 Viewer·오프라인·입력·보안 회귀 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창, 한글 PDF 텍스트·위치 분석 가능, 취소, 원본 해시 |
+| `npm run test:shutdown` | 17/18 | 개발 8/9, 패키지 9/9. 개발 즉시 종료 1회에서 OPEN-09 GPU 진단 재현 |
+
+종료 18회 모두 창이 닫히고 프로세스 종료 코드 0과 개발 포트 해제를 확인했다. GPU 오류를 숨기거나 그래픽·sandbox 설정을 낮추지 않았다.
+
+### Unit 2.2 — 6. 예상되는 Edge Case
+
+- viewBox 원점이 0이 아니거나 `userUnit`이 1이 아니어도 저장 bbox는 회전 전 PDF user space에 남고 화면 투영만 달라진다.
+- 고유 회전 0/90/180/270도는 normalized bbox를 바꾸지 않고 viewport 방향만 바꾼다. 그 외 회전 metadata는 부분 해석하지 않고 보류한다.
+- 회전·반사·비직교 text transform은 네 모서리의 축 정렬 bbox로 근사하므로 실제 잉크보다 넓을 수 있다.
+- 세로쓰기는 진행축을 보수적으로 계산하며 실제 세로 조판·대체 글꼴별 시각 일치는 아직 보장하지 않는다.
+- 빈 TextContent는 오류가 아니라 빈 좌표 배열이고, 퇴화 transform이나 역전 font metric은 부분 좌표 없이 보류한다.
+- 화면 확대 배율과 `userUnit`은 viewport CSS 좌표에 반영하지만 device pixel ratio는 Canvas backing bitmap에만 적용된다.
+
+### Unit 2.2 — 7. 알려진 제한사항
+
+bbox는 글리프 윤곽, 실제 잉크 범위, PDF clipping path, 이미지·수식 영역을 나타내지 않는 근사값이다. 설치된 PDF.js와 수학적 좌표 변환은 대조했지만 sourceIndex별 bbox를 실제 Canvas 위에서 시각 비교하지 않았다. 세로쓰기 증거는 합성 레코드뿐이고 Unit 1.0 실제 샘플 행렬도 미착수다. 이 결과만으로 키워드·영역·CBT 지원을 선언하지 않는다.
+
+### Unit 2.2 — 8. Technical Debt
+
+- OPEN-05의 bbox 수학 계약은 부분 해결됐지만 글리프/클리핑 여백과 실화면 정합은 Unit 2.5에서 확인해야 한다.
+- 줄/블록·키워드·영역·지원 판정은 Unit 2.3~2.6에 남아 있다.
+- 세로쓰기와 복잡한 transform은 실제 재배포 가능한 PDF 샘플을 추가해 다시 검증해야 한다.
+- OPEN-09는 이번 종료 반복에서도 개발 즉시 종료 한 번에 재현됐다.
+
+### Unit 2.2 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 2.2 기능의 확인된 선행 수정 사항은 없다. ROADMAP 실행 순서상 다음은 Unit 2.5지만 사용자의 명시적 요청 전에는 착수하지 않는다. Unit 2.5에서는 sourceIndex와 bbox를 개발용 Debug Overlay로 시각 대조하는 기능만 추가하고 키워드·영역·CBT를 앞당기면 안 된다. 프로젝트 전체 무오류 완료에는 OPEN-09 해결과 Unit 1.0 샘플 행렬이 계속 필요하다.
+
+### Unit 2.2 — 10. Git Commit Message
+
+제안 메시지: `feat(analysis): derive PDF text item coordinates`
+
+실제 Git 커밋은 만들지 않았다. 메시지는 사용자가 전체 diff와 검사 결과를 검토한 뒤 사용할 제안이다.
+
 ## 0.2.1 작업 기록 — 2026-09-02
 
 **Unit 2.1 현재 페이지 Text Content 추출과 페이지별 품질 분류를 구현했다. 좌표·키워드·영역·CBT는 추가하지 않았으며 기존 원문 Viewer는 그대로 동작한다.**
