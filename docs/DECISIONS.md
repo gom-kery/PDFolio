@@ -1,9 +1,9 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.1.1`
+- 문서 버전: `0.1.2`
 - 갱신일: 2026-09-01
-- 상태: Unit 1.1 파일 선택 구현·기능 검사 통과. 기존 종료 GPU 오류로 전체 완료 보류. Unit 1.0과 1.2 이후 기능은 미착수.
+- 상태: Unit 1.2 파일 드롭 구현·기능 검사 통과. 기존 종료 GPU 오류로 전체 완료 보류. Unit 1.0과 1.3 이후 기능은 미착수.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
 이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 0.2의 실행 환경, 0.3의 기본 Shell에 이어 0.4에서 Windows x64 패키지와 실행 경계를 검증했다. 문제 PDF, 인식 실험, PDF 벤치마크는 여전히 없다.
@@ -278,8 +278,8 @@
 
 ### ADR-018 — 인자 없는 선택 API와 읽기 전용 기본 검사
 
-- 상태: **채택 — Unit 1.1 구현·기능 검사 통과**, 2026-09-01.
-- IPC: preload에 selectPdfFile() 하나만 추가한다. renderer에서 경로·필터·IPC 채널을 받지 않는다. main은 소유 창의 webContents, mainFrame 객체, 정확한 renderer URL과 인자 없음 조건을 검사한다. 같은 주소를 연 다른 창의 실제 요청도 거부했다. [Electron IPC 발신자 검증](https://www.electronjs.org/docs/latest/tutorial/security#17-validate-the-sender-of-all-ipc-messages).
+- 상태: **채택 — Unit 1.1 구현·기능 검사 통과**, 2026-09-01. 당시 preload에는 selectPdfFile() 하나만 추가했고 Unit 1.2의 좁은 드롭 API는 ADR-019에서 확장했다.
+- IPC: renderer에서 경로·필터·IPC 채널을 받지 않는다. main은 소유 창의 webContents, mainFrame 객체, 정확한 renderer URL과 인자 없음 조건을 검사한다. 같은 주소를 연 다른 창의 실제 요청도 거부했다. [Electron IPC 발신자 검증](https://www.electronjs.org/docs/latest/tutorial/security#17-validate-the-sender-of-all-ipc-messages).
 - 선택 창: 소유 창에 연결한 비동기 showOpenDialog로 PDF 한 개만 선택하고 dontAddToRecent를 사용한다. 앱은 최근 목록·파일 경로를 따로 저장하지 않는다. Windows 자체의 대화상자 기록까지 제거하는 기능은 아니다. [Electron 파일 선택 API](https://www.electronjs.org/docs/latest/api/dialog#dialogshowopendialogwindow-options).
 - 읽기: 일반 절대 Windows 경로와 .pdf 확장자를 확인한다. UNC·장치·상대 경로·대체 데이터 스트림·예약 장치 이름을 거부하며 실제 경로로 해석한 결과도 검사한다. 선택한 파일을 r 모드로 열고 같은 핸들에서 파일 여부·크기·앞 9바이트를 읽은 뒤 닫는다. 취소·중복·불신 IPC는 읽기를 시작하지 않는다.
 - 서명: 첫 줄의 %PDF-1.0~1.7 또는 %PDF-2.0 뒤 CR/LF만 허용한다. 8비트 값을 보존해 검사하고 짧은 읽기를 처리한다. 앞에 다른 데이터가 붙은 비표준 파일은 수용하지 않는다. 기본 서명 통과가 구조 유효성·암호 없음·렌더링 가능을 보장하지 않는다. 파서로 손상/암호를 판정하는 일은 Unit 1.3이다.
@@ -290,6 +290,19 @@
 - 검증: 실제 파일의 해시·수정 시각, 잘못된 서명·고비트 서명·빈 파일·크기 경계·핸들 정리·실패 재시도·다른 창 발신자를 확인했다. 패키지에서는 생성한 시험 파일의 읽기 권한만 일시 거부하고 정확히 복원해 실제 접근 거부 안내와 복원 후 동일 해시를 확인했다. 개인 파일 권한은 변경하지 않았다.
 - 도구 구분: Electron 3경로 검사는 native dialog 결과를 제어하지만 IPC·파일 읽기·UI는 실제로 실행한다. test:native는 별도로 실제 Windows 대화상자의 선택·취소를 확인한다. UI 자동화 패턴이 없는 기본 컨트롤은 해당 앱 소유 대화상자 안에서 확인한 핸들만 사용한다. 테스트의 디버그 연결·권한 fixture·UI 제어는 제품 패키지에 포함하지 않는다.
 
+### ADR-019 — 실제 File 기반 드롭과 파일 선택 검사 경로 공유
+
+- 상태: **채택 — Unit 1.2 구현·기능 검사 통과**, 2026-09-01. 전체 무오류 완료 판정은 OPEN-09 때문에 보류.
+- 범위: Windows 탐색기의 로컬 PDF 한 파일 드롭, 드롭 상태 표시와 한국어 결과 안내만 추가한다. 다중 파일 일괄 처리·폴더 탐색·URL 다운로드·PDF 파싱/렌더링·저장은 구현하지 않는다.
+- 경로 경계: 폐기된 File.path에 의존하지 않고 sandbox preload의 Electron `webUtils.getPathForFile(file)`을 사용한다. renderer는 실제 File 객체 배열만 전달하고 preload가 얻은 경로는 고정 IPC로 즉시 main에 보내며 renderer에 반환하지 않는다. 메모리에서 생성해 디스크 경로가 없는 File은 빈 경로로 거절한다. [Electron webUtils](https://www.electronjs.org/docs/latest/api/web-utils).
+- IPC: main은 선택과 별도의 고정 채널에서도 소유 webContents·mainFrame 객체·정확한 URL·인자 개수와 배열/문자열을 검사한다. raw ipcRenderer·범용 경로 입력·파일 읽기 API는 노출하지 않는다. 다른 창/프레임, 잘못된 인자와 늦게 완료된 요청은 결과를 적용하지 않는다.
+- 동일 검사: 한 파일의 드롭 경로는 Unit 1.1의 `inspectPdfFile`에 연결한다. 일반 로컬 경로·확장자·실제 경로·파일 여부·50 MiB·첫 줄 서명·읽기 전용 핸들·변경 감지를 그대로 적용하고 이름/크기만 반환한다. 폴더는 같은 검사에서 NOT_A_FILE로 거절한다.
+- 거절 정책: renderer는 파일이 없는 URL 드롭과 빈 전송, 다중 드롭을 읽기 전에 거절한다. main도 빈 배열·다중 경로·빈 경로를 별도로 거절한다. 실패·취소는 직전 성공 정보를 유지하며 개인 경로나 예외 메시지를 표시하지 않는다.
+- 순서: 파일 선택과 드롭은 main의 같은 실행 잠금과 UI의 같은 진행 상태를 공유한다. 선택 창이 늦게 끝나거나 드롭 검사가 겹쳐 이전 요청이 최신 화면을 덮지 않는다.
+- UI/접근성: 문서 작업 공간에 드롭 안내와 시각적 drag-over 상태를 추가한다. 상태는 role=status 문구로도 전달하고 기존 PDF 선택 버튼을 키보드 대안으로 유지한다. 브라우저 기본 드롭 탐색은 막지만 앱의 기존 탐색/새 창 제한을 완화하지 않는다.
+- 검증: 경계 검사 43개와 Electron 개발·빌드·패키지 3경로에서 실제 디스크 파일 drag event, 다중 파일·폴더·URL·빈 경로·빈 전송, 원본 해시·이전 선택 유지·발신자·입력 경쟁을 확인했다. 실제 Windows 선택 창 회귀도 통과했다. GUI 검사는 사용자 Windows 실행 환경에서 수행했으며 제품의 GPU·sandbox·네트워크 설정은 변경하지 않았다.
+- 제한: Windows 탐색기 기반 로컬 파일만 검증했다. 브라우저/메일의 가상 항목, shell namespace, 클라우드 자리표시자·매핑 드라이브의 실제 저장 매체 판별은 보장하지 않는다. 파일 감시·PDF 구조 판정·본문 표시와 열린 문서 핸들 수명은 후속 Unit 범위다.
+
 ## 5. 유보 항목과 해결 상태
 
 | ID | 항목 | 결정 시점 | 지금의 처리 |
@@ -297,7 +310,7 @@
 | OPEN-01 | 지원 OS 최소 버전·패키징 도구·정확한 의존성 버전 | Unit 0.2 | 해결: Windows 11 x64, ADR-011/013의 버전과 Packager 채택 |
 | OPEN-02 | renderer ESM과 sandbox preload 연결·로컬 자산 프로토콜 | Unit 0.2~0.4 | 해결: ADR-012/015/016. 현재 Shell의 Windows x64 패키지·거부 경로 검증 완료. PDF 자산은 도입 시 재검증 |
 | OPEN-03 | 실제 대표 PDF와 지원 프로파일 목록 | Unit 1.0~2.6 | 샘플 행렬만 작성. 사용자 문서 업로드/공유 요청 없음 |
-| OPEN-04 | 파일 크기·Canvas 픽셀·캐시·시간 예산 | Unit 1.1 / 1.6 | 파일 선택은 임시 50 MiB 상한. 파서·Canvas·캐시·시간 예산은 측정 후 결정 |
+| OPEN-04 | 파일 크기·Canvas 픽셀·캐시·시간 예산 | Unit 1.1 / 1.6 | 파일 선택·드롭은 임시 50 MiB 상한. 파서·Canvas·캐시·시간 예산은 측정 후 결정 |
 | OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 근거 없는 고정값을 확정하지 않음 |
 | OPEN-06 | 서명·설치형/포터블 공개 배포·업데이트 정책 | MVP 검증 후 | 로컬 테스트 패키지와 구분; 이번 범위 밖 |
 | OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: 종료 코드 0·포트 해제는 정상. test:shutdown으로 종료 전후 로그 수집; 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |

@@ -148,6 +148,7 @@ for (const mode of ['dev', 'built', 'packaged']) {
         assert.deepEqual(evidence.renderer.bridgeKeys, [
           'runtimeInfo',
           'selectPdfFile',
+          'inspectDroppedPdfFiles',
         ]);
         assert.equal(
           evidence.renderer.bridgeFrozen && evidence.renderer.infoFrozen,
@@ -464,6 +465,12 @@ for (const mode of ['dev', 'built', 'packaged']) {
           evidence.securityErrors.join('\n'),
         );
         evidence.result = 'passed';
+      } catch (error) {
+        evidence.failure = {
+          message: error.message,
+          stack: error.stack,
+        };
+        throw error;
       } finally {
         try {
           await application?.close();

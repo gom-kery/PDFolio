@@ -1,6 +1,6 @@
 {
   "name": "local-pdf-cbt",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Local-first PDF CBT desktop application — foundation only",
   "type": "module",
@@ -21,7 +21,7 @@
     "start": "electron .",
     "package": "npm run build && node scripts/package.js",
     "pretest": "node scripts/check-runtime.js",
-    "test": "node --test tests/foundation.test.js tests/pdf-file.test.js tests/pdf-selection.test.js",
+    "test": "node --test tests/foundation.test.js tests/pdf-file.test.js tests/pdf-selection.test.js tests/pdf-drop.test.js",
     "pretest:electron": "node scripts/check-runtime.js",
     "test:electron": "node --test --test-concurrency=1 tests/electron.test.js",
     "test:shutdown": "powershell.exe -NoProfile -File tests/shutdown.ps1",

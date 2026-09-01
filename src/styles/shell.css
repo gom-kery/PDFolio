@@ -108,6 +108,16 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 0.75rem;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.workspace[data-drop-state='over'] {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  background: var(--color-accent-soft);
 }
 
 .workspace-header {

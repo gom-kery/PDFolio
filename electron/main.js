@@ -22,6 +22,8 @@ import {
   createPdfSelectionHandler,
   PDF_SELECTION_CHANNEL,
 } from './pdf-selection.js';
+import { createPdfDropHandler, PDF_DROP_CHANNEL } from './pdf-drop.js';
+import { createPdfInputGate } from './pdf-input.js';
 
 const isDevelopment = !app.isPackaged && process.argv.includes('--dev');
 const rendererUrl = isDevelopment ? `${DEV_ORIGIN}/` : APP_URL;
@@ -58,15 +60,28 @@ async function createWindow() {
     event.preventDefault(),
   );
 
+  const runPdfInputExclusive = createPdfInputGate();
   ipcMain.handle(
     PDF_SELECTION_CHANNEL,
     createPdfSelectionHandler({
       window,
       rendererUrl,
       showOpenDialog: (...args) => dialog.showOpenDialog(...args),
+      runExclusive: runPdfInputExclusive,
     }),
   );
-  window.once('closed', () => ipcMain.removeHandler(PDF_SELECTION_CHANNEL));
+  ipcMain.handle(
+    PDF_DROP_CHANNEL,
+    createPdfDropHandler({
+      window,
+      rendererUrl,
+      runExclusive: runPdfInputExclusive,
+    }),
+  );
+  window.once('closed', () => {
+    ipcMain.removeHandler(PDF_SELECTION_CHANNEL);
+    ipcMain.removeHandler(PDF_DROP_CHANNEL);
+  });
 
   await window.loadURL(rendererUrl);
   window.show();

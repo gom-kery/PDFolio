@@ -9,11 +9,46 @@ import { createPdfFixtures } from './pdf-fixtures.js';
 /** Use controlled native-dialog results, but real IPC, filesystem checks and renderer UI. */
 export async function checkPdfSelection(application, page, artifacts) {
   const files = await createPdfFixtures(path.join(artifacts, 'pdf-inputs'));
-  const hash = async () =>
+  const hash = async (file = files.valid) =>
     createHash('sha256')
-      .update(await readFile(files.valid))
+      .update(await readFile(file))
       .digest('hex');
   const originalHash = await hash();
+  const replacementHash = await hash(files.replacement);
+  const dispatchDrop = async ({ filePaths = [], items = [] }) => {
+    const box = await page.locator('.workspace').boundingBox();
+    assert.ok(box);
+    const session = await page.context().newCDPSession(page);
+    const data = {
+      items,
+      files: filePaths,
+      dragOperationsMask: 1,
+    };
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    try {
+      await session.send('Input.dispatchDragEvent', {
+        type: 'dragEnter',
+        ...point,
+        data,
+      });
+      assert.equal(
+        await page.locator('.workspace').getAttribute('data-drop-state'),
+        'over',
+      );
+      await session.send('Input.dispatchDragEvent', {
+        type: 'dragOver',
+        ...point,
+        data,
+      });
+      await session.send('Input.dispatchDragEvent', {
+        type: 'drop',
+        ...point,
+        data,
+      });
+    } finally {
+      await session.detach();
+    }
+  };
   await application.evaluate(({ dialog }) => {
     globalThis.unit11OriginalDialog = dialog.showOpenDialog;
     globalThis.unit11DialogCalls = 0;
@@ -53,17 +88,22 @@ export async function checkPdfSelection(application, page, artifacts) {
         });
         try {
           await other.loadURL(url);
-          return await other.webContents.executeJavaScript(
-            'window.localPdfCbt.selectPdfFile()',
-          );
+          return {
+            picker: await other.webContents.executeJavaScript(
+              'window.localPdfCbt.selectPdfFile()',
+            ),
+            drop: await other.webContents.executeJavaScript(
+              "window.localPdfCbt.inspectDroppedPdfFiles([new File(['%PDF-1.7\\n'], 'foreign.pdf')])",
+            ),
+          };
         } finally {
           other.destroy();
         }
       },
     );
     assert.deepEqual(foreignRequest, {
-      status: 'error',
-      code: 'INVALID_REQUEST',
+      picker: { status: 'error', code: 'INVALID_REQUEST' },
+      drop: { status: 'error', code: 'INVALID_REQUEST' },
     });
     assert.equal(
       await application.evaluate(() => globalThis.unit11DialogCalls),
@@ -119,6 +159,110 @@ export async function checkPdfSelection(application, page, artifacts) {
       path: path.join(artifacts, 'selection-error.png'),
       fullPage: true,
     });
+
+    await dispatchDrop({ filePaths: [files.replacement] });
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#selected-file-name').textContent ===
+          '다른 문서.pdf' &&
+        document.querySelector('#selection-status').dataset.state ===
+          'selected',
+    );
+    assert.match(
+      await page.locator('#selection-status').innerText(),
+      /PDF 파일 드롭을 완료/,
+    );
+    assert.equal(await hash(files.replacement), replacementHash);
+    await page.screenshot({
+      path: path.join(artifacts, 'dropped-pdf.png'),
+      fullPage: true,
+    });
+
+    for (const [name, input, message] of [
+      [
+        'multiple',
+        { filePaths: [files.valid, files.replacement] },
+        'PDF 파일은 한 개씩',
+      ],
+      ['folder', { filePaths: [files.folder] }, '폴더 대신 PDF 파일 한 개'],
+      [
+        'url',
+        {
+          items: [
+            {
+              mimeType: 'text/uri-list',
+              data: 'https://example.invalid/document.pdf',
+              title: '',
+              baseURL: '',
+            },
+          ],
+        },
+        '웹 주소는 열 수 없습니다',
+      ],
+    ]) {
+      await dispatchDrop(input);
+      await page.waitForFunction(
+        (expected) =>
+          document
+            .querySelector('#selection-status')
+            .textContent.includes(expected),
+        message,
+      );
+      assert.equal(
+        await page.locator('#selected-file-name').innerText(),
+        '다른 문서.pdf',
+      );
+      cases.push(`drop-${name}`);
+    }
+
+    await page.evaluate(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(
+        new File(['%PDF-1.7\n'], 'memory-only.pdf', {
+          type: 'application/pdf',
+        }),
+      );
+      document.querySelector('.workspace').dispatchEvent(
+        new DragEvent('drop', {
+          bubbles: true,
+          cancelable: true,
+          dataTransfer: transfer,
+        }),
+      );
+    });
+    await page.waitForFunction(() =>
+      document
+        .querySelector('#selection-status')
+        .textContent.includes('로컬 파일 경로를 확인할 수 없습니다'),
+    );
+    assert.equal(
+      await page.locator('#selected-file-name').innerText(),
+      '다른 문서.pdf',
+    );
+    cases.push('drop-empty-path');
+
+    await page.evaluate(() => {
+      const transfer = new DataTransfer();
+      document.querySelector('.workspace').dispatchEvent(
+        new DragEvent('drop', {
+          bubbles: true,
+          cancelable: true,
+          dataTransfer: transfer,
+        }),
+      );
+    });
+    await page.waitForFunction(() =>
+      document
+        .querySelector('#selection-status')
+        .textContent.includes('드롭한 항목에서 파일을 찾지 못했습니다'),
+    );
+    assert.equal(
+      await page.locator('#selected-file-name').innerText(),
+      '다른 문서.pdf',
+    );
+    cases.push('drop-empty');
+    assert.equal(await hash(), originalHash);
+    assert.equal(await hash(files.replacement), replacementHash);
     let nativeAccessDenied = false;
     if (await application.evaluate(({ app }) => app.isPackaged)) {
       const helper = spawn(
@@ -160,7 +304,7 @@ export async function checkPdfSelection(application, page, artifacts) {
         );
         assert.equal(
           await page.locator('#selected-file-name').innerText(),
-          '한글 문서 & 연습.PDF',
+          '다른 문서.pdf',
         );
         nativeAccessDenied = true;
       } finally {
@@ -225,6 +369,15 @@ export async function checkPdfSelection(application, page, artifacts) {
     return {
       cases,
       originalHashUnchanged: true,
+      droppedHashUnchanged: true,
+      droppedFile: 'selected through Chromium drag event and shared inspector',
+      rejectedDrops: [
+        'multiple',
+        'folder',
+        'URL',
+        'empty path',
+        'empty transfer',
+      ],
       nativeAccessDenied,
       foreignWindowBlocked: true,
       canceledAndFailedSelectionPreserved: true,

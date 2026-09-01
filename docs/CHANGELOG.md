@@ -2,6 +2,101 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.1.2 작업 기록 — 2026-09-01
+
+**Unit 1.2 파일 드롭 구현·기능 검사 통과. 기존 GPU 종료 회귀가 실패하여 전체 무오류 완료 판정은 보류한다.**
+
+작업 전에 현재 프로젝트 파일·PROJECT_BIBLE·ROADMAP·DECISIONS와 Git 상태를 확인했다. 사용자의 명시적 Unit 1.2 요청에 따라 드롭을 Unit 1.1 검사 경로에 연결하는 범위만 진행했다. Unit 0.4의 미해결 상태나 Unit 1.0 미착수를 완료로 바꾸지 않았고, PDF.js·페이지 표시·파일 감시·다중 파일 가져오기·CBT는 추가하지 않았다.
+
+### Unit 1.2 — 1. 구현한 내용
+
+- Windows 탐색기의 실제 로컬 PDF 한 개를 문서 작업 공간에 드롭해 Unit 1.1과 같은 확장자·경로·파일·크기·서명·변경 검사를 수행한다.
+- sandbox preload에서 Electron `webUtils.getPathForFile(File)`로 실제 파일 경로를 얻어 고정 IPC로 main에 전달한다. renderer에는 경로·내용·원시 IPC·범용 파일 API를 반환하지 않는다.
+- main에서 소유 창·mainFrame·정확한 URL·인자 모양을 재검사하고 빈 배열·다중 경로·빈 경로를 읽기 전에 거절한다. 폴더는 공통 파일 검사에서 거절한다.
+- 파일 선택과 드롭이 같은 실행 잠금과 UI 진행 상태를 사용한다. 성공은 이름·크기를 교체하고 실패·취소는 직전 성공 정보를 유지한다.
+- 드래그 중인 작업 공간의 시각 상태, 드롭 성공/실패 한국어 안내와 기존 키보드 사용 가능한 선택 버튼을 제공한다. 브라우저 기본 파일/URL 탐색은 차단한다.
+
+### Unit 1.2 — 2. 수정/생성된 파일
+
+| 구분 | 프로젝트 루트 기준 파일 |
+| --- | --- |
+| 입력 공통 경계 신규 | electron/pdf-input.js |
+| 드롭 IPC 신규 | electron/pdf-drop.js |
+| 선택/드롭 공통 잠금·등록 | electron/pdf-selection.js, electron/main.js |
+| 실제 File 경로 추출 API | electron/preload.cjs |
+| 드롭 UI·안내·스타일 | src/ui/pdf-selection.js, index.html, src/styles/shell.css |
+| 드롭 경계/실제 Electron 검사 | tests/pdf-drop.test.js, tests/electron.test.js, tests/helpers/pdf-selection-checks.js |
+| 버전·검사 명령 | package.json, package-lock.json |
+| 실행·상태·결정 기록 | README.md, PROJECT_BIBLE.md, ROADMAP.md, DECISIONS.md, CHANGELOG.md |
+
+새 런타임·개발 의존성은 추가하지 않았다. PDF.js도 아직 설치하지 않았다.
+
+### Unit 1.2 — 3. 실행 방법
+
+프로젝트 루트에서 `npm run dev`로 개발 앱을 실행한다. `npm run build` 후 `npm start`는 빌드 자산 모드이며, 현재 생성된 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`는 버전 0.1.2 패키지다. main/preload 변경이므로 실행 중이던 앱은 완전히 닫고 다시 시작한다.
+
+### Unit 1.2 — 4. 사용자가 직접 테스트할 방법
+
+1. 앱의 `Unit 1.2 · PDF 파일 선택과 드롭`과 문서 작업 공간의 한 파일 안내를 확인한다.
+2. Windows 탐색기의 작은 로컬 PDF 한 개를 작업 공간에 드롭한다. 파일 이름·크기와 드롭 완료 안내가 표시되고 PDF 본문은 아직 보이지 않아야 한다.
+3. 다른 정상 PDF를 드롭한 뒤 PDF 두 개를 함께 드롭한다. 한 파일 안내와 함께 직전 정상 PDF 정보를 유지해야 한다.
+4. 폴더, 브라우저의 URL, PDF가 아닌 파일, 확장자만 PDF인 파일을 각각 드롭한다. 앱이 탐색하거나 다운로드하지 않고 처리된 오류를 표시해야 한다.
+5. 선택 버튼과 드롭을 번갈아 사용하고 선택 창에서 취소한다. 입력이 겹칠 때 중복 처리하지 않고 직전 성공 상태를 유지해야 한다.
+6. 필요하면 드롭 전후 원본 PDF의 수정 시각·크기·해시를 비교한다. 원본이 바뀌지 않아야 한다.
+
+개인 문서로 오류 사례를 만들기 위해 이름·내용·권한을 변경하지 않는다. 별도 복사본이나 합성 시험 파일을 사용한다.
+
+### Unit 1.2 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 내용 |
+| --- | --- | --- |
+| `npm test` | 통과, 43/43 | 공통 파일 검사, 신뢰 경계, 한/다중/빈 경로, 폴더 결과, 오류 매핑, 선택/드롭 경쟁 |
+| `npm run build` | 통과 | Vite 8.2.2 renderer 빌드, 새 드롭 UI 포함 |
+| `npm run package` | 통과 | Electron 44.0.0 Windows x64/ASAR 버전 0.1.2 재생성 |
+| `npm run test:electron` | 통과, 3/3 | 개발·빌드·패키지에서 실제 디스크 파일 drag event, 다중·폴더·URL·빈 경로·빈 전송 거절, UI·원본 해시·보안 회귀 |
+| `npm run test:native` | 통과, 1/1 | 실제 Windows 선택 창의 한글 PDF 선택·취소와 원본 불변 회귀 |
+| 화면 확인 | 통과 | 드롭 성공 화면의 이름·크기·상태·작은 창 배치와 Unit 1.2 안내 확인 |
+| `npm run test:shutdown` | 실패, 16/18 | 개발 모드 즉시 종료 2회에서 기존 GPU 진단 재현. 전부 exit code 0, 창 종료·포트 해제 정상 |
+| 전체 무오류 완료 | **보류** | OPEN-09 미해결. Unit 1.2 기능 성공과 구분 |
+| PDF 파싱·렌더링 | 미실행 | Unit 1.3 범위이며 의존성/기능 미추가 |
+
+최종 Electron 기능 증거는 `work/electron-tests/dev-zF6jot`, `built-lu6uI4`, `packaged-2VAOk0`, 실제 선택 창 증거는 `work/native-dialog-tests/case-4Jy4Mp`, 종료 결과는 `work/shutdown-tests/c3483c482ca840cfb2b93245efc7d490`에 있다. 생성 자료는 Git과 앱 패키지에서 제외한다.
+
+격리된 도구 환경에서 먼저 시도한 GUI 검사는 GPU subprocess 종료와 초기 자산 URL `ERR_FAILED`로 시작 단계에서 실패했다. 제품의 그래픽·sandbox 설정을 바꾸지 않고 사용자 Windows 실행 환경에서 다시 검사해 세 Electron 모드가 통과했다. 이후 종료 전용 검사에서는 기존 OPEN-09가 별도로 재현됐으므로 환경 실패와 기능 통과를 합쳐 숨기지 않는다.
+
+### Unit 1.2 — 6. 예상되는 Edge Case
+
+- PDF 여러 개: 첫 파일만 임의 선택하지 않고 전체 입력을 거절한다.
+- 폴더·shell 항목: 폴더를 순회하지 않는다. 일반 파일이 아니면 공통 검사에서 거절하며 가상 항목의 호환성은 보장하지 않는다.
+- URL·텍스트·빈 전송: 외부 요청이나 페이지 탐색 없이 안내한다.
+- 메모리 File·빈 경로: preload의 지원 API가 빈 경로를 반환하면 파일시스템 접근 전에 거절한다.
+- 선택/드롭 중복과 늦은 결과: 같은 잠금으로 한 번만 처리하며 창/프레임이 바뀐 결과는 적용하지 않는다.
+- 잘못된 확장자·서명·권한·용량: Unit 1.1과 같은 처리이며 실패 시 이전 성공 정보를 유지한다.
+
+### Unit 1.2 — 7. 알려진 제한사항
+
+Windows 탐색기의 일반 로컬 파일 드롭만 검증했다. 브라우저·메일·압축 프로그램의 가상 파일, shell namespace, 클라우드 자리표시자, 매핑 드라이브의 실제 저장 위치는 보장하지 않는다. 다중 파일 큐·폴더 재귀·URL 다운로드는 지원하지 않는다.
+
+파일 이름과 크기만 표시한다. PDF.js·본문·페이지 수·손상/암호 판정·파일 감시·영구 저장은 없다. 기존 간헐 GPU 종료 오류와 서명 없는 로컬 테스트 패키지 제한도 유지한다.
+
+### Unit 1.2 — 8. Technical Debt
+
+- OPEN-09: 빠른 종료 GPU 진단의 원인 규명·안전한 수정과 반복 검증이 필요하다.
+- Unit 1.0: 전체 문서 유형·실패 정책·대표 샘플 행렬은 여전히 미착수다.
+- Unit 1.3: 선택/드롭된 승인 파일을 PDF.js에 전달할 main 보유 수명·교체/취소·파서 오류 계약을 설계해야 한다.
+- Unit 1.6: 임시 50 MiB 상한과 실제 파서·렌더 성능·메모리 예산을 측정해야 한다.
+- 가상 파일/클라우드 항목 지원이 실제 요구가 되면 Windows 제공자별 경로·다운로드 동작과 Local First 경계를 별도 검토해야 한다.
+
+### Unit 1.2 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 1.2의 드롭 기능 검사는 통과했지만 전체 오류 없음 기준을 충족하려면 OPEN-09를 해결해야 한다. Unit 0.4·Phase 0·Unit 1.1·1.2를 무조건 완료로 표시하지 않는다. Unit 1.3 PDF.js 렌더링은 이번 요청에 포함하지 않았으며 별도 요청과 구조 검토 후 진행한다.
+
+### Unit 1.2 — 10. Git Commit Message
+
+제안: `feat(pdf): add validated drag and drop for unit 1.2`
+
+---
+
 ## 0.1.1 작업 기록 — 2026-09-01
 
 **Unit 1.1 파일 선택 구현·기능 검사 통과. 기존 GPU 종료 회귀가 실패하여 전체 무오류 완료 판정은 보류한다.**

@@ -27,7 +27,11 @@
       </header>
 
       <main class="app-main">
-        <section class="workspace" aria-labelledby="workspace-title">
+        <section
+          class="workspace"
+          aria-labelledby="workspace-title"
+          aria-describedby="selection-status drop-instruction"
+        >
           <header class="workspace-header">
             <h2 id="workspace-title">문서 작업 공간</h2>
             <span id="document-state" class="workspace-caption">문서 없음</span>
@@ -50,9 +54,11 @@
             </div>
             <h3 id="document-title">아직 열린 PDF가 없습니다</h3>
             <p id="document-description">
-              상단의 PDF 선택 버튼으로 파일을 선택할 수 있습니다.
+              상단 버튼으로 선택하거나 이 영역에 PDF를 놓을 수 있습니다.
             </p>
-            <p>현재는 파일 선택만 지원합니다. 임시 크기 상한은 50 MiB입니다.</p>
+            <p id="drop-instruction">
+              로컬 PDF 한 개만 지원합니다. 임시 크기 상한은 50 MiB입니다.
+            </p>
           </div>
         </section>
 
@@ -86,11 +92,10 @@
             </div>
           </dl>
           <div class="scope-note">
-            <h3>파일 선택 단계</h3>
+            <h3>파일 입력 단계</h3>
             <p>
-              선택한 파일의 이름과 크기만 표시합니다. 페이지
-              표시·드롭·문제풀이는 아직 지원하지 않으며 선택은 저장되지
-              않습니다.
+              선택하거나 드롭한 파일의 이름과 크기만 표시합니다. 페이지
+              표시·문제풀이는 아직 지원하지 않으며 선택은 저장되지 않습니다.
             </p>
           </div>
         </aside>
@@ -98,7 +103,7 @@
 
       <footer class="app-footer">
         <p>파일이나 학습 데이터를 외부로 전송하지 않습니다.</p>
-        <p>Unit 1.1 · PDF 파일 선택</p>
+        <p>Unit 1.2 · PDF 파일 선택과 드롭</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>
