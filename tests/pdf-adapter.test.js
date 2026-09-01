@@ -32,7 +32,7 @@ const errorApi = {
   RenderingCancelledException: TestCanceledError,
 };
 
-test('PDF adapter renders only page 1 with local same-version asset URLs', async () => {
+test('PDF adapter opens page 1 and renders bounded page numbers with local assets', async () => {
   const evidence = { cleanup: 0, destroyed: 0 };
   const page = {
     getViewport: ({ scale }) => {
@@ -48,7 +48,8 @@ test('PDF adapter renders only page 1 with local same-version asset URLs', async
   const pdfDocument = {
     numPages: 7,
     getPage: async (number) => {
-      assert.equal(number, 1);
+      evidence.pageNumbers ||= [];
+      evidence.pageNumbers.push(number);
       return page;
     },
     destroy: async () => evidence.destroyed++,
@@ -93,8 +94,28 @@ test('PDF adapter renders only page 1 with local same-version asset URLs', async
   assert.equal(evidence.render.canvas, canvas);
   assert.deepEqual(evidence.render.transform, [2, 0, 0, 2, 0, 0]);
   assert.equal(evidence.cleanup, 1);
+  for (const pageNumber of [0, 8, 1.5, Number.NaN])
+    assert.deepEqual(await adapter.renderPage({ pageNumber, canvas }), {
+      status: 'error',
+      code: 'INVALID_PAGE_NUMBER',
+      pageNumber: 1,
+      pageCount: 7,
+    });
+  assert.deepEqual(await adapter.renderPage({ pageNumber: 7, canvas }), {
+    status: 'rendered',
+    pageNumber: 7,
+    pageCount: 7,
+    width: 210.5,
+    height: 297.5,
+  });
+  assert.deepEqual(evidence.pageNumbers, [1, 7]);
+  assert.equal(evidence.cleanup, 2);
   await adapter.dispose();
   assert.equal(evidence.destroyed, 1);
+  assert.deepEqual(await adapter.renderPage({ pageNumber: 1, canvas }), {
+    status: 'error',
+    code: 'NO_DOCUMENT',
+  });
 });
 
 test('PDF parser failures become stable public states', async () => {
@@ -128,6 +149,74 @@ test('PDF parser failures become stable public states', async () => {
     { status: 'error', code: 'PASSWORD_REQUIRED' },
   );
   assert.equal(destroyed, 1);
+});
+
+test('rapid page requests cancel older work and keep the newest page', async () => {
+  let rejectPageTwo;
+  let pageTwoStarted;
+  const pageTwoReady = new Promise((resolve) => (pageTwoStarted = resolve));
+  const evidence = { canceled: [], cleanup: [] };
+  const makePage = (pageNumber) => ({
+    getViewport: () => ({ width: 100 + pageNumber, height: 200 }),
+    render: () => {
+      if (pageNumber !== 2)
+        return { promise: Promise.resolve(), cancel: () => assert.fail() };
+      pageTwoStarted();
+      return {
+        promise: new Promise((_, reject) => (rejectPageTwo = reject)),
+        cancel: () => {
+          evidence.canceled.push(pageNumber);
+          rejectPageTwo(new TestCanceledError());
+        },
+      };
+    },
+    cleanup: () => evidence.cleanup.push(pageNumber),
+  });
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: {
+      ...errorApi,
+      getDocument: () => ({
+        promise: Promise.resolve({
+          numPages: 4,
+          getPage: async (pageNumber) => makePage(pageNumber),
+          destroy: async () => {},
+        }),
+        destroy: () => assert.fail(),
+      }),
+    },
+    assetBaseUrl: 'http://127.0.0.1:5173/',
+  });
+  const canvas = { style: {} };
+  assert.equal(
+    (await adapter.open({ data: new Uint8Array(9), canvas })).pageNumber,
+    1,
+  );
+  const pageTwo = adapter.renderPage({ pageNumber: 2, canvas });
+  await pageTwoReady;
+  const pageFour = adapter.renderPage({ pageNumber: 4, canvas });
+  assert.deepEqual(await pageTwo, { status: 'canceled', code: 'CANCELED' });
+  assert.deepEqual(await pageFour, {
+    status: 'rendered',
+    pageNumber: 4,
+    pageCount: 4,
+    width: 104,
+    height: 200,
+  });
+  assert.deepEqual(evidence.canceled, [2]);
+  assert.deepEqual(evidence.cleanup, [1, 4]);
+  const latePageTwo = adapter.renderPage({ pageNumber: 2, canvas });
+  assert.deepEqual(await adapter.renderPage({ pageNumber: 0, canvas }), {
+    status: 'error',
+    code: 'INVALID_PAGE_NUMBER',
+    pageNumber: 4,
+    pageCount: 4,
+  });
+  assert.deepEqual(await latePageTwo, {
+    status: 'canceled',
+    code: 'CANCELED',
+  });
+  assert.deepEqual(evidence.cleanup, [1, 4, 2]);
+  await adapter.dispose();
 });
 
 test('disposing an in-flight render cancels it and prevents a late result', async () => {

@@ -15,6 +15,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       .digest('hex');
   const originalHash = await hash();
   const replacementHash = await hash(files.replacement);
+  const multipageHash = await hash(files.multipage);
   const dispatchDrop = async ({ filePaths = [], items = [] }) => {
     const box = await page.locator('.workspace').boundingBox();
     assert.ok(box);
@@ -162,7 +163,7 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.ok(renderedPage.width > 400 && renderedPage.height > 500);
     assert.ok(renderedPage.coloredSamples > 100);
     assert.equal(renderedPage.page, '1 / 1');
-    assert.match(renderedPage.status, /첫 페이지를 표시했습니다/);
+    assert.match(renderedPage.status, /1페이지를 표시했습니다/);
     assert.ok(
       !(await page.locator('body').innerText()).includes(
         path.dirname(files.valid),
@@ -174,6 +175,75 @@ export async function checkPdfSelection(application, page, artifacts) {
       fullPage: true,
     });
     const cases = [];
+
+    await select({ canceled: false, filePaths: [files.multipage] }, 'selected');
+    assert.equal(await page.locator('#pdf-page-count').innerText(), '1 / 5');
+    assert.equal(await page.locator('#page-number').inputValue(), '1');
+    assert.equal(await page.locator('#first-page').isDisabled(), true);
+    assert.equal(await page.locator('#previous-page').isDisabled(), true);
+
+    await page.locator('#last-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="5"]');
+    assert.equal(await page.locator('#pdf-page-count').innerText(), '5 / 5');
+    assert.equal(await page.locator('#next-page').isDisabled(), true);
+    assert.equal(await page.locator('#last-page').isDisabled(), true);
+
+    await page.locator('#previous-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="4"]');
+    const pageFourPixels = await page
+      .locator('#pdf-canvas')
+      .evaluate((canvas) =>
+        Array.from(canvas.getContext('2d').getImageData(50, 50, 1, 1).data),
+      );
+    for (const invalidPage of ['0', '6', '1.5', '']) {
+      await page.locator('#page-number').fill(invalidPage);
+      await page.locator('#page-number').press('Enter');
+      await page.waitForFunction(() =>
+        document
+          .querySelector('#viewer-status')
+          .textContent.includes('사이의 정수'),
+      );
+      assert.equal(
+        await page.locator('#pdf-canvas').getAttribute('data-page-number'),
+        '4',
+      );
+      assert.equal(await page.locator('#page-number').inputValue(), '4');
+      assert.deepEqual(
+        await page
+          .locator('#pdf-canvas')
+          .evaluate((canvas) =>
+            Array.from(canvas.getContext('2d').getImageData(50, 50, 1, 1).data),
+          ),
+        pageFourPixels,
+      );
+    }
+
+    await page.locator('#first-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="1"]');
+    await page.evaluate(() => {
+      document.querySelector('#next-page').click();
+      document.querySelector('#next-page').click();
+      document.querySelector('#next-page').click();
+    });
+    await page.waitForSelector('#pdf-canvas[data-page-number="4"]');
+    assert.equal(await page.locator('#pdf-page-count').innerText(), '4 / 5');
+    assert.match(await page.locator('#viewer-status').innerText(), /4페이지/);
+    assert.equal(await hash(files.multipage), multipageHash);
+    cases.push('first-last', 'invalid-page', 'rapid-page-navigation');
+    await page.screenshot({
+      path: path.join(artifacts, 'page-navigation.png'),
+      fullPage: true,
+    });
+
+    await select({ canceled: false, filePaths: [files.valid] }, 'selected');
+    assert.equal(await page.locator('#pdf-page-count').innerText(), '1 / 1');
+    assert.equal(await page.locator('#page-number').inputValue(), '1');
+    assert.equal(await page.locator('#first-page').isDisabled(), true);
+    assert.equal(await page.locator('#previous-page').isDisabled(), true);
+    assert.equal(await page.locator('#next-page').isDisabled(), true);
+    assert.equal(await page.locator('#last-page').isDisabled(), true);
+    cases.push('file-replacement-page-reset');
+
     for (const [name, message] of [
       ['renamed', '기본 파일 서명'],
       ['text', 'PDF 확장자'],

@@ -38,7 +38,8 @@ export function createPdfAdapterCore({
   pdfjsApi,
   assetBaseUrl = globalThis.document?.baseURI,
 }) {
-  let requestId = 0;
+  let documentRequestId = 0;
+  let renderRequestId = 0;
   let current = null;
 
   const disposeCurrent = async () => {
@@ -57,22 +58,98 @@ export function createPdfAdapterCore({
     }
   };
 
+  const renderPage = async ({ record, pageNumber, canvas, pixelRatio }) => {
+    const ownRenderRequestId = ++renderRequestId;
+    try {
+      record.renderTask?.cancel();
+    } catch {
+      // A completed PDF.js render may already have released its task.
+    }
+    record.renderTask = null;
+    if (
+      !Number.isSafeInteger(pageNumber) ||
+      pageNumber < 1 ||
+      pageNumber > record.pageCount
+    )
+      return {
+        status: 'error',
+        code: 'INVALID_PAGE_NUMBER',
+        pageNumber: record.pageNumber,
+        pageCount: record.pageCount,
+      };
+
+    let page;
+    let task;
+    try {
+      page = await record.document.getPage(pageNumber);
+      if (current !== record || ownRenderRequestId !== renderRequestId) {
+        page.cleanup();
+        return { status: 'canceled', code: 'CANCELED' };
+      }
+
+      const viewport = page.getViewport({ scale: 1 });
+      const outputScale = Math.max(1, Number(pixelRatio) || 1);
+      canvas.width = Math.max(1, Math.floor(viewport.width * outputScale));
+      canvas.height = Math.max(1, Math.floor(viewport.height * outputScale));
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      task = page.render({
+        canvas,
+        viewport,
+        transform:
+          outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0],
+      });
+      record.renderTask = task;
+      await task.promise;
+      if (current !== record || ownRenderRequestId !== renderRequestId) {
+        page.cleanup();
+        return { status: 'canceled', code: 'CANCELED' };
+      }
+      page.cleanup();
+      if (record.renderTask === task) record.renderTask = null;
+      record.pageNumber = pageNumber;
+      record.width = viewport.width;
+      record.height = viewport.height;
+      return {
+        status: 'rendered',
+        pageNumber,
+        pageCount: record.pageCount,
+        width: viewport.width,
+        height: viewport.height,
+      };
+    } catch (error) {
+      if (current !== record || ownRenderRequestId !== renderRequestId)
+        return { status: 'canceled', code: 'CANCELED' };
+      if (record.renderTask === task) record.renderTask = null;
+      const code = classifyPdfError(error, pdfjsApi);
+      if (code !== 'CANCELED') {
+        try {
+          page?.cleanup();
+        } catch {
+          // Preserve the original public failure code.
+        }
+      }
+      return { status: code === 'CANCELED' ? 'canceled' : 'error', code };
+    }
+  };
+
   return {
     async open({
       data,
       canvas,
       pixelRatio = globalThis.devicePixelRatio || 1,
     }) {
-      const ownRequestId = ++requestId;
+      const ownRequestId = ++documentRequestId;
       await disposeCurrent();
-      if (ownRequestId !== requestId)
+      if (ownRequestId !== documentRequestId)
         return { status: 'canceled', code: 'CANCELED' };
 
       const record = {
-        requestId: ownRequestId,
         loadingTask: null,
         document: null,
         renderTask: null,
+        pageNumber: 0,
+        pageCount: 0,
       };
       current = record;
 
@@ -94,32 +171,21 @@ export function createPdfAdapterCore({
           return { status: 'canceled', code: 'CANCELED' };
         }
         record.document = pdfDocument;
-
-        const page = await pdfDocument.getPage(1);
-        if (current !== record) return { status: 'canceled', code: 'CANCELED' };
-        const viewport = page.getViewport({ scale: 1 });
-        const outputScale = Math.max(1, Number(pixelRatio) || 1);
-        canvas.width = Math.max(1, Math.floor(viewport.width * outputScale));
-        canvas.height = Math.max(1, Math.floor(viewport.height * outputScale));
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
-        record.renderTask = page.render({
-          canvas,
-          viewport,
-          transform:
-            outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0],
-        });
-        await record.renderTask.promise;
-        if (current !== record) return { status: 'canceled', code: 'CANCELED' };
-        page.cleanup();
-        record.renderTask = null;
-        return {
-          status: 'rendered',
+        record.pageCount = pdfDocument.numPages;
+        const rendered = await renderPage({
+          record,
           pageNumber: 1,
-          pageCount: pdfDocument.numPages,
-          width: viewport.width,
-          height: viewport.height,
-        };
+          canvas,
+          pixelRatio,
+        });
+        if (rendered.status !== 'error') return rendered;
+        if (current === record) current = null;
+        try {
+          await record.document.destroy();
+        } catch {
+          // Preserve the original public failure code.
+        }
+        return rendered;
       } catch (error) {
         if (current !== record) return { status: 'canceled', code: 'CANCELED' };
         const code = classifyPdfError(error, pdfjsApi);
@@ -134,8 +200,19 @@ export function createPdfAdapterCore({
       }
     },
 
+    async renderPage({
+      pageNumber,
+      canvas,
+      pixelRatio = globalThis.devicePixelRatio || 1,
+    }) {
+      const record = current;
+      if (!record?.document) return { status: 'error', code: 'NO_DOCUMENT' };
+      return renderPage({ record, pageNumber, canvas, pixelRatio });
+    },
+
     async dispose() {
-      requestId++;
+      documentRequestId++;
+      renderRequestId++;
       await disposeCurrent();
     },
   };

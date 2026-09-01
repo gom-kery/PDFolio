@@ -204,6 +204,64 @@
   color: var(--color-warning);
 }
 
+.pdf-page-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.pdf-page-navigation button,
+.page-number-form input {
+  min-height: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.pdf-page-navigation button {
+  padding: 0.375rem 0.75rem;
+  cursor: pointer;
+}
+
+.pdf-page-navigation button:disabled {
+  color: var(--color-muted);
+  cursor: default;
+  opacity: 0.55;
+}
+
+.pdf-page-navigation button:focus-visible,
+.page-number-form input:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.page-number-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.page-number-form input {
+  width: 4.5rem;
+  padding: 0.375rem 0.5rem;
+  text-align: center;
+}
+
+.page-number-form output {
+  min-width: 1.5rem;
+  color: inherit;
+}
+
 .pdf-page-scroll {
   display: flex;
   flex: 1;
@@ -335,6 +393,10 @@
   .pdf-page-scroll {
     max-height: 65vh;
     padding: 1rem;
+  }
+
+  .pdf-page-navigation {
+    padding-inline: 0.75rem;
   }
 
   .status-panel {

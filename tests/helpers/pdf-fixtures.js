@@ -3,14 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MAX_PDF_FILE_BYTES } from '../../electron/pdf-file.js';
 
-/** An original, blank single-page PDF with byte-accurate xref offsets; no user content. */
-export function blankPdf() {
-  const objects = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 4 0 R >>',
-    '<< /Length 0 >>\nstream\n\nendstream',
-  ];
+function serializePdf(objects) {
   let pdf = '%PDF-1.7\n% Local PDF CBT synthetic input\n';
   const offsets = [];
   for (const [index, object] of objects.entries()) {
@@ -18,8 +11,47 @@ export function blankPdf() {
     pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
   }
   const xref = Buffer.byteLength(pdf);
-  pdf += `xref\n0 5\n0000000000 65535 f \n${offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const size = objects.length + 1;
+  pdf += `xref\n0 ${size}\n0000000000 65535 f \n${offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${size} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(pdf);
+}
+
+/** An original, blank single-page PDF with byte-accurate xref offsets; no user content. */
+export function blankPdf() {
+  return serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 4 0 R >>',
+    '<< /Length 0 >>\nstream\n\nendstream',
+  ]);
+}
+
+/** Distinct vector colors make the final rendered page observable without user data. */
+export function pagedPdf(pageCount = 5) {
+  const colors = [
+    '0.75 0.15 0.15',
+    '0.15 0.55 0.25',
+    '0.15 0.35 0.75',
+    '0.65 0.25 0.70',
+    '0.90 0.55 0.10',
+  ];
+  const pageObjectNumbers = Array.from(
+    { length: pageCount },
+    (_, index) => 3 + index * 2,
+  );
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    `<< /Type /Pages /Kids [${pageObjectNumbers.map((number) => `${number} 0 R`).join(' ')}] /Count ${pageCount} >>`,
+  ];
+  for (const [index, pageObjectNumber] of pageObjectNumbers.entries()) {
+    const contentObjectNumber = pageObjectNumber + 1;
+    const content = `q\n${colors[index % colors.length]} rg\n20 20 160 160 re\nf\nQ\n`;
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents ${contentObjectNumber} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+    );
+  }
+  return serializePdf(objects);
 }
 
 /** Create bounded input cases in the caller's test directory, never in user document folders. */
@@ -37,6 +69,7 @@ export async function createPdfFixtures(directory) {
   const files = {
     valid: path.join(directory, '한글 문서 & 연습.PDF'),
     replacement: path.join(directory, '다른 문서.pdf'),
+    multipage: path.join(directory, '페이지 이동.pdf'),
     renamed: path.join(directory, '이름만 PDF.pdf'),
     text: path.join(directory, '일반 문서.txt'),
     empty: path.join(directory, '빈 파일.pdf'),
@@ -51,6 +84,7 @@ export async function createPdfFixtures(directory) {
   for (const [name, content] of [
     ['valid', renderedFixture],
     ['replacement', blankPdf()],
+    ['multipage', pagedPdf()],
     ['renamed', 'NOT A PDF'],
     ['text', blankPdf()],
     ['empty', ''],

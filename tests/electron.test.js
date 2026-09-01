@@ -154,7 +154,11 @@ for (const mode of ['dev', 'built', 'packaged']) {
           evidence.renderer.bridgeFrozen && evidence.renderer.infoFrozen,
           true,
         );
-        assert.equal(evidence.renderer.controls, 2);
+        assert.equal(evidence.renderer.controls, 7);
+        assert.equal(
+          await page.locator('#pdf-page-navigation').isHidden(),
+          true,
+        );
         assert.equal(await page.locator('#select-pdf').isEnabled(), true);
 
         evidence.main = await application.evaluate(

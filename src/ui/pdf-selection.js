@@ -100,7 +100,7 @@ export function initializePdfSelection(
         }
         if (rendered?.status === 'rendered') {
           document.querySelector('#document-description').textContent =
-            `PDF 첫 페이지를 표시했습니다. 전체 ${rendered.pageCount.toLocaleString('ko-KR')}페이지이며 페이지 이동은 다음 Unit에서 추가합니다.`;
+            `PDF 첫 페이지를 표시했습니다. 전체 ${rendered.pageCount.toLocaleString('ko-KR')}페이지이며 페이지 이동 컨트롤을 사용할 수 있습니다.`;
           document.querySelector('#document-state').textContent =
             `원문 보기 · 1 / ${rendered.pageCount}`;
           showMessage(
