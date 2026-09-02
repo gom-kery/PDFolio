@@ -22,6 +22,7 @@ export async function checkPdfSelection(application, page, artifacts) {
   const originalHash = await hash();
   const replacementHash = await hash(files.replacement);
   const multipageHash = await hash(files.multipage);
+  const keywordHash = await hash(files.keyword);
   const dispatchDrop = async ({ filePaths = [], items = [] }) => {
     const box = await page.locator('.workspace').boundingBox();
     assert.ok(box);
@@ -136,6 +137,9 @@ export async function checkPdfSelection(application, page, artifacts) {
       '#text-analysis-status[data-state="text-usable"]',
       { timeout: 10_000 },
     );
+    await page.waitForSelector('#keyword-analysis-status[data-state="none"]', {
+      timeout: 10_000,
+    });
     assert.equal(
       await page.locator('#selected-file-name').innerText(),
       '한글 문서 & 연습.PDF',
@@ -181,6 +185,10 @@ export async function checkPdfSelection(application, page, artifacts) {
           .textContent,
         textAnalysisState: document.querySelector('#text-analysis-status')
           .dataset.state,
+        keywordAnalysis: document.querySelector('#keyword-analysis-status')
+          .textContent,
+        keywordAnalysisState: document.querySelector('#keyword-analysis-status')
+          .dataset.state,
       };
     });
     assert.equal(renderedPage.hidden, false);
@@ -199,6 +207,11 @@ export async function checkPdfSelection(application, page, artifacts) {
       renderedPage.textAnalysis,
       '현재 페이지의 텍스트와 위치를 분석할 수 있습니다.',
     );
+    assert.equal(renderedPage.keywordAnalysisState, 'none');
+    assert.equal(
+      renderedPage.keywordAnalysis,
+      '현재 페이지에서 제목 키워드 후보를 찾지 못했습니다.',
+    );
     assert.ok(
       !(await page.locator('body').innerText()).includes(
         'PDF.js가 한글과 포함된 이미지를 오프라인으로 표시합니다.',
@@ -216,6 +229,24 @@ export async function checkPdfSelection(application, page, artifacts) {
     });
     const cases = [];
 
+    await select({ canceled: false, filePaths: [files.keyword] }, 'selected');
+    await page.waitForSelector('#keyword-analysis-status[data-state="found"]', {
+      timeout: 10_000,
+    });
+    assert.equal(
+      await page.locator('#keyword-analysis-status').innerText(),
+      '현재 페이지에서 제목 키워드 후보 1개를 찾았습니다.',
+    );
+    const keywordPageText = await page.locator('body').innerText();
+    assert.ok(!keywordPageText.includes('Explanation: worked result.'));
+    assert.ok(!keywordPageText.includes('Answer choices are A through D.'));
+    assert.equal(await hash(files.keyword), keywordHash);
+    cases.push(
+      'keyword-candidate',
+      'keyword-false-positive-suppression',
+      'keyword-text-not-in-dom',
+    );
+
     await select({ canceled: false, filePaths: [files.multipage] }, 'selected');
     await page.waitForSelector(
       '#text-analysis-status[data-state="text-insufficient"]',
@@ -227,6 +258,10 @@ export async function checkPdfSelection(application, page, artifacts) {
         .locator('#text-analysis-status')
         .getAttribute('data-reason-codes'),
       'NO_TEXT_ITEMS',
+    );
+    assert.equal(
+      await page.locator('#keyword-analysis-status').getAttribute('data-state'),
+      'skipped',
     );
     assert.equal(await page.locator('#page-number').inputValue(), '1');
     assert.equal(await page.locator('#first-page').isDisabled(), true);

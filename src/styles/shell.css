@@ -406,13 +406,19 @@
   font-size: 0.875rem;
 }
 
-.text-analysis-status[data-state='text-usable'] {
+.analysis-summary-status[data-state='text-usable'],
+.analysis-summary-status[data-state='found'] {
   color: var(--color-accent);
 }
 
-.text-analysis-status[data-state='text-insufficient'],
-.text-analysis-status[data-state='unknown'] {
+.analysis-summary-status[data-state='text-insufficient'],
+.analysis-summary-status[data-state='unknown'],
+.analysis-summary-status[data-state='skipped'] {
   color: var(--color-warning);
+}
+
+.analysis-summary-status[data-state='none'] {
+  color: var(--color-muted);
 }
 
 .runtime-label {

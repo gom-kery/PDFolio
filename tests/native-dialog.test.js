@@ -125,6 +125,10 @@ test(
             await page.locator('#text-analysis-status').innerText(),
             '현재 페이지의 텍스트와 위치를 분석할 수 있습니다.',
           );
+          await page.waitForSelector(
+            '#keyword-analysis-status[data-state="none"]',
+            { timeout: 10_000 },
+          );
         }
         evidence.nativeActions.push({ action, result: 'passed' });
       }

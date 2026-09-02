@@ -2,6 +2,96 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.2.3 작업 기록 — 2026-09-02
+
+**Unit 2.3 제목 키워드 탐색을 구현했다. 일곱 개 키워드의 제목 문맥 후보와 오탐 억제만 추가했으며 Debug Overlay·영역 추정·지원 판정·CBT는 구현하지 않았다.**
+
+작업 전에 현재 프로젝트 파일·PROJECT_BIBLE·ROADMAP·DECISIONS와 Git 상태를 확인했다. 작업 트리는 Unit 2.2 커밋 `3145206` 기준으로 깨끗했다. ROADMAP의 기본 순서는 Unit 2.5가 먼저지만 사용자가 Unit 2.3을 명시적으로 요청했으므로 이를 순서 예외로 기록했고, Unit 2.5를 완료하거나 생략하지 않았다.
+
+### Unit 2.3 — 1. 구현한 내용
+
+- 순수 `findPageKeywordCandidates()`와 `PageKeywordCandidates v1` 결과를 추가했다. PageTextSource와 같은 revision·pageNumber의 `text-usable` assessment만 검색하며 나머지 품질은 reason code와 함께 보류한다.
+- 제목 목록을 `해설`, `풀이`, `정답`, `답`, `Answer`, `Solution`, `Explanation` 일곱 개로 고정했다. 영문은 대소문자를 구분하지 않고 더 긴 키워드를 먼저 검사한다.
+- 원래 source item 순서와 `hasEOL`로만 논리 줄을 만들고 같은 줄의 분리된 항목은 문자를 만들지 않고 연결한다. `정`+`답`, 분리된 영문 제목과 sourceIndex 근거를 유지한다.
+- 공백·제한된 글머리표 뒤의 줄 시작, 단독 제목·구분 기호·해설 본문·허용 답 표기를 문맥으로 구분한다. `정답을 고르시오`, `답변`, `해설서`, `풀이과정`, 본문 속 `Answer`, `Answer choices`, `Solution manual`, `Explanation guide`를 고정 오탐 사례로 검증했다.
+- 일반 UI에는 현재 페이지의 후보 개수·없음·보류 상태만 추가했다. 후보 키워드나 주변 원문, 좌표, 영역은 DOM·Console·자동 결과에 표시하거나 장기 보관하지 않는다. 같은 페이지 배율 재렌더에서는 기존 추출·분석 수명 계약을 유지한다.
+- 실제 PDF.js 합성 fixture에서 본문 `Answer`와 `Answer choices`를 제외하고 `Explanation:` 한 개만 찾았으며 원본 SHA-256 불변을 확인했다.
+- 앱과 Windows x64/ASAR 패키지 버전을 0.2.3으로 올렸다. 이전 0.2.2 패키지는 `work/unit-2.3-before-package/release/`에 보존했다.
+
+### Unit 2.3 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 키워드 분석 | `src/analysis/page-keyword-candidates.js` — 목록·논리 줄·문맥·오탐·후보 계약 |
+| UI | `src/ui/pdf-viewer.js`, `index.html`, `src/styles/shell.css` — 후보 수·없음·보류 공개 상태 |
+| 단위 검사 | `tests/page-keyword-candidates.test.js` — 일곱 키워드·분절·문맥·오탐·실패·개인정보 경계 |
+| PDF.js 통합 | `tests/pdf-text-integration.test.js`, `tests/helpers/pdf-fixtures.js` — 실제 TextContent 후보 1개와 원본 해시 |
+| 실제 앱 검사 | `tests/helpers/pdf-selection-checks.js`, `tests/native-dialog.test.js` — 세 실행 모드·Windows 선택 창·DOM 비노출·기존 회귀 |
+| 버전·실행 | `package.json`, `package-lock.json`, `README.md` — 0.2.3과 검사 절차 |
+| 문서 | `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다.
+
+### Unit 2.3 — 3. 실행 방법
+
+프로젝트 루트에서 `npm run dev`로 개발 앱을 실행한다. `npm run build` 후 `npm start`는 빌드 자산 모드이고 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`는 버전 0.2.3 패키지다. 이전 앱이 실행 중이면 완전히 닫고 다시 시작한다.
+
+### Unit 2.3 — 4. 사용자가 직접 테스트할 방법
+
+1. 앱 footer에서 `Unit 2.3 · 제목 키워드 탐색`을 확인한다.
+2. 본문 텍스트가 충분하고 줄 시작에 `해설:`, `풀이`, `정답: ③`, `Answer: B`, `Solution - ...`, `Explanation ...` 중 하나가 있는 PDF를 연다. 앱 상태의 `키워드 후보`가 찾은 개수를 표시하는지 확인한다.
+3. `정답을 고르시오`, 문장 중간의 `Answer`, `Answer choices`만 있는 페이지에서는 후보가 없다고 표시되는지 확인한다.
+4. 빈·이미지 전용·페이지 번호 수준의 짧은 페이지에서는 기존 텍스트 보류 안내와 함께 키워드 검색도 보류되는지 확인한다. 원문 Viewer는 계속 사용할 수 있어야 한다.
+5. 후보가 있는 페이지에서도 원문 키워드·전체 문장·좌표 사각형·해설/정답 영역이 별도 텍스트나 Overlay로 나타나지 않는지 확인한다.
+6. 페이지를 빠르게 이동하거나 PDF를 교체해 이전 페이지의 후보 수가 돌아오지 않는지, 같은 페이지에서 확대·축소·높이 맞춤을 사용해도 원문 Viewer가 유지되는지 확인한다.
+7. 후보 수가 있어도 CBT·가림·채점이 활성화되지 않고 footer의 원본 불변 안내가 유지되는지 확인한다.
+
+자동 검사는 `npm run format:check`, `npm test`, `npm run build`, `npm run package`, `npm run test:electron`, `npm run test:native`, `npm run test:shutdown` 순서로 실행한다. Electron·native·shutdown은 Windows 데스크톱 창 실행 권한이 필요하다.
+
+### Unit 2.3 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 전체 프로젝트 형식 |
+| `npm test` | 81/81 통과 | 기존 70개와 키워드 계약·분절·문맥·오탐·실패·실제 PDF.js 통합 11개 |
+| 실제 PDF.js fixture | 통과 | 본문 `Answer`·`Answer choices` 제외, `Explanation:` 후보 1개, SHA-256 유지 |
+| `npm run build` | 통과 | Vite 17 modules, 로컬 PDF.js 자산 포함 |
+| `npm run package` | 통과 | Electron 44.0.0 Windows x64/ASAR 버전 0.2.3 |
+| `npm run test:electron` | 3/3 통과 | 개발·빌드·패키지 후보 1개/없음/보류·원문 DOM 비노출과 Viewer·오프라인·입력·보안 회귀 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창, 한글 PDF 텍스트·위치·후보 없음 상태, 취소, 원본 해시 |
+| `npm run test:shutdown` | 16/18 | 개발 7/9, 패키지 9/9. 개발 즉시 종료 2회에서 OPEN-09 GPU 진단 재현 |
+
+종료 18회 모두 창이 닫히고 프로세스 종료 코드 0과 개발 포트 해제를 확인했다. GPU 오류를 숨기거나 그래픽·sandbox 설정을 낮추지 않았다.
+
+### Unit 2.3 — 6. 예상되는 Edge Case
+
+- `정`과 `답`, 또는 영문 키워드가 여러 Text Item으로 나뉘어도 같은 논리 줄이고 중간에 실제 문자가 없으면 sourceIndex 근거를 합쳐 찾는다.
+- 항목 사이의 시각적 간격을 공백으로 추정하지 않으므로 PDF.js가 `hasEOL`을 주지 않거나 읽기 순서를 다르게 반환한 문서는 후보를 놓치거나 잘못 연결할 수 있다.
+- `답`처럼 짧은 제목은 줄 시작과 제한된 문맥에서만 인정한다. 허용 답 표기는 ①~⑩, 1~10, A~G의 초기 범위다.
+- 영문 대소문자는 무시하지만 언어별 철자 변형, 번역어, 사용자 지정 키워드는 아직 지원하지 않는다.
+- 한 페이지에 후보가 여러 개면 개수를 그대로 알릴 뿐 서로의 순서나 같은 문제 소유 관계를 판단하지 않는다.
+
+### Unit 2.3 — 7. 알려진 제한사항
+
+키워드 후보는 제목처럼 보이는 문자열 근거일 뿐 해설·정답 영역이나 올바른 답을 뜻하지 않는다. 시각적 줄/블록, 글꼴 크기, bbox 관계, 열, 다음 제목과 끝 경계를 사용하지 않았고 실제 출판물 표본의 정밀도·재현율도 측정하지 않았다. Unit 1.0 전체 샘플 행렬과 Unit 2.5 bbox 시각 대조가 남아 있다. 이 결과로 CBT 지원이나 안전한 가림을 선언하지 않는다.
+
+### Unit 2.3 — 8. Technical Debt
+
+- OPEN-05의 초기 키워드·문맥 규칙은 부분 해결됐지만 실제 샘플에서 후보 누락·오탐과 `hasEOL`/읽기 순서를 측정해야 한다.
+- bbox의 실제 화면 정합과 sourceIndex 시각 대조는 미완료 Unit 2.5에서 확인해야 한다.
+- 좌표 기반 줄/블록, 해설·정답 영역과 끝 경계, 지원 판정은 Unit 2.4·2.6에 남아 있다.
+- OPEN-09는 이번 종료 반복에서도 개발 즉시 종료 두 번에 재현됐다.
+
+### Unit 2.3 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 2.3 기능의 확인된 선행 수정 사항은 없다. 다만 ROADMAP 기본 순서에서 빠진 Unit 2.5가 여전히 필수이므로 다음은 사용자 요청을 받은 뒤 Debug Overlay의 bbox 시각 대조만 진행한다. 그 검증 전에 Unit 2.4 영역 추정으로 넘어가면 안 된다. 프로젝트 전체 무오류 완료에는 OPEN-09 해결과 Unit 1.0 샘플 행렬도 계속 필요하다.
+
+### Unit 2.3 — 10. Git Commit Message
+
+제안 메시지: `feat(analysis): find contextual PDF heading keywords`
+
+실제 Git 커밋은 만들지 않았다. 메시지는 사용자가 전체 diff와 검사 결과를 검토한 뒤 사용할 제안이다.
+
 ## 0.2.2 작업 기록 — 2026-09-02
 
 **Unit 2.2 Text Item 좌표 분석을 구현했다. 회전 전 PDF user space bbox와 viewport 좌표 변환만 추가했으며 Debug Overlay·키워드·영역·CBT는 구현하지 않았다.**

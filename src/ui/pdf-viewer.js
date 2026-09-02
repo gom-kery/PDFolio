@@ -1,6 +1,7 @@
 import { MAX_RENDER_SCALE, MIN_RENDER_SCALE } from '../pdf/pdf-adapter-core.js';
 import { assessPageText } from '../analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../analysis/page-text-coordinates.js';
+import { findPageKeywordCandidates } from '../analysis/page-keyword-candidates.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -33,6 +34,9 @@ export function initializePdfViewer(document, adapter) {
   const pageInput = document.querySelector('#page-number');
   const pageTotal = document.querySelector('#page-total');
   const textAnalysisStatus = document.querySelector('#text-analysis-status');
+  const keywordAnalysisStatus = document.querySelector(
+    '#keyword-analysis-status',
+  );
   const zoomOutButton = document.querySelector('#zoom-out');
   const zoomInButton = document.querySelector('#zoom-in');
   const fitHeightButton = document.querySelector('#fit-height');
@@ -55,9 +59,18 @@ export function initializePdfViewer(document, adapter) {
     else delete textAnalysisStatus.dataset.reasonCodes;
   };
 
+  const showKeywordAnalysisStatus = (state, message) => {
+    keywordAnalysisStatus.dataset.state = state;
+    keywordAnalysisStatus.textContent = message;
+  };
+
   const resetTextAnalysis = (message) => {
     analysisRequestId++;
     showTextAnalysisStatus('idle', message);
+    showKeywordAnalysisStatus(
+      'idle',
+      'PDF를 열면 현재 페이지의 제목 키워드를 확인합니다.',
+    );
   };
 
   const analyzePageText = async (pageNumber) => {
@@ -65,6 +78,10 @@ export function initializePdfViewer(document, adapter) {
     showTextAnalysisStatus(
       'analyzing',
       `${pageNumber.toLocaleString('ko-KR')}페이지의 텍스트를 확인하고 있습니다.`,
+    );
+    showKeywordAnalysisStatus(
+      'analyzing',
+      `${pageNumber.toLocaleString('ko-KR')}페이지의 제목 키워드를 확인하고 있습니다.`,
     );
     let extraction;
     try {
@@ -83,6 +100,10 @@ export function initializePdfViewer(document, adapter) {
         'unknown',
         '현재 페이지의 텍스트 상태를 확인할 수 없습니다.',
       );
+      showKeywordAnalysisStatus(
+        'skipped',
+        '텍스트 분석이 보류되어 키워드를 찾지 않았습니다.',
+      );
       return;
     }
     if (assessment.quality === 'text-usable') {
@@ -93,11 +114,33 @@ export function initializePdfViewer(document, adapter) {
           '현재 페이지의 텍스트 위치를 확인할 수 없습니다.',
           [coordinateResult.code],
         );
+        showKeywordAnalysisStatus(
+          'skipped',
+          '텍스트 위치를 확인할 수 없어 키워드 결과를 보류했습니다.',
+        );
         return;
       }
       showTextAnalysisStatus(
         'text-usable',
         '현재 페이지의 텍스트와 위치를 분석할 수 있습니다.',
+      );
+      const keywordResult = findPageKeywordCandidates({
+        source: extraction.source,
+        assessment,
+      });
+      if (keywordResult.status !== 'candidates-ready') {
+        showKeywordAnalysisStatus(
+          'unknown',
+          '현재 페이지의 제목 키워드를 확인할 수 없습니다.',
+        );
+        return;
+      }
+      const count = keywordResult.result.candidateCount;
+      showKeywordAnalysisStatus(
+        count > 0 ? 'found' : 'none',
+        count > 0
+          ? `현재 페이지에서 제목 키워드 후보 ${count.toLocaleString('ko-KR')}개를 찾았습니다.`
+          : '현재 페이지에서 제목 키워드 후보를 찾지 못했습니다.',
       );
       return;
     }
@@ -106,6 +149,10 @@ export function initializePdfViewer(document, adapter) {
         'unknown',
         '현재 페이지의 텍스트 상태를 확인할 수 없습니다.',
         assessment.reasonCodes,
+      );
+      showKeywordAnalysisStatus(
+        'skipped',
+        '텍스트 분석이 보류되어 키워드를 찾지 않았습니다.',
       );
       return;
     }
@@ -120,6 +167,10 @@ export function initializePdfViewer(document, adapter) {
       'text-insufficient',
       message,
       assessment.reasonCodes,
+    );
+    showKeywordAnalysisStatus(
+      'skipped',
+      '텍스트 분석이 보류되어 키워드를 찾지 않았습니다.',
     );
   };
 

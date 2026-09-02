@@ -1,12 +1,12 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.2.2`
+- 문서 버전: `0.2.3`
 - 갱신일: 2026-09-02
-- 상태: Unit 2.2 Text Item 좌표 분석 완료. 앱은 버전 0.2.2이며 OPEN-09와 Unit 1.0은 미해결.
+- 상태: Unit 2.3 제목 키워드 탐색 완료. 앱은 버전 0.2.3이며 OPEN-09와 Unit 1.0은 미해결.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
-이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환을 검증했다. 화면 bbox 대조와 문제 인식 실험은 아직 시작하지 않았다.
+이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보를 검증했다. 화면 bbox 대조와 해설·정답 영역 인식은 아직 시작하지 않았다.
 
 ## 1. 요구사항 분석
 
@@ -391,6 +391,17 @@
 - 검증: 형식, Node 70개, 실제 한글+이미지 PDF의 6 bbox, offset viewBox `[10,20,210,320]`·`UserUnit 2`·0/90/180/270도 합성 PDF의 50/100/200% 투영을 실제 `PDFPageProxy.getViewport()`와 대조했다. 원본 SHA-256, 빌드, Windows x64/ASAR 패키지, 개발·빌드·패키지 Electron 3경로, 실제 Windows 선택 창이 통과했다. 종료 반복은 개발 8/9·패키지 9/9이며 개발 즉시 종료 1회에서 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
 - 한계·후속: bbox는 글리프 윤곽·잉크·클리핑 영역을 보장하지 않는 근사 축 정렬 사각형이고 세로쓰기 증거는 합성 데이터뿐이다. sourceIndex별 실제 화면 대조는 다음 실행 순서인 Unit 2.5 Debug Overlay에서 수행한다. Text Layer, 줄/블록, 키워드, 해설·정답 영역, 지원 판정, Question·CBT, 저장, OCR/AI는 이번 범위가 아니다.
 
+### ADR-027 — Unit 2.3 문맥 기반 제목 키워드 후보
+
+- 상태: **채택 — Unit 2.3 구현·검증 완료**, 2026-09-02. 앱과 Windows x64/ASAR 패키지는 버전 0.2.3이다.
+- 순서 예외: ROADMAP은 bbox 시각 대조를 위해 Unit 2.5를 2.3보다 먼저 두었지만, 사용자가 Unit 2.3을 명시적으로 요청했다. 요청 범위만 구현했으며 Unit 2.5를 완료·생략한 것으로 처리하지 않는다. 다음 구현 순서는 여전히 2.5이고, 2.4 영역 추정 전에 bbox 대조를 마쳐야 한다.
+- 입력·실패 계약: 순수 `findPageKeywordCandidates()`는 동일 documentRevision·pageNumber의 PageTextSource v1과 PageTextAssessment v1만 받는다. `text-usable`에서만 검색하고 `text-insufficient/unknown`은 `TEXT_NOT_USABLE`과 기존 reason code로 보류한다. 잘못된 source나 서로 맞지 않는 assessment에는 원문 없는 공개 실패 코드를 반환한다.
+- 키워드·줄 계약: 고정 목록은 `해설/풀이/정답/답/Answer/Solution/Explanation` 일곱 개다. 영문은 대소문자를 구분하지 않고 더 긴 키워드를 먼저 검사한다. source item 순서와 `hasEOL`만으로 논리 줄을 만들고 같은 줄의 문자열은 새 공백이나 문자를 넣지 않고 연결한다. 따라서 분리된 `정`+`답`은 찾되 시각적 줄·문단·읽기 순서를 추정하지 않는다.
+- 문맥·오탐 정책: 제한된 공백·글머리표 뒤 줄 시작에서 단독 제목, 구분 기호, 해설 본문, 허용 답 표기(①~⑩, 1~10, A~G)를 구분한다. `정답을 고르시오`, `답변`, `해설서`, `풀이과정`, 본문 중간 `Answer`, `Answer choices`, `Solution manual`, `Explanation guide` 고정 사례는 제외한다. 이는 측정된 정확도나 모든 출판물의 오탐 제거를 보장하지 않는다.
+- 결과·개인정보: `PageKeywordCandidates v1`은 contract/source version, revision, pageNumber, count와 후보 근거만 가진다. 후보는 canonical/matched keyword, 종류·언어·문맥, 단일/분절 matchMode, sourceIndexes, 논리 줄 번호만 포함한다. 전체 주변 문장·bbox·region·questionId·정답 값·경로·PDF.js 객체는 포함하지 않는다. UI는 후보 원문 없이 개수·없음·보류만 표시하고 결과를 장기 보관하지 않는다.
+- 검증: 형식, Node 81개, 실제 PDF.js 합성 fixture의 본문 `Answer`와 `Answer choices` 제외 및 `Explanation:` 후보 1개, 원본 SHA-256, 빌드, Windows x64/ASAR 패키지, 개발·빌드·패키지 Electron 3경로, 실제 Windows 선택 창이 통과했다. 종료 반복은 개발 7/9·패키지 9/9이며 개발 즉시 종료 두 번에서 기존 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
+- 제외 범위: 시각 bbox Debug Overlay, 좌표 기반 줄/블록 복원, 해설·정답 시작/끝 영역, 후보 점수·지원 판정, Question·정답 추출·마스크·CBT, 저장, OCR/AI는 Unit 2.3에 포함하지 않는다. 후보가 하나 이상이어도 CBT 지원이나 안전한 가림을 뜻하지 않는다.
+
 ## 5. 유보 항목과 해결 상태
 
 | ID | 항목 | 결정 시점 | 지금의 처리 |
@@ -399,9 +410,9 @@
 | OPEN-02 | renderer ESM과 sandbox preload 연결·로컬 자산 프로토콜 | Unit 0.2~1.3 | 해결: ADR-012/015/016/020. Windows x64 패키지와 PDF.js worker·CMap·ICC·표준 글꼴·WASM의 로컬 경로·거부 경로 재검증 완료 |
 | OPEN-03 | 실제 대표 PDF와 지원 프로파일 목록 | Unit 1.0~2.6 | 샘플 행렬만 작성. 사용자 문서 업로드/공유 요청 없음 |
 | OPEN-04 | 파일 크기·Canvas 픽셀·캐시·시간 예산 | Unit 1.1 / 1.6 | 부분 해결: 50 MiB 입력 상한, 현재 Canvas 16,777,216픽셀·한 변 8,192픽셀 상한, 작은 합성 PDF의 첫 페이지·높이 맞춤·마지막 페이지 10초 안전 기준을 적용했다. 모든 실물 PDF의 파서/렌더 시간과 캐시 예산은 샘플 행렬·실사용 측정 전까지 유보 |
-| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1의 텍스트 품질 기준에 이어 Unit 2.2에서 transform·ascent/descent 기반 근사 bbox와 PDF ↔ viewport 변환을 검증. 실제 글리프/클리핑과 시각 정합은 2.5, 줄/블록·키워드·영역 임계값은 2.3~2.6 증거 전까지 미확정 |
+| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1 텍스트 품질, Unit 2.2 근사 bbox·viewport 변환, Unit 2.3의 7개 제목 키워드와 초기 문맥·오탐 규칙을 검증했다. 실제 글리프/클리핑과 시각 정합은 2.5, 좌표 기반 줄/블록·영역·지원 임계값과 실제 샘플 정확도는 2.4~2.6 증거 전까지 미확정 |
 | OPEN-06 | 서명·설치형/포터블 공개 배포·업데이트 정책 | MVP 검증 후 | 로컬 테스트 패키지와 구분; 이번 범위 밖 |
-| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.2 종료 반복에서 개발 즉시 종료 1회 재현, 결과 개발 8/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
+| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.3 종료 반복에서 개발 즉시 종료 2회 재현, 결과 개발 7/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
 | OPEN-07 | 저장 경로·문서 해시·SQLite 스키마·백업 형식 | Phase 5.0 | 메모리만 사용 |
 | OPEN-08 | OCR/AI 엔진·언어·모델·서비스 비용 | Phase 9.0 / 10.0 | 의존성 추가 없음 |
 

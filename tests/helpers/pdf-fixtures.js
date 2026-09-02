@@ -86,6 +86,29 @@ export function coordinatePdf() {
   return serializePdf(objects);
 }
 
+/** Text lines include one heading and two deliberate English false positives. */
+export function keywordPdf() {
+  const content = [
+    'BT',
+    '/F1 12 Tf',
+    '1 0 0 1 25 170 Tm',
+    '(Question body mentions Answer in a sentence.) Tj',
+    '0 -24 Td',
+    '(Answer choices are A through D.) Tj',
+    '0 -24 Td',
+    '(Explanation: worked result.) Tj',
+    'ET',
+    '',
+  ].join('\n');
+  return serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [4 0 R] /Count 1 >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+  ]);
+}
+
 /** Create bounded input cases in the caller's test directory, never in user document folders. */
 export async function createPdfFixtures(directory) {
   await mkdir(directory, { recursive: true });
@@ -103,6 +126,7 @@ export async function createPdfFixtures(directory) {
     replacement: path.join(directory, '다른 문서.pdf'),
     multipage: path.join(directory, '페이지 이동.pdf'),
     rotated: path.join(directory, '고유 회전.pdf'),
+    keyword: path.join(directory, '키워드 후보.pdf'),
     renamed: path.join(directory, '이름만 PDF.pdf'),
     text: path.join(directory, '일반 문서.txt'),
     empty: path.join(directory, '빈 파일.pdf'),
@@ -119,6 +143,7 @@ export async function createPdfFixtures(directory) {
     ['replacement', blankPdf()],
     ['multipage', pagedPdf()],
     ['rotated', rotatedPdf()],
+    ['keyword', keywordPdf()],
     ['renamed', 'NOT A PDF'],
     ['text', blankPdf()],
     ['empty', ''],

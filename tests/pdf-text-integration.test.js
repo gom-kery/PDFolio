@@ -12,12 +12,13 @@ import {
 } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { assessPageText } from '../src/analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../src/analysis/page-text-coordinates.js';
+import { findPageKeywordCandidates } from '../src/analysis/page-keyword-candidates.js';
 import { createPdfAdapterCore } from '../src/pdf/pdf-adapter-core.js';
 import {
   convertPdfPointToViewport,
   createViewportGeometry,
 } from '../src/pdf/pdf-coordinate-space.js';
-import { coordinatePdf } from './helpers/pdf-fixtures.js';
+import { coordinatePdf, keywordPdf } from './helpers/pdf-fixtures.js';
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const fixture = path.join(root, 'tests/fixtures/unit-1.3-korean-image.pdf');
@@ -171,6 +172,48 @@ test('installed PDF.js agrees on offset, UserUnit, rotation and zoom projection'
     }
   }
 
+  assert.equal(
+    createHash('sha256').update(original).digest('hex'),
+    originalHash,
+  );
+  await adapter.dispose();
+});
+
+test('installed PDF.js finds only the contextual heading in the keyword fixture', async () => {
+  const original = keywordPdf();
+  const originalHash = createHash('sha256').update(original).digest('hex');
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: wrapPdfJsForTextExtraction({}),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+  const opened = await adapter.open({
+    data: new Uint8Array(original),
+    canvas: { style: {} },
+  });
+  assert.equal(opened.status, 'rendered');
+
+  const extraction = await adapter.extractPageText({ pageNumber: 1 });
+  assert.equal(extraction.status, 'extracted');
+  const assessment = assessPageText(extraction);
+  assert.equal(assessment.quality, 'text-usable');
+  const coordinates = createPageTextCoordinates(extraction.source);
+  assert.equal(coordinates.status, 'coordinates-ready');
+
+  const keywordResult = findPageKeywordCandidates({
+    source: extraction.source,
+    assessment,
+  });
+  assert.equal(keywordResult.status, 'candidates-ready');
+  assert.equal(keywordResult.result.candidateCount, 1);
+  assert.equal(
+    keywordResult.result.candidates[0].canonicalKeyword,
+    'Explanation',
+  );
+  assert.equal(
+    keywordResult.result.candidates[0].context,
+    'heading-with-delimiter',
+  );
+  assert.ok(!Object.hasOwn(keywordResult.result.candidates[0], 'lineText'));
   assert.equal(
     createHash('sha256').update(original).digest('hex'),
     originalHash,
