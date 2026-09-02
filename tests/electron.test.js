@@ -136,6 +136,9 @@ for (const mode of ['dev', 'built', 'packaged']) {
           controls: document.querySelectorAll(
             'button,input,canvas,iframe,webview',
           ).length,
+          debugPanelPresent: Boolean(
+            document.querySelector('#pdf-debug-panel'),
+          ),
         }));
         assert.equal(evidence.renderer.title, 'Local PDF CBT');
         assert.equal(evidence.renderer.language, 'ko');
@@ -155,6 +158,7 @@ for (const mode of ['dev', 'built', 'packaged']) {
           true,
         );
         assert.equal(evidence.renderer.controls, 12);
+        assert.equal(evidence.renderer.debugPanelPresent, false);
         assert.equal(
           await page.locator('#pdf-page-navigation').isHidden(),
           true,

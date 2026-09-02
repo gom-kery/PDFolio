@@ -360,6 +360,7 @@
 }
 
 .pdf-page-surface {
+  position: relative;
   align-self: flex-start;
   margin: 0 auto;
   line-height: 0;
@@ -370,6 +371,148 @@
 #pdf-canvas {
   display: block;
   background: white;
+}
+
+.pdf-debug-panel {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #d27a21;
+  background: #fff7e8;
+  color: #5d350f;
+  line-height: 1.4;
+}
+
+.pdf-debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pdf-debug-header h3 {
+  font-size: 0.875rem;
+}
+
+.pdf-debug-toggle {
+  min-height: 2rem;
+  padding: 0.25rem 0.625rem;
+  border-color: #d27a21;
+  color: #7a430e;
+  font-size: 0.75rem;
+}
+
+.pdf-debug-summary {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pdf-debug-note {
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+}
+
+.pdf-debug-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.6875rem;
+}
+
+.pdf-debug-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pdf-debug-legend-swatch {
+  width: 0.875rem;
+  height: 0.5rem;
+  border: 2px solid #1769aa;
+  background: rgb(23 105 170 / 10%);
+}
+
+.pdf-debug-legend [data-layer='keyword'] .pdf-debug-legend-swatch {
+  border-color: #e08a00;
+  background: rgb(224 138 0 / 22%);
+}
+
+.pdf-debug-legend [data-layer='region-text'] .pdf-debug-legend-swatch {
+  border-color: #16854f;
+  background: rgb(22 133 79 / 20%);
+}
+
+.pdf-debug-legend [data-layer='region-bound'] .pdf-debug-legend-swatch {
+  border-color: #7a3db8;
+  border-style: dashed;
+  background: transparent;
+}
+
+.pdf-debug-overlay {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.pdf-debug-rect {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.pdf-debug-rect > span {
+  position: absolute;
+  top: -0.75rem;
+  left: -1px;
+  padding: 0.0625rem 0.1875rem;
+  background: #1769aa;
+  color: white;
+  font:
+    600 0.5rem/1.1 ui-monospace,
+    monospace;
+  white-space: nowrap;
+}
+
+.pdf-debug-rect[data-layer='text-item'] {
+  z-index: 3;
+  border: 1px solid rgb(23 105 170 / 90%);
+  background: rgb(23 105 170 / 8%);
+}
+
+.pdf-debug-rect[data-layer='keyword'] {
+  z-index: 4;
+  border: 2px solid #e08a00;
+  background: rgb(224 138 0 / 20%);
+}
+
+.pdf-debug-rect[data-layer='keyword'] > span {
+  top: auto;
+  right: -1px;
+  bottom: -0.75rem;
+  left: auto;
+  background: #b36e00;
+}
+
+.pdf-debug-rect[data-layer='region-text'] {
+  z-index: 1;
+  border: 1px solid rgb(22 133 79 / 85%);
+  background: rgb(22 133 79 / 16%);
+}
+
+.pdf-debug-rect[data-layer='region-bound'] {
+  z-index: 2;
+  border: 2px dashed #7a3db8;
+  background: rgb(122 61 184 / 5%);
+}
+
+.pdf-debug-rect[data-layer='region-bound'] > span {
+  background: #7a3db8;
 }
 
 .viewer-sidebar {

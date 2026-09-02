@@ -3,6 +3,7 @@ import { assessPageText } from '../analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../analysis/page-text-coordinates.js';
 import { findPageKeywordCandidates } from '../analysis/page-keyword-candidates.js';
 import { inferPageAnswerRegions } from '../analysis/page-answer-regions.js';
+import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -45,6 +46,7 @@ export function initializePdfViewer(document, adapter) {
   const zoomInButton = document.querySelector('#zoom-in');
   const fitHeightButton = document.querySelector('#fit-height');
   const zoomLevel = document.querySelector('#zoom-level');
+  const debugOverlay = initializePdfDebugOverlay(document);
   let requestId = 0;
   let currentPage = 0;
   let requestedPage = 0;
@@ -78,6 +80,7 @@ export function initializePdfViewer(document, adapter) {
 
   const resetTextAnalysis = (message) => {
     analysisRequestId++;
+    debugOverlay.reset(message);
     showTextAnalysisStatus('idle', message);
     showKeywordAnalysisStatus(
       'idle',
@@ -116,6 +119,9 @@ export function initializePdfViewer(document, adapter) {
       return;
     const assessment = assessPageText(extraction);
     if (!assessment) {
+      debugOverlay.setUnavailable(
+        '현재 페이지의 텍스트 상태를 확인할 수 없습니다.',
+      );
       showTextAnalysisStatus(
         'unknown',
         '현재 페이지의 텍스트 상태를 확인할 수 없습니다.',
@@ -133,6 +139,10 @@ export function initializePdfViewer(document, adapter) {
     if (assessment.quality === 'text-usable') {
       const coordinateResult = createPageTextCoordinates(extraction.source);
       if (coordinateResult.status !== 'coordinates-ready') {
+        debugOverlay.setUnavailable(
+          '현재 페이지의 텍스트 위치를 확인할 수 없습니다.',
+          [coordinateResult.code],
+        );
         showTextAnalysisStatus(
           'unknown',
           '현재 페이지의 텍스트 위치를 확인할 수 없습니다.',
@@ -157,6 +167,9 @@ export function initializePdfViewer(document, adapter) {
         assessment,
       });
       if (keywordResult.status !== 'candidates-ready') {
+        debugOverlay.setAnalysis({
+          coordinates: coordinateResult.coordinates,
+        });
         showKeywordAnalysisStatus(
           'unknown',
           '현재 페이지의 제목 키워드를 확인할 수 없습니다.',
@@ -181,12 +194,21 @@ export function initializePdfViewer(document, adapter) {
         keywordCandidates: keywordResult.result,
       });
       if (regionResult.status !== 'regions-ready') {
+        debugOverlay.setAnalysis({
+          coordinates: coordinateResult.coordinates,
+          keywordCandidates: keywordResult.result,
+        });
         showRegionAnalysisStatus(
           'unknown',
           '현재 페이지의 영역 후보를 확인할 수 없습니다.',
         );
         return;
       }
+      debugOverlay.setAnalysis({
+        coordinates: coordinateResult.coordinates,
+        keywordCandidates: keywordResult.result,
+        answerRegions: regionResult.result,
+      });
       const regionOutcome = regionResult.result.outcome;
       if (regionOutcome === 'candidate-regions') {
         const regionCount = regionResult.result.regionCount;
@@ -211,6 +233,10 @@ export function initializePdfViewer(document, adapter) {
       return;
     }
     if (assessment.quality === 'unknown') {
+      debugOverlay.setUnavailable(
+        '현재 페이지의 텍스트 상태를 확인할 수 없습니다.',
+        assessment.reasonCodes,
+      );
       showTextAnalysisStatus(
         'unknown',
         '현재 페이지의 텍스트 상태를 확인할 수 없습니다.',
@@ -233,6 +259,7 @@ export function initializePdfViewer(document, adapter) {
         : assessment.reasonCodes.includes('TOO_LITTLE_TEXT')
           ? '현재 페이지는 분석하기에 텍스트가 너무 적습니다.'
           : '현재 페이지의 텍스트 품질이 충분하지 않습니다.';
+    debugOverlay.setUnavailable(message, assessment.reasonCodes);
     showTextAnalysisStatus(
       'text-insufficient',
       message,
@@ -329,6 +356,7 @@ export function initializePdfViewer(document, adapter) {
       : '';
     updateControls();
     showViewer('ready', '');
+    debugOverlay.setViewport(rendered);
     if (resetScroll) {
       pageScroll.scrollTop = 0;
       pageScroll.scrollLeft = 0;
@@ -504,6 +532,7 @@ export function initializePdfViewer(document, adapter) {
       resizeObserver?.disconnect();
       if (resizeTimer !== null) document.defaultView?.clearTimeout(resizeTimer);
       await adapter.dispose();
+      debugOverlay.dispose();
     },
   };
 }

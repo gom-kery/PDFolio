@@ -26,7 +26,10 @@ import { createPdfDropHandler, PDF_DROP_CHANNEL } from './pdf-drop.js';
 import { createPdfInputGate } from './pdf-input.js';
 
 const isDevelopment = !app.isPackaged && process.argv.includes('--dev');
-const rendererUrl = isDevelopment ? `${DEV_ORIGIN}/` : APP_URL;
+const isDebugOverlay = process.argv.includes('--debug-overlay');
+const rendererUrl = new URL(isDevelopment ? `${DEV_ORIGIN}/` : APP_URL);
+if (isDebugOverlay) rendererUrl.searchParams.set('debugOverlay', '1');
+const rendererUrlString = rendererUrl.toString();
 
 app.setName(APP_NAME);
 protocol.registerSchemesAsPrivileged([
@@ -65,7 +68,7 @@ async function createWindow() {
     PDF_SELECTION_CHANNEL,
     createPdfSelectionHandler({
       window,
-      rendererUrl,
+      rendererUrl: rendererUrlString,
       showOpenDialog: (...args) => dialog.showOpenDialog(...args),
       runExclusive: runPdfInputExclusive,
     }),
@@ -74,7 +77,7 @@ async function createWindow() {
     PDF_DROP_CHANNEL,
     createPdfDropHandler({
       window,
-      rendererUrl,
+      rendererUrl: rendererUrlString,
       runExclusive: runPdfInputExclusive,
     }),
   );
@@ -83,7 +86,7 @@ async function createWindow() {
     ipcMain.removeHandler(PDF_DROP_CHANNEL);
   });
 
-  await window.loadURL(rendererUrl);
+  await window.loadURL(rendererUrlString);
   window.show();
 }
 

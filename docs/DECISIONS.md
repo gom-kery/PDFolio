@@ -1,12 +1,12 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.2.4`
+- 문서 버전: `0.2.5`
 - 갱신일: 2026-09-02
-- 상태: Unit 2.4 해설·정답 영역 후보 추정 완료. 앱은 버전 0.2.4이며 OPEN-09와 Unit 1.0은 미해결.
+- 상태: Unit 2.5 분석 결과 Debug Overlay 완료. 앱은 버전 0.2.5이며 OPEN-09와 Unit 1.0은 미해결.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
-이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보를 검증했다. 화면 bbox 대조와 안전한 가림 지원 판정은 아직 시작하지 않았다.
+이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보, Unit 2.5에서 개발자용 화면 좌표 대조를 검증했다. 안전한 가림 지원 판정은 아직 시작하지 않았다.
 
 ## 1. 요구사항 분석
 
@@ -414,6 +414,17 @@
 - 검증: 형식, Node 92개, 실제 PDF.js 합성 fixture의 `해설→정답` 두 영역·문제/보기 제외·텍스트 전용 및 열린 마지막 경계·원본 SHA-256을 확인했다. 개발·빌드·패키지 Electron 3경로와 실제 Windows 선택 창도 통과했다. 종료 반복은 개발 7/9·패키지 9/9이며 개발 즉시 종료 두 번에서 기존 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
 - 제외 범위: Debug Overlay, 실제 화면 bbox 대조, 고정 지원 프로파일과 정확도 측정, 이미지·수식 영역, Question 소유 관계, 정답 값 추출, Mask·공개·채점·CBT, 저장, OCR/AI는 Unit 2.4에 포함하지 않는다.
 
+### ADR-029 — Unit 2.5 명시적 개발자용 Debug Overlay
+
+- 상태: **채택 — Unit 2.5 구현·검증 완료**, 2026-09-02. 앱과 Windows x64/ASAR 패키지는 버전 0.2.5다.
+- 활성화 경계: `--debug-overlay`는 main 프로세스가 읽는 명시적 개발 진단 옵션이다. 이 옵션이 있을 때만 내부 renderer URL에 `debugOverlay=1`을 붙인다. 일반 `npm run dev`, 빌드 자산 실행과 패키지 직접 실행은 URL·panel·overlay DOM이 기존과 같고 진단 데이터를 보관하지 않는다.
+- 입력·결과 계약: 순수 `createPdfDebugOverlayModel()`은 같은 revision·pageNumber의 PageTextCoordinates v1과 선택적인 PageKeywordCandidates v1/PageAnswerRegions v1만 받는다. 계약 불일치·잘못된 geometry는 부분 사각형 없이 공개 실패 코드로 끝낸다. 결과는 `viewport-css-px` 좌표, sourceIndex·candidate/region index, 종류·개수·공개 reason code만 가지며 PDF 원문·정답 값·경로·PDF.js 객체를 복사하지 않는다.
+- 좌표·레이어 계약: 기존 PDF user space 근거를 PDF.js와 같은 viewport로 투영하고 실제 Canvas CSS width/height의 정수 반올림 차이를 보정한다. Canvas device pixel ratio와 backing bitmap은 사용하지 않는다. Text Item, 제목 키워드 근거, 영역 text rect와 전체 경계를 서로 다른 선과 `T/K/R` index로 같은 page surface에 그린다.
+- 수명·재투영: 확대·축소, 높이 맞춤, 창 크기와 고유 회전 변화 때 현재 세션 근거를 새 Canvas CSS 크기에 다시 투영한다. 페이지·파일 변경, 분석 불가, dispose에는 기존 Overlay와 근거를 지운다. 숨김 버튼은 좌표 표시만 바꾸며 후보를 승인하거나 저장하지 않는다.
+- 개인정보·안전: panel은 페이지·배율·회전·개수·분석 outcome만 표시한다. 진단 모드에도 PDF 원문 문자열은 DOM에 복사하지 않는다. 다만 답 위치를 시각적으로 드러내므로 일반 사용자/CBT 경로에서는 비활성 상태를 유지한다. Overlay는 pointer event를 받지 않고 Mask·원문 공개·채점 상태에 연결하지 않는다.
+- 검증: 형식, Node 97개, 설치된 PDF.js 합성 fixture의 Text Item 7개·키워드 2개·영역 2개를 실제 Canvas 위에 대조했다. 100→125% 확대, 높이 맞춤과 창 크기 변경, 0/90/180/270도 고유 회전에서 Canvas와 Overlay CSS 크기·사각형 재투영을 확인했다. 일반 실행 DOM 비생성, 진단 DOM 원문 비복사, 숨김/표시, 개발·빌드·패키지 Electron 4/4와 실제 Windows 선택 창 1/1이 통과했다. 종료 반복은 개발 8/9·패키지 9/9이며 개발 즉시 종료 한 번에서 기존 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
+- 제외 범위: 새로운 키워드·영역 규칙, 실제 출판물 지원률·누락/침범 측정, 글리프 잉크·클리핑·이미지·수식 경계, 지원 판정, Question·정답 추출·Mask·공개·채점·CBT, 저장, OCR/AI는 Unit 2.5에 포함하지 않는다. 다음 구현 순서는 Unit 2.6이다.
+
 ## 5. 유보 항목과 해결 상태
 
 | ID | 항목 | 결정 시점 | 지금의 처리 |
@@ -422,9 +433,9 @@
 | OPEN-02 | renderer ESM과 sandbox preload 연결·로컬 자산 프로토콜 | Unit 0.2~1.3 | 해결: ADR-012/015/016/020. Windows x64 패키지와 PDF.js worker·CMap·ICC·표준 글꼴·WASM의 로컬 경로·거부 경로 재검증 완료 |
 | OPEN-03 | 실제 대표 PDF와 지원 프로파일 목록 | Unit 1.0~2.6 | 샘플 행렬만 작성. 사용자 문서 업로드/공유 요청 없음 |
 | OPEN-04 | 파일 크기·Canvas 픽셀·캐시·시간 예산 | Unit 1.1 / 1.6 | 부분 해결: 50 MiB 입력 상한, 현재 Canvas 16,777,216픽셀·한 변 8,192픽셀 상한, 작은 합성 PDF의 첫 페이지·높이 맞춤·마지막 페이지 10초 안전 기준을 적용했다. 모든 실물 PDF의 파서/렌더 시간과 캐시 예산은 샘플 행렬·실사용 측정 전까지 유보 |
-| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1 텍스트 품질, Unit 2.2 근사 bbox·viewport 변환, Unit 2.3의 7개 제목 키워드와 초기 문맥·오탐, Unit 2.4의 단일 열 A/B 순서 영역 후보·보류 사유를 검증했다. 실제 글리프/클리핑과 시각 정합은 2.5, 이미지·수식 포함 영역과 지원 임계값·실제 샘플 정확도는 2.5~2.6 증거 전까지 미확정 |
+| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1 텍스트 품질, Unit 2.2 근사 bbox·viewport 변환, Unit 2.3 제목 키워드, Unit 2.4 단일 열 A/B 영역 후보에 이어 Unit 2.5 합성 PDF에서 Text Item·키워드·영역 좌표의 Canvas 정합과 확대·높이 맞춤·창 크기·회전을 대조했다. 실제 글리프/클리핑·이미지/수식 포함 영역, 실제 출판물 누락·침범률과 지원 임계값은 Unit 2.6 증거 전까지 미확정 |
 | OPEN-06 | 서명·설치형/포터블 공개 배포·업데이트 정책 | MVP 검증 후 | 로컬 테스트 패키지와 구분; 이번 범위 밖 |
-| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.4 종료 반복에서 개발 즉시 종료 2회 재현, 결과 개발 7/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
+| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.5 종료 반복에서 개발 즉시 종료 1회 재현, 결과 개발 8/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
 | OPEN-07 | 저장 경로·문서 해시·SQLite 스키마·백업 형식 | Phase 5.0 | 메모리만 사용 |
 | OPEN-08 | OCR/AI 엔진·언어·모델·서비스 비용 | Phase 9.0 / 10.0 | 의존성 추가 없음 |
 

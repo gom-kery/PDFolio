@@ -2,6 +2,98 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.2.5 작업 기록 — 2026-09-02
+
+**Unit 2.5 분석 결과 Debug Overlay를 구현했다. 명시적 개발 진단 모드에서 기존 Text Item·키워드·영역 후보의 좌표 근거만 Canvas와 대조하며 새로운 분석 규칙·지원 판정·Mask·정답 추출·CBT는 구현하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 작업 트리는 Unit 2.4 커밋 `3e87256` 기준으로 깨끗했다. Unit 2.3·2.4를 먼저 진행한 순서 예외 뒤 ROADMAP에 남아 있던 Unit 2.5 범위만 구현했으며 다음 Unit 2.6은 시작하지 않았다.
+
+### Unit 2.5 — 1. 구현한 내용
+
+- 순수 `createPdfDebugOverlayModel()`을 추가했다. 같은 revision·pageNumber의 PageTextCoordinates v1과 선택적인 PageKeywordCandidates v1/PageAnswerRegions v1을 검증하고 기존 PDF user space 근거를 `viewport-css-px`로 투영한다.
+- Text Item bbox와 `T{sourceIndex}`, 제목 키워드 근거와 `K{candidateIndex}`, 영역 후보의 text rect·전체 경계와 `R{regionIndex}`를 서로 다른 선으로 같은 PDF page surface에 표시한다.
+- PDF.js와 같은 viewport 변환 후 실제 Canvas CSS width/height의 반올림 차이를 보정한다. device pixel ratio와 backing bitmap을 섞지 않고 확대·축소, 높이 맞춤, 창 크기와 고유 회전 변화 때 다시 투영한다.
+- `--debug-overlay`를 main이 받은 경우에만 내부 진단 URL을 만들도록 했다. `npm run dev:debug` 실행 경로를 추가했으며 일반 개발·빌드·패키지 실행에는 panel·overlay DOM이 생성되지 않는다.
+- 진단 panel은 페이지·배율·회전·Text Item/키워드/영역 개수와 공개 outcome만 표시한다. PDF 원문 문자열·정답 값·파일 경로·PDF.js 객체는 진단 모델이나 DOM에 복사하지 않는다.
+- 페이지·파일 변경, 분석 불가와 dispose에서 Overlay 근거를 지우고 숨김/표시 버튼은 진단 사각형의 표시만 바꾼다. Overlay는 pointer event를 받지 않으며 기존 원문 Viewer·분석 상태·Mask에 연결하지 않는다.
+- 설치된 PDF.js 합성 fixture로 Text Item 7개·키워드 2개·영역 2개를 실제 Canvas에서 대조했다. 100→125% 확대, 높이 맞춤·창 크기 변경과 0/90/180/270도 회전 페이지에서 재투영을 확인했다.
+- 앱과 Windows x64/ASAR 패키지 버전을 0.2.5로 올렸다. 이전 0.2.4 패키지는 `work/unit-2.5-before-package/release/`에 보존했다.
+
+### Unit 2.5 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 진단 좌표 모델 | `src/pdf/pdf-debug-overlay-model.js` — 입력 계약 검증, CSS viewport 투영, 원문 없는 레이어 모델 |
+| 진단 UI | `src/ui/pdf-debug-overlay.js`, `src/ui/pdf-viewer.js`, `src/styles/shell.css`, `index.html` — opt-in panel·overlay, 수명·재투영, 범례·단계 안내 |
+| 실행 경계 | `electron/main.js`, `scripts/dev.js`, `package.json` — `--debug-overlay`, `npm run dev:debug`, 일반 실행 분리 |
+| 단위 검사 | `tests/pdf-debug-overlay.test.js` — Text Item·키워드·영역, 확대·회전·보류·계약 실패·원문 비복사 |
+| 실제 앱 검사 | `tests/debug-overlay.test.js`, `tests/electron.test.js`, `tests/helpers/pdf-fixtures.js` — 실제 Canvas 후보/회전 대조, 일반 실행 DOM 비생성 |
+| 버전·실행 | `package.json`, `package-lock.json`, `README.md` — 0.2.5와 일반/진단 실행·검사 절차 |
+| 문서 | `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다.
+
+### Unit 2.5 — 3. 실행 방법
+
+일반 앱은 프로젝트 루트에서 `npm run dev`로 실행한다. 진단 Overlay는 `npm run dev:debug`로 실행한다. `npm run build` 후 `npm start`는 일반 빌드 자산 모드다. 패키지 일반 실행은 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`, 패키지 진단 실행은 PowerShell에서 `& '.\release\local-pdf-cbt-win32-x64\local-pdf-cbt.exe' --debug-overlay`다. 이전 앱이 실행 중이면 완전히 닫고 다시 시작한다.
+
+### Unit 2.5 — 4. 사용자가 직접 테스트할 방법
+
+1. `npm run dev`에서 PDF를 열고 footer의 `Unit 2.5 · 분석 결과 Debug Overlay`를 확인한다. 진단 panel·사각형이 나타나지 않아야 한다.
+2. 앱을 닫고 `npm run dev:debug`로 다시 연다. `PDF 좌표 Debug Overlay` panel이 보이고 PDF를 열면 Canvas 위 좌표 레이어가 나타나야 한다.
+3. `해설:`과 `정답:` 제목이 각각 한 번 있는 단일 열 PDF에서 파란 Text Item, 주황 키워드, 초록 영역 줄과 보라 전체 경계를 눈으로 대조한다. panel의 개수가 보이는 근거와 맞아야 한다.
+4. `+`, `-`, `높이 맞춤`과 창 크기 변경 후에도 사각형이 같은 PDF 글자에 붙어 있는지 확인한다. 고유 회전 페이지가 있으면 90°·180°·270°에서도 방향과 위치를 확인한다.
+5. 숨김/표시, 페이지 이동과 PDF 교체를 반복해 이전 사각형이 남지 않는지 확인한다. 진단 panel·라벨에는 전체 PDF 문장과 파일 경로가 없어야 한다.
+6. 일반/진단 어느 경로에서도 후보가 Mask 승인·답 확인·채점으로 바뀌지 않고 원본 불변 footer 안내가 유지되는지 확인한다.
+
+자동 검사는 `npm run format:check`, `npm test`, `npm run build`, `npm run package`, `npm run test:electron`, `npm run test:native`, `npm run test:shutdown -- -Repeats 3` 순서로 실행한다. Electron·native·shutdown은 Windows 데스크톱 창 실행 권한이 필요하다.
+
+### Unit 2.5 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 전체 프로젝트 형식 |
+| `npm test` | 97/97 통과 | 기존 92개와 진단 모델의 레이어·확대·회전·보류·계약 실패·원문 비복사 5개 |
+| 실제 PDF.js/화면 fixture | 통과 | Text Item 7개·키워드 2개·영역 2개, 100→125%·높이 맞춤·창 크기, 0/90/180/270도, Canvas CSS 크기 |
+| `npm run build` | 통과 | Vite 21 modules, 로컬 PDF.js·진단 자산 포함 |
+| `npm run package` | 통과 | Electron 44.0.0 Windows x64/ASAR 버전 0.2.5 |
+| `npm run test:electron` | 4/4 통과 | 진단 화면 1경로와 일반 개발·빌드·패키지 3경로, DOM 분리와 Viewer·오프라인·입력·보안 회귀 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창, 한글 PDF 분석·취소·원본 해시 |
+| 진단 화면 확인 | 통과 | 후보/회전 캡처에서 레이어 정렬·범례·개수·원문 DOM 비복사 확인 |
+| `npm run test:shutdown -- -Repeats 3` | 17/18 | 개발 8/9, 패키지 9/9. 개발 즉시 종료 1회에서 OPEN-09 GPU 진단 재현 |
+
+종료 18회 모두 창이 닫히고 프로세스 종료 코드 0과 개발 포트 해제를 확인했다. GPU 오류를 숨기거나 그래픽·sandbox 설정을 낮추지 않았다.
+
+### Unit 2.5 — 6. 예상되는 Edge Case
+
+- 하나의 제목 후보가 여러 sourceIndex에 걸치면 같은 candidate 번호의 주황 근거가 여러 Text Item 위에 표시된다. 후보 개수와 표시 사각형 개수는 같지 않을 수 있다.
+- Text Item bbox는 글리프의 잉크 모양보다 넓거나 좁을 수 있다. Overlay 일치는 좌표 변환 확인이며 글리프·클리핑 경계 보장이 아니다.
+- Canvas CSS 크기는 렌더 viewport가 정수로 반올림되므로 Overlay 모델이 X/Y 축의 실제 비율을 따로 보정한다. DPR 변화는 CSS 좌표에 포함하지 않는다.
+- 분석 보류 페이지는 Text Item 일부를 임의 표시하지 않고 진단 불가 이유만 보인다. 기존 원문 Canvas 열람은 유지한다.
+- 영역 후보가 없거나 `uncertain`이면 Text Item·키워드 근거만 보일 수 있다. 이는 진단 결과이며 자동으로 새 영역을 만들지 않는다.
+- Overlay는 답 위치를 드러낼 수 있어 일반 학습 화면에 켜 두지 않는다. 명시적 진단 실행도 원문 문자열을 별도 DOM에 복제하지 않는다.
+
+### Unit 2.5 — 7. 알려진 제한사항
+
+시각 대조는 합성 PDF와 현재 Windows/Electron 화면에서 수행했다. 실제 출판물의 글꼴·클리핑·이미지·수식·다단·다문제·페이지 연결 전체를 검증하지 않았고 누락·침범률도 측정하지 않았다. userUnit/viewBox 오프셋의 수학적 통합 검사는 유지하지만 이번 GUI 캡처는 대표 후보와 회전 fixture다. 진단 Overlay는 제품 기능·Text Layer·Mask가 아니며 일반 실행에서 사용할 수 없다. Unit 1.0 전체 샘플 행렬도 미착수다.
+
+### Unit 2.5 — 8. Technical Debt
+
+- OPEN-05의 합성 좌표 시각 정합은 확인했지만 실제 출판물 지원 임계값과 이미지·수식 포함 영역은 Unit 2.6에서 고정 샘플로 측정해야 한다.
+- 대량 Text Item의 진단 DOM 성능 예산은 정하지 않았다. 일반 실행에는 진단 DOM이 없으므로 제품 경로 성능 보장으로 확대하지 않는다.
+- 사용자 임의 회전과 Text Layer가 없으므로 고유 회전만 검증했다.
+- OPEN-09는 이번 종료 반복에서도 개발 즉시 종료 한 번에 재현됐다.
+
+### Unit 2.5 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 2.5 기능의 확인된 선행 수정 사항은 없다. 다음은 사용자 요청을 받은 뒤 Unit 2.6에서 고정 지원·미지원 샘플로 누출·과다 가림·보류와 CBT 착수 가능 여부를 판정해야 한다. 그 전에는 후보와 Overlay 정렬을 Mask나 지원 선언으로 사용하면 안 된다. 프로젝트 전체 무오류 완료에는 OPEN-09 해결과 Unit 1.0 샘플 행렬도 계속 필요하다.
+
+### Unit 2.5 — 10. Git Commit Message
+
+제안 메시지: `feat(debug): visualize PDF analysis coordinates`
+
+실제 Git 커밋은 만들지 않았다. 메시지는 사용자가 전체 diff와 검사 결과를 검토한 뒤 사용할 제안이다.
+
 ## 0.2.4 작업 기록 — 2026-09-02
 
 **Unit 2.4 해설·정답 영역 후보 추정을 구현했다. 제목·텍스트 bbox에서 보수적인 후보 경계와 보류 사유만 만들며 Debug Overlay·지원 판정·Mask·정답 추출·CBT는 구현하지 않았다.**

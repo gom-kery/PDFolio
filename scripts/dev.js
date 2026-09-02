@@ -5,6 +5,7 @@ import { createServer } from 'vite';
 import { DEV_ORIGIN } from '../electron/config.js';
 
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
+const debugOverlay = process.argv.includes('--debug-overlay');
 let server;
 let child;
 let isStopping = false;
@@ -31,13 +32,17 @@ try {
     console.log(`Local PDF CBT development server: ${DEV_ORIGIN}`);
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;
-    child = spawn(electronPath, [projectRoot, '--dev'], {
-      cwd: projectRoot,
-      env,
-      stdio: 'inherit',
-      // Electron is the user-facing GUI, not a background console helper.
-      windowsHide: false,
-    });
+    child = spawn(
+      electronPath,
+      [projectRoot, '--dev', ...(debugOverlay ? ['--debug-overlay'] : [])],
+      {
+        cwd: projectRoot,
+        env,
+        stdio: 'inherit',
+        // Electron is the user-facing GUI, not a background console helper.
+        windowsHide: false,
+      },
+    );
     child.once('exit', (code) => void stop(code ?? 1));
     child.once('error', (error) => {
       console.error('Electron could not be started.', error);
