@@ -1,12 +1,12 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.2.3`
+- 문서 버전: `0.2.4`
 - 갱신일: 2026-09-02
-- 상태: Unit 2.3 제목 키워드 탐색 완료. 앱은 버전 0.2.3이며 OPEN-09와 Unit 1.0은 미해결.
+- 상태: Unit 2.4 해설·정답 영역 후보 추정 완료. 앱은 버전 0.2.4이며 OPEN-09와 Unit 1.0은 미해결.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
-이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보를 검증했다. 화면 bbox 대조와 해설·정답 영역 인식은 아직 시작하지 않았다.
+이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보를 검증했다. 화면 bbox 대조와 안전한 가림 지원 판정은 아직 시작하지 않았다.
 
 ## 1. 요구사항 분석
 
@@ -394,13 +394,25 @@
 ### ADR-027 — Unit 2.3 문맥 기반 제목 키워드 후보
 
 - 상태: **채택 — Unit 2.3 구현·검증 완료**, 2026-09-02. 앱과 Windows x64/ASAR 패키지는 버전 0.2.3이다.
-- 순서 예외: ROADMAP은 bbox 시각 대조를 위해 Unit 2.5를 2.3보다 먼저 두었지만, 사용자가 Unit 2.3을 명시적으로 요청했다. 요청 범위만 구현했으며 Unit 2.5를 완료·생략한 것으로 처리하지 않는다. 다음 구현 순서는 여전히 2.5이고, 2.4 영역 추정 전에 bbox 대조를 마쳐야 한다.
+- 순서 예외: ROADMAP은 bbox 시각 대조를 위해 Unit 2.5를 2.3보다 먼저 두었지만, 사용자가 Unit 2.3을 명시적으로 요청했다. 요청 범위만 구현했으며 Unit 2.5를 완료·생략한 것으로 처리하지 않는다. 당시 다음 순서는 2.5로 기록했으며, 이후 사용자가 Unit 2.4도 명시적으로 요청한 두 번째 예외와 현재 순서는 ADR-028이 갱신한다.
 - 입력·실패 계약: 순수 `findPageKeywordCandidates()`는 동일 documentRevision·pageNumber의 PageTextSource v1과 PageTextAssessment v1만 받는다. `text-usable`에서만 검색하고 `text-insufficient/unknown`은 `TEXT_NOT_USABLE`과 기존 reason code로 보류한다. 잘못된 source나 서로 맞지 않는 assessment에는 원문 없는 공개 실패 코드를 반환한다.
 - 키워드·줄 계약: 고정 목록은 `해설/풀이/정답/답/Answer/Solution/Explanation` 일곱 개다. 영문은 대소문자를 구분하지 않고 더 긴 키워드를 먼저 검사한다. source item 순서와 `hasEOL`만으로 논리 줄을 만들고 같은 줄의 문자열은 새 공백이나 문자를 넣지 않고 연결한다. 따라서 분리된 `정`+`답`은 찾되 시각적 줄·문단·읽기 순서를 추정하지 않는다.
 - 문맥·오탐 정책: 제한된 공백·글머리표 뒤 줄 시작에서 단독 제목, 구분 기호, 해설 본문, 허용 답 표기(①~⑩, 1~10, A~G)를 구분한다. `정답을 고르시오`, `답변`, `해설서`, `풀이과정`, 본문 중간 `Answer`, `Answer choices`, `Solution manual`, `Explanation guide` 고정 사례는 제외한다. 이는 측정된 정확도나 모든 출판물의 오탐 제거를 보장하지 않는다.
 - 결과·개인정보: `PageKeywordCandidates v1`은 contract/source version, revision, pageNumber, count와 후보 근거만 가진다. 후보는 canonical/matched keyword, 종류·언어·문맥, 단일/분절 matchMode, sourceIndexes, 논리 줄 번호만 포함한다. 전체 주변 문장·bbox·region·questionId·정답 값·경로·PDF.js 객체는 포함하지 않는다. UI는 후보 원문 없이 개수·없음·보류만 표시하고 결과를 장기 보관하지 않는다.
 - 검증: 형식, Node 81개, 실제 PDF.js 합성 fixture의 본문 `Answer`와 `Answer choices` 제외 및 `Explanation:` 후보 1개, 원본 SHA-256, 빌드, Windows x64/ASAR 패키지, 개발·빌드·패키지 Electron 3경로, 실제 Windows 선택 창이 통과했다. 종료 반복은 개발 7/9·패키지 9/9이며 개발 즉시 종료 두 번에서 기존 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
 - 제외 범위: 시각 bbox Debug Overlay, 좌표 기반 줄/블록 복원, 해설·정답 시작/끝 영역, 후보 점수·지원 판정, Question·정답 추출·마스크·CBT, 저장, OCR/AI는 Unit 2.3에 포함하지 않는다. 후보가 하나 이상이어도 CBT 지원이나 안전한 가림을 뜻하지 않는다.
+
+### ADR-028 — Unit 2.4 해설·정답 영역 후보
+
+- 상태: **채택 — Unit 2.4 구현·검증 완료**, 2026-09-02. 앱과 Windows x64/ASAR 패키지는 버전 0.2.4다.
+- 순서 예외: ROADMAP은 bbox 시각 대조를 위해 Unit 2.5를 2.4보다 먼저 두었지만 사용자가 Unit 2.4를 명시적으로 요청했다. 후보 추론만 구현했고 Unit 2.5를 완료·생략한 것으로 처리하지 않는다. 다음 구현 순서는 2.5이며, 그 뒤 2.6 지원 판정이 필요하다.
+- 입력·결과 계약: 순수 `inferPageAnswerRegions()`는 같은 revision·pageNumber와 페이지 geometry를 가진 PageTextSource v1, `text-usable` PageTextAssessment v1, PageTextCoordinates v1, PageKeywordCandidates v1만 받는다. 불충분·확인 불가 텍스트는 기존 reason code와 함께 건너뛰고 계약 불일치는 부분 결과 없이 공개 실패 코드로 끝낸다. `PageAnswerRegions v1`은 세션의 현재 페이지 후보 데이터이며 Mask 승인이나 지원 판정이 아니다.
+- 줄·좌표 계약: source item 순서와 `hasEOL`로만 논리 줄을 만들고 각 줄의 TextItemRecord를 회전 전 PDF user space에서 합친다. source 순서의 Y 진행이 역전되거나 같은 높이에 큰 수평 간격이 있어 다단 가능성이 있으면 영역을 만들지 않는다. 고유 회전과 세로쓰기도 Unit 2.5 시각 검증 전까지 보류한다.
+- 경계·순서 계약: 제목 줄에서 시작하고 다음 제목 바로 앞에서 끝낸다. `solution-then-answer`와 `answer-then-solution`을 별도로 반환하며 첫 제목 전 문제·보기 줄은 영역에 포함하지 않는다. 같은 종류 제목이 여러 개면 다문제 가능성으로 보류한다. 한 종류만 있으면 후보는 유지하되 다른 제목 누락을 기록한다.
+- 누락 방지 한계: 다음 제목이 없는 마지막 영역은 Text Content 끝을 임시 경계로 사용하면서 `OPEN_ENDED_LAST_REGION`을 유지한다. 모든 영역은 `text-bounds-only`와 `NON_TEXT_CONTENT_UNVERIFIED`를 가지므로 이미지·수식·클리핑을 포함한 완전한 가림으로 승인할 수 없다. 단독 제목 뒤 본문이 없으면 별도 사유를 남긴다.
+- 개인정보·UI: 결과에는 계약 버전, revision, pageNumber, 순서, sourceIndexes·논리 줄 경계, PDF user space rects와 reason code만 둔다. 전체 주변 원문·questionId·정답 값·Mask는 넣지 않는다. 일반 UI는 후보 수·없음·보류와 안전한 가림 미확인 상태만 표시하며 원문·좌표를 DOM·Console·자동 결과에 노출하거나 장기 보관하지 않는다.
+- 검증: 형식, Node 92개, 실제 PDF.js 합성 fixture의 `해설→정답` 두 영역·문제/보기 제외·텍스트 전용 및 열린 마지막 경계·원본 SHA-256을 확인했다. 개발·빌드·패키지 Electron 3경로와 실제 Windows 선택 창도 통과했다. 종료 반복은 개발 7/9·패키지 9/9이며 개발 즉시 종료 두 번에서 기존 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
+- 제외 범위: Debug Overlay, 실제 화면 bbox 대조, 고정 지원 프로파일과 정확도 측정, 이미지·수식 영역, Question 소유 관계, 정답 값 추출, Mask·공개·채점·CBT, 저장, OCR/AI는 Unit 2.4에 포함하지 않는다.
 
 ## 5. 유보 항목과 해결 상태
 
@@ -410,9 +422,9 @@
 | OPEN-02 | renderer ESM과 sandbox preload 연결·로컬 자산 프로토콜 | Unit 0.2~1.3 | 해결: ADR-012/015/016/020. Windows x64 패키지와 PDF.js worker·CMap·ICC·표준 글꼴·WASM의 로컬 경로·거부 경로 재검증 완료 |
 | OPEN-03 | 실제 대표 PDF와 지원 프로파일 목록 | Unit 1.0~2.6 | 샘플 행렬만 작성. 사용자 문서 업로드/공유 요청 없음 |
 | OPEN-04 | 파일 크기·Canvas 픽셀·캐시·시간 예산 | Unit 1.1 / 1.6 | 부분 해결: 50 MiB 입력 상한, 현재 Canvas 16,777,216픽셀·한 변 8,192픽셀 상한, 작은 합성 PDF의 첫 페이지·높이 맞춤·마지막 페이지 10초 안전 기준을 적용했다. 모든 실물 PDF의 파서/렌더 시간과 캐시 예산은 샘플 행렬·실사용 측정 전까지 유보 |
-| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1 텍스트 품질, Unit 2.2 근사 bbox·viewport 변환, Unit 2.3의 7개 제목 키워드와 초기 문맥·오탐 규칙을 검증했다. 실제 글리프/클리핑과 시각 정합은 2.5, 좌표 기반 줄/블록·영역·지원 임계값과 실제 샘플 정확도는 2.4~2.6 증거 전까지 미확정 |
+| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1 텍스트 품질, Unit 2.2 근사 bbox·viewport 변환, Unit 2.3의 7개 제목 키워드와 초기 문맥·오탐, Unit 2.4의 단일 열 A/B 순서 영역 후보·보류 사유를 검증했다. 실제 글리프/클리핑과 시각 정합은 2.5, 이미지·수식 포함 영역과 지원 임계값·실제 샘플 정확도는 2.5~2.6 증거 전까지 미확정 |
 | OPEN-06 | 서명·설치형/포터블 공개 배포·업데이트 정책 | MVP 검증 후 | 로컬 테스트 패키지와 구분; 이번 범위 밖 |
-| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.3 종료 반복에서 개발 즉시 종료 2회 재현, 결과 개발 7/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
+| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.4 종료 반복에서 개발 즉시 종료 2회 재현, 결과 개발 7/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
 | OPEN-07 | 저장 경로·문서 해시·SQLite 스키마·백업 형식 | Phase 5.0 | 메모리만 사용 |
 | OPEN-08 | OCR/AI 엔진·언어·모델·서비스 비용 | Phase 9.0 / 10.0 | 의존성 추가 없음 |
 

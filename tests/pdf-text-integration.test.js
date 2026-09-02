@@ -13,12 +13,17 @@ import {
 import { assessPageText } from '../src/analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../src/analysis/page-text-coordinates.js';
 import { findPageKeywordCandidates } from '../src/analysis/page-keyword-candidates.js';
+import { inferPageAnswerRegions } from '../src/analysis/page-answer-regions.js';
 import { createPdfAdapterCore } from '../src/pdf/pdf-adapter-core.js';
 import {
   convertPdfPointToViewport,
   createViewportGeometry,
 } from '../src/pdf/pdf-coordinate-space.js';
-import { coordinatePdf, keywordPdf } from './helpers/pdf-fixtures.js';
+import {
+  coordinatePdf,
+  keywordPdf,
+  regionPdf,
+} from './helpers/pdf-fixtures.js';
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const fixture = path.join(root, 'tests/fixtures/unit-1.3-korean-image.pdf');
@@ -214,6 +219,55 @@ test('installed PDF.js finds only the contextual heading in the keyword fixture'
     'heading-with-delimiter',
   );
   assert.ok(!Object.hasOwn(keywordResult.result.candidates[0], 'lineText'));
+  assert.equal(
+    createHash('sha256').update(original).digest('hex'),
+    originalHash,
+  );
+  await adapter.dispose();
+});
+
+test('installed PDF.js infers two text-only regions in solution-answer order', async () => {
+  const original = regionPdf();
+  const originalHash = createHash('sha256').update(original).digest('hex');
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: wrapPdfJsForTextExtraction({}),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+  const opened = await adapter.open({
+    data: new Uint8Array(original),
+    canvas: { style: {} },
+  });
+  assert.equal(opened.status, 'rendered');
+
+  const extraction = await adapter.extractPageText({ pageNumber: 1 });
+  assert.equal(extraction.status, 'extracted');
+  const assessment = assessPageText(extraction);
+  const coordinates = createPageTextCoordinates(extraction.source);
+  const keywords = findPageKeywordCandidates({
+    source: extraction.source,
+    assessment,
+  });
+  assert.equal(assessment.quality, 'text-usable');
+  assert.equal(coordinates.status, 'coordinates-ready');
+  assert.equal(keywords.result.candidateCount, 2);
+
+  const regions = inferPageAnswerRegions({
+    source: extraction.source,
+    assessment,
+    coordinates: coordinates.coordinates,
+    keywordCandidates: keywords.result,
+  });
+  assert.equal(regions.status, 'regions-ready');
+  assert.equal(regions.result.outcome, 'candidate-regions');
+  assert.equal(regions.result.sequence, 'solution-then-answer');
+  assert.equal(regions.result.regionCount, 2);
+  assert.deepEqual(
+    regions.result.regions.map((region) => region.kind),
+    ['solution-region', 'answer-region'],
+  );
+  assert.ok(regions.result.reasonCodes.includes('NON_TEXT_CONTENT_UNVERIFIED'));
+  assert.ok(regions.result.reasonCodes.includes('OPEN_ENDED_LAST_REGION'));
+  assert.ok(!JSON.stringify(regions.result).includes('Continue the reasoning'));
   assert.equal(
     createHash('sha256').update(original).digest('hex'),
     originalHash,

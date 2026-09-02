@@ -155,14 +155,26 @@
                   PDF를 열면 현재 페이지의 제목 키워드를 확인합니다.
                 </dd>
               </div>
+              <div class="status-item">
+                <dt>영역 후보</dt>
+                <dd
+                  id="region-analysis-status"
+                  class="analysis-summary-status"
+                  role="status"
+                  aria-atomic="true"
+                  data-state="idle"
+                >
+                  PDF를 열면 현재 페이지의 해설·정답 영역 후보를 확인합니다.
+                </dd>
+              </div>
             </dl>
             <div class="scope-note">
-              <h3>제목 키워드 탐색 단계</h3>
+              <h3>해설·정답 영역 후보 단계</h3>
               <p>
                 선택하거나 드롭한 PDF를 한 페이지씩 이동하고 50–200% 범위로
                 확대·축소하거나 높이에 맞춰 표시합니다. 현재 페이지의 텍스트
-                품질·PDF 좌표·제목 키워드 후보만 확인하며 영역 추정과 문제풀이는
-                아직 지원하지 않습니다.
+                품질·PDF 좌표·제목 키워드와 영역 후보만 계산합니다. 화면 가림과
+                문제풀이는 아직 지원하지 않습니다.
               </p>
             </div>
           </aside>
@@ -215,7 +227,7 @@
           data-state="idle"
           hidden
         ></p>
-        <p>Unit 2.3 · 제목 키워드 탐색</p>
+        <p>Unit 2.4 · 해설·정답 영역 후보</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>

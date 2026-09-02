@@ -129,6 +129,10 @@ test(
             '#keyword-analysis-status[data-state="none"]',
             { timeout: 10_000 },
           );
+          await page.waitForSelector(
+            '#region-analysis-status[data-state="none"]',
+            { timeout: 10_000 },
+          );
         }
         evidence.nativeActions.push({ action, result: 'passed' });
       }

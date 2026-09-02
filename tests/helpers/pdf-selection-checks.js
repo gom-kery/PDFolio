@@ -23,6 +23,7 @@ export async function checkPdfSelection(application, page, artifacts) {
   const replacementHash = await hash(files.replacement);
   const multipageHash = await hash(files.multipage);
   const keywordHash = await hash(files.keyword);
+  const regionHash = await hash(files.region);
   const dispatchDrop = async ({ filePaths = [], items = [] }) => {
     const box = await page.locator('.workspace').boundingBox();
     assert.ok(box);
@@ -140,6 +141,9 @@ export async function checkPdfSelection(application, page, artifacts) {
     await page.waitForSelector('#keyword-analysis-status[data-state="none"]', {
       timeout: 10_000,
     });
+    await page.waitForSelector('#region-analysis-status[data-state="none"]', {
+      timeout: 10_000,
+    });
     assert.equal(
       await page.locator('#selected-file-name').innerText(),
       '한글 문서 & 연습.PDF',
@@ -189,6 +193,10 @@ export async function checkPdfSelection(application, page, artifacts) {
           .textContent,
         keywordAnalysisState: document.querySelector('#keyword-analysis-status')
           .dataset.state,
+        regionAnalysis: document.querySelector('#region-analysis-status')
+          .textContent,
+        regionAnalysisState: document.querySelector('#region-analysis-status')
+          .dataset.state,
       };
     });
     assert.equal(renderedPage.hidden, false);
@@ -212,6 +220,11 @@ export async function checkPdfSelection(application, page, artifacts) {
       renderedPage.keywordAnalysis,
       '현재 페이지에서 제목 키워드 후보를 찾지 못했습니다.',
     );
+    assert.equal(renderedPage.regionAnalysisState, 'none');
+    assert.equal(
+      renderedPage.regionAnalysis,
+      '제목 키워드 후보가 없어 영역을 계산하지 않았습니다.',
+    );
     assert.ok(
       !(await page.locator('body').innerText()).includes(
         'PDF.js가 한글과 포함된 이미지를 오프라인으로 표시합니다.',
@@ -233,9 +246,16 @@ export async function checkPdfSelection(application, page, artifacts) {
     await page.waitForSelector('#keyword-analysis-status[data-state="found"]', {
       timeout: 10_000,
     });
+    await page.waitForSelector('#region-analysis-status[data-state="found"]', {
+      timeout: 10_000,
+    });
     assert.equal(
       await page.locator('#keyword-analysis-status').innerText(),
       '현재 페이지에서 제목 키워드 후보 1개를 찾았습니다.',
+    );
+    assert.equal(
+      await page.locator('#region-analysis-status').innerText(),
+      '현재 페이지에서 영역 후보 1개를 계산했습니다. 안전한 가림은 아직 확인하지 않았습니다.',
     );
     const keywordPageText = await page.locator('body').innerText();
     assert.ok(!keywordPageText.includes('Explanation: worked result.'));
@@ -245,6 +265,39 @@ export async function checkPdfSelection(application, page, artifacts) {
       'keyword-candidate',
       'keyword-false-positive-suppression',
       'keyword-text-not-in-dom',
+    );
+
+    await select({ canceled: false, filePaths: [files.region] }, 'selected');
+    await page.waitForSelector('#keyword-analysis-status[data-state="found"]', {
+      timeout: 10_000,
+    });
+    await page.waitForSelector('#region-analysis-status[data-state="found"]', {
+      timeout: 10_000,
+    });
+    assert.equal(
+      await page.locator('#keyword-analysis-status').innerText(),
+      '현재 페이지에서 제목 키워드 후보 2개를 찾았습니다.',
+    );
+    assert.equal(
+      await page.locator('#region-analysis-status').innerText(),
+      '현재 페이지에서 영역 후보 2개를 계산했습니다. 안전한 가림은 아직 확인하지 않았습니다.',
+    );
+    const regionReasonCodes = (
+      await page
+        .locator('#region-analysis-status')
+        .getAttribute('data-reason-codes')
+    ).split(/\s+/);
+    assert.ok(regionReasonCodes.includes('NON_TEXT_CONTENT_UNVERIFIED'));
+    assert.ok(regionReasonCodes.includes('OPEN_ENDED_LAST_REGION'));
+    const regionPageText = await page.locator('body').innerText();
+    assert.ok(
+      !regionPageText.includes('Continue the reasoning to the result.'),
+    );
+    assert.equal(await hash(files.region), regionHash);
+    cases.push(
+      'answer-region-solution-then-answer',
+      'answer-region-text-not-in-dom',
+      'answer-region-file-unchanged',
     );
 
     await select({ canceled: false, filePaths: [files.multipage] }, 'selected');
@@ -261,6 +314,10 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     assert.equal(
       await page.locator('#keyword-analysis-status').getAttribute('data-state'),
+      'skipped',
+    );
+    assert.equal(
+      await page.locator('#region-analysis-status').getAttribute('data-state'),
       'skipped',
     );
     assert.equal(await page.locator('#page-number').inputValue(), '1');

@@ -1,12 +1,12 @@
 # Local PDF CBT — Project Bible
 
-- 문서 버전: `0.2.3`
+- 문서 버전: `0.2.4`
 - 작성일: 2026-08-31
 - 갱신일: 2026-09-02
-- 상태: Unit 2.3 제목 키워드 탐색 완료. 앱은 버전 0.2.3이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: 원문 Viewer, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1. Debug Overlay·영역·CBT 기능은 아직 구현하지 않았다.
+- 상태: Unit 2.4 해설·정답 영역 후보 추정 완료. 앱은 버전 0.2.4이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: 원문 Viewer, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1, PageAnswerRegions v1. Debug Overlay·지원 판정·Mask·CBT 기능은 아직 구현하지 않았다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
-- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.3에 한하며 미완료 Unit 2.5나 Unit 2.4 이후의 구현을 뜻하지 않는다.
+- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.4에 한하며 미완료 Unit 2.5나 Unit 2.6 이후의 구현을 뜻하지 않는다.
 
 관련 문서: [개발 계획](ROADMAP.md), [요구사항 검토·기술 결정](DECISIONS.md), [변경·Unit 완료 기록](CHANGELOG.md), [후속 아이디어](IDEA_PARKING.md).
 
@@ -14,7 +14,7 @@
 
 사용자가 소유한 문제·보기·해설·정답 PDF를 로컬에서 열어, 답과 해설을 가린 상태로 객관식 문제를 풀게 한다. 답 선택 → 답 확인 → 해당 문제의 해설 공개 → 가능한 경우 채점이 기본 흐름이다. **원본 PDF는 읽기 전용**이며 가림은 화면에서만 수행한다.
 
-사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색을 명시적으로 요청**했다. 순수 분석 모듈은 `text-usable`인 현재 페이지에서 원래 Text Item 순서와 `hasEOL`을 근거로 `해설/풀이/정답/답/Answer/Solution/Explanation`의 제목 문맥 후보를 찾는다. 분리된 항목은 문자를 새로 만들지 않고 연결하며, 지시문·긴 단어·본문 부분 일치를 보수적으로 제외한다. UI에는 원문이나 후보 문자열 대신 현재 페이지의 후보 수만 표시한다. 사용자의 순서 예외 요청으로 Unit 2.5보다 먼저 구현했지만 Debug Overlay는 생략하지 않았으며, 영역 추정·마스크·CBT는 구현하지 않는다. 앱과 package.json은 0.2.3이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
+사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. 일반 UI에는 원문·좌표 대신 후보 개수와 안전한 가림 미확인 상태만 표시한다. 사용자의 순서 예외 요청으로 Unit 2.5보다 먼저 구현했지만 Debug Overlay는 생략하지 않았으며, 지원 판정·마스크·CBT는 구현하지 않는다. 앱과 package.json은 0.2.4이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
 
 ### 첫 MVP 범위 — 승인 전 제안
 
@@ -203,7 +203,7 @@ Unit 2.1의 `PageTextAssessment v1`은 PageTextSource 또는 현재 문서의 �
 
 최소 reason code 집합은 `NO_TEXT_ITEMS`, `WHITESPACE_ONLY`, `TOO_LITTLE_TEXT`, `LOW_TEXT_QUALITY`, `INVALID_TEXT_SOURCE`, `CONFLICTING_SIGNALS`, `TEXT_EXTRACTION_FAILED`다. Unit 2.1에서 샘플에 근거해 필요한 코드만 실제 사용하고, 임계값 미충족을 추출 오류로 바꾸지 않는다. 빈 텍스트나 이미지가 있다는 사실만으로 스캔 PDF라고 판정하지 않는다.
 
-페이지와 문제는 계속 분리한다. PageTextSource와 PageTextAssessment에는 `questionId`, 정답, 해설, 영역, 지원 여부를 넣지 않는다. 페이지 번호를 questionId로 사용하지 않는다. Question/Region 생성은 키워드·영역·지원 판정이 끝난 뒤의 별도 Unit 책임이다.
+페이지와 문제는 계속 분리한다. PageTextSource와 PageTextAssessment에는 `questionId`, 정답, 해설, 영역, 지원 여부를 넣지 않는다. 페이지 번호를 questionId로 사용하지 않는다. PageAnswerRegions는 페이지의 승인 전 후보이며 Question과 questionId에 소유된 Region 생성은 키워드·영역·지원 판정이 끝난 뒤의 별도 Unit 책임이다.
 
 검증 순서는 다음과 같다.
 
@@ -212,8 +212,9 @@ Unit 2.1의 `PageTextAssessment v1`은 PageTextSource 또는 현재 문서의 �
 3. Unit 2.1 완료: 실제 PDF.js 한글+이미지 fixture에서 6개 item·비공백 73자·판독 비율 1을 확인했고 경로·PDF.js 객체·원문 DOM 비노출, 원본 해시, Viewer와 오프라인 패키지 경계를 확인했다.
 4. Unit 2.2 완료: 보존한 transform·style·page metadata로 회전 전 PDF user space의 TextItemRecord bbox를 계산했다. viewBox 오프셋·`UserUnit 2`·0/90/180/270도·50/100/200% 합성 문서를 설치된 PDF.js 6.3.289의 `getViewport()`와 대조했고 Canvas DPR가 CSS 좌표에 섞이지 않음을 확인했다.
 5. Unit 2.3 완료: 사용자의 명시적 순서 예외에 따라 7개 제목 키워드, 분절 항목, 문맥과 오탐 억제를 순수 함수·실제 PDF.js fixture·일반 UI 후보 수로 검증했다.
-6. Unit 2.5: 생략하지 않고 일반 사용자 기능과 분리한 Debug Overlay에서 sourceIndex와 bbox를 시각 대조한다. Unit 2.4보다 먼저 완료한다.
-7. Unit 2.4·2.6: 영역과 지원 판정을 각각 독립 검증하며 키워드 후보나 품질 상태만으로 CBT를 승인하지 않는다.
+6. Unit 2.4 완료: 사용자의 두 번째 순서 예외에 따라 A/B 순서의 텍스트 영역 후보, 시작·다음 제목 경계, 문제/보기 제외와 보류·제한 사유를 검증했다. 안전한 Mask나 지원 판정으로 승인하지 않았다.
+7. Unit 2.5: 생략하지 않고 일반 사용자 기능과 분리한 Debug Overlay에서 sourceIndex, bbox와 기존 키워드·영역 후보 근거를 시각 대조한다.
+8. Unit 2.6: 고정 지원·미지원 샘플에서 지원 판정을 독립 검증하며 키워드나 영역 후보만으로 CBT를 승인하지 않는다.
 
 ### 9.1 추출과 분석은 다른 일이다
 
@@ -244,16 +245,19 @@ Unit 2.3의 `PageKeywordCandidates v1`은 PageTextSource v1과 같은 revision·
 - 후보 근거는 canonicalKeyword, 실제 일치한 키워드, 언어·종류·문맥, 단일/분절 matchMode, sourceIndexes, 1부터 시작하는 논리 줄 번호만 가진다. 전체 주변 문장, bbox, region, questionId, 정답 값은 포함하지 않는다.
 - 일반 UI는 후보 원문을 표시하거나 보관하지 않고 현재 페이지의 후보 개수 또는 보류 상태만 알린다. 후보가 있어도 해설/정답 영역, 올바른 답, Question 또는 CBT 지원이 확인된 것은 아니다.
 
-### 9.4 영역 추정 파이프라인 — 설계 제안
+### 9.4 해설·정답 영역 후보 계약
 
-1. 페이지별 텍스트 품질을 평가한다.
-2. 분리된 항목을 줄·블록으로 묶고 원문과 검색용 정규화 문자열을 함께 유지한다.
-3. `해설`, `풀이`, `정답`, `답`, `Solution`, `Explanation`, `Answer`를 설정 가능한 후보로 찾는다. 짧은 `답`은 문장 내 부분 일치로 쓰지 않는다.
-4. 줄 시작, 구분 기호, 주변 문맥, 보기 영역과의 관계를 함께 검사한다. `정답을 고르시오` 같은 지시문은 해설 제목이 아니다.
-5. 시작 키워드뿐 아니라 블록 끝, 열 경계, 다음 제목, 본문/보기와의 겹침을 확인한다. 분리된 해설·정답은 여러 사각형으로 표현한다.
-6. 영역 가림 적합성과 정답 추출 적합성을 별도로 판정한다. `supported / uncertain / unsupported`와 근거·사유를 남긴다. 점수가 있다면 보정 전의 휴리스틱 점수이지 정확도 확률이 아니다.
+Unit 2.4의 `PageAnswerRegions v1`은 같은 documentRevision·pageNumber의 PageTextSource v1, `text-usable` PageTextAssessment v1, PageTextCoordinates v1, PageKeywordCandidates v1만 입력으로 받는다. 각 계약과 페이지 geometry가 맞지 않으면 원문 없는 공개 실패 코드를 반환하고 `text-insufficient/unknown`은 기존 reason code와 함께 보류한다.
 
-고정 Y 이하 전체 가리기와 키워드 일치만으로 자동 공개·채점하는 방식을 금지한다. 끝 경계를 입증하지 못한 영역은 추측해서 사용하지 않는다. 정답·해설 안의 그림과 수식도 가림 대상이므로 텍스트 bbox의 합집합만으로 완전한 가림을 보장하지 않는다.
+- PageTextSource의 항목 순서와 `hasEOL`로 만든 논리 줄마다 TextItemRecord bbox의 합집합을 계산한다. 원문 문자열을 영역 결과에 복사하거나 추정 공백·문단을 만들지 않는다.
+- 제목 줄을 시작 경계로 삼고 다음 제목 바로 앞을 끝 경계로 삼는다. 다음 제목이 없으면 Text Content 끝까지 후보를 만들되 `OPEN_ENDED_LAST_REGION`을 기록해 닫힌 경계로 승인하지 않는다.
+- 해설·정답 제목이 각각 하나인 `solution-then-answer`와 `answer-then-solution`을 구별한다. 한 종류만 있으면 단일 후보와 누락 사유를 남긴다. 결과는 한 영역의 여러 줄을 `textRects[]`로 유지하며 문제·보기처럼 첫 제목 전의 줄은 포함하지 않는다.
+- 같은 종류 제목이 여러 개이면 다문제 가능성이 있으므로 영역을 만들지 않는다. source 순서와 Y 진행이 충돌하거나 같은 높이에 큰 수평 간격이 있는 다단 가능성, 고유 회전, 세로쓰기도 현재 읽기 순서를 입증할 수 없어 `uncertain`으로 보류한다.
+- 모든 후보는 `coverage: text-bounds-only`와 `NON_TEXT_CONTENT_UNVERIFIED`를 가진다. 텍스트 bbox로 이미지·수식·클리핑 영역을 확인할 수 없으므로 후보가 있어도 완전한 가림을 뜻하지 않는다.
+- 결과에는 계약 버전, revision, pageNumber, 순서, 근거 sourceIndexes·논리 줄 범위, 회전 전 PDF user space bounds/rects, 공개 reason code만 포함한다. 전체 주변 문장·questionId·정답 값·Mask 승인·지원 판정은 포함하지 않는다.
+- 일반 UI는 후보 원문·좌표를 노출하거나 장기 보관하지 않고 개수·없음·보류와 `안전한 가림은 아직 확인하지 않았습니다`만 표시한다.
+
+고정 Y 이하 전체 가리기와 키워드 일치만으로 자동 공개·채점하는 방식은 계속 금지한다. PageAnswerRegions는 Unit 2.5 시각 대조와 Unit 2.6 지원 판정 전의 세션 후보 자료다.
 
 ### 9.5 스캔·혼합 문서
 
@@ -340,7 +344,7 @@ Electron 권고에 따라 renderer의 `nodeIntegration: false`, `contextIsolatio
 
 Unit 시작 시 목표, 제외 범위, 선행 Unit, 완료 기준을 확인한다. 구현 → 실행 가능한 검증 → 구조/회귀 검토 → 문서 갱신 순서로 마친다. 현재 Unit의 기준을 충족하지 못하면 다음 Unit으로 넘어가지 않는다.
 
-이번 순서 조정은 사용자의 명시적 Unit 1.1과 1.2 요청에 한한다. 미착수 Unit 1.0을 완료로 바꾸거나 기존 오류 없음 조건을 낮추지 않는다. 최소 입력 상한·서명 정책은 ADR-017/018, 드롭 경계는 ADR-019에 기록한다.
+순서 조정은 사용자가 명시적으로 요청한 Unit에만 적용한다. Unit 2.3과 2.4를 Unit 2.5보다 먼저 구현한 예외는 미착수 Unit 2.5를 완료·생략한 것으로 바꾸거나 기존 오류 없음 조건을 낮추지 않는다. 최소 입력 상한·서명 정책은 ADR-017/018, 드롭 경계는 ADR-019, Phase 2 순서 예외와 분석 계약은 ADR-027/028에 기록한다.
 
 각 Unit 완료 기록에는 반드시 다음 10항목을 넣는다.
 

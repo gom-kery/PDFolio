@@ -2,6 +2,7 @@ import { MAX_RENDER_SCALE, MIN_RENDER_SCALE } from '../pdf/pdf-adapter-core.js';
 import { assessPageText } from '../analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../analysis/page-text-coordinates.js';
 import { findPageKeywordCandidates } from '../analysis/page-keyword-candidates.js';
+import { inferPageAnswerRegions } from '../analysis/page-answer-regions.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -37,6 +38,9 @@ export function initializePdfViewer(document, adapter) {
   const keywordAnalysisStatus = document.querySelector(
     '#keyword-analysis-status',
   );
+  const regionAnalysisStatus = document.querySelector(
+    '#region-analysis-status',
+  );
   const zoomOutButton = document.querySelector('#zoom-out');
   const zoomInButton = document.querySelector('#zoom-in');
   const fitHeightButton = document.querySelector('#fit-height');
@@ -64,12 +68,24 @@ export function initializePdfViewer(document, adapter) {
     keywordAnalysisStatus.textContent = message;
   };
 
+  const showRegionAnalysisStatus = (state, message, reasonCodes = []) => {
+    regionAnalysisStatus.dataset.state = state;
+    regionAnalysisStatus.textContent = message;
+    if (reasonCodes.length > 0)
+      regionAnalysisStatus.dataset.reasonCodes = reasonCodes.join(' ');
+    else delete regionAnalysisStatus.dataset.reasonCodes;
+  };
+
   const resetTextAnalysis = (message) => {
     analysisRequestId++;
     showTextAnalysisStatus('idle', message);
     showKeywordAnalysisStatus(
       'idle',
       'PDF를 열면 현재 페이지의 제목 키워드를 확인합니다.',
+    );
+    showRegionAnalysisStatus(
+      'idle',
+      'PDF를 열면 현재 페이지의 해설·정답 영역 후보를 확인합니다.',
     );
   };
 
@@ -82,6 +98,10 @@ export function initializePdfViewer(document, adapter) {
     showKeywordAnalysisStatus(
       'analyzing',
       `${pageNumber.toLocaleString('ko-KR')}페이지의 제목 키워드를 확인하고 있습니다.`,
+    );
+    showRegionAnalysisStatus(
+      'analyzing',
+      `${pageNumber.toLocaleString('ko-KR')}페이지의 영역 경계를 확인하고 있습니다.`,
     );
     let extraction;
     try {
@@ -104,6 +124,10 @@ export function initializePdfViewer(document, adapter) {
         'skipped',
         '텍스트 분석이 보류되어 키워드를 찾지 않았습니다.',
       );
+      showRegionAnalysisStatus(
+        'skipped',
+        '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
+      );
       return;
     }
     if (assessment.quality === 'text-usable') {
@@ -117,6 +141,10 @@ export function initializePdfViewer(document, adapter) {
         showKeywordAnalysisStatus(
           'skipped',
           '텍스트 위치를 확인할 수 없어 키워드 결과를 보류했습니다.',
+        );
+        showRegionAnalysisStatus(
+          'skipped',
+          '텍스트 위치를 확인할 수 없어 영역 결과를 보류했습니다.',
         );
         return;
       }
@@ -133,6 +161,10 @@ export function initializePdfViewer(document, adapter) {
           'unknown',
           '현재 페이지의 제목 키워드를 확인할 수 없습니다.',
         );
+        showRegionAnalysisStatus(
+          'skipped',
+          '제목 키워드를 확인할 수 없어 영역 결과를 보류했습니다.',
+        );
         return;
       }
       const count = keywordResult.result.candidateCount;
@@ -142,6 +174,40 @@ export function initializePdfViewer(document, adapter) {
           ? `현재 페이지에서 제목 키워드 후보 ${count.toLocaleString('ko-KR')}개를 찾았습니다.`
           : '현재 페이지에서 제목 키워드 후보를 찾지 못했습니다.',
       );
+      const regionResult = inferPageAnswerRegions({
+        source: extraction.source,
+        assessment,
+        coordinates: coordinateResult.coordinates,
+        keywordCandidates: keywordResult.result,
+      });
+      if (regionResult.status !== 'regions-ready') {
+        showRegionAnalysisStatus(
+          'unknown',
+          '현재 페이지의 영역 후보를 확인할 수 없습니다.',
+        );
+        return;
+      }
+      const regionOutcome = regionResult.result.outcome;
+      if (regionOutcome === 'candidate-regions') {
+        const regionCount = regionResult.result.regionCount;
+        showRegionAnalysisStatus(
+          'found',
+          `현재 페이지에서 영역 후보 ${regionCount.toLocaleString('ko-KR')}개를 계산했습니다. 안전한 가림은 아직 확인하지 않았습니다.`,
+          regionResult.result.reasonCodes,
+        );
+      } else if (regionOutcome === 'no-candidates') {
+        showRegionAnalysisStatus(
+          'none',
+          '제목 키워드 후보가 없어 영역을 계산하지 않았습니다.',
+          regionResult.result.reasonCodes,
+        );
+      } else {
+        showRegionAnalysisStatus(
+          'uncertain',
+          '현재 페이지의 영역 경계를 안전하게 계산하지 못했습니다.',
+          regionResult.result.reasonCodes,
+        );
+      }
       return;
     }
     if (assessment.quality === 'unknown') {
@@ -153,6 +219,10 @@ export function initializePdfViewer(document, adapter) {
       showKeywordAnalysisStatus(
         'skipped',
         '텍스트 분석이 보류되어 키워드를 찾지 않았습니다.',
+      );
+      showRegionAnalysisStatus(
+        'skipped',
+        '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
       );
       return;
     }
@@ -171,6 +241,10 @@ export function initializePdfViewer(document, adapter) {
     showKeywordAnalysisStatus(
       'skipped',
       '텍스트 분석이 보류되어 키워드를 찾지 않았습니다.',
+    );
+    showRegionAnalysisStatus(
+      'skipped',
+      '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
     );
   };
 

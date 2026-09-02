@@ -2,6 +2,99 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.2.4 작업 기록 — 2026-09-02
+
+**Unit 2.4 해설·정답 영역 후보 추정을 구현했다. 제목·텍스트 bbox에서 보수적인 후보 경계와 보류 사유만 만들며 Debug Overlay·지원 판정·Mask·정답 추출·CBT는 구현하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 작업 트리는 Unit 2.3 커밋 `675ed47` 기준으로 깨끗했다. ROADMAP의 기본 순서는 Unit 2.5가 먼저지만 사용자가 Unit 2.4를 명시적으로 요청했으므로 두 번째 순서 예외로 기록했다. Unit 2.5를 완료하거나 생략하지 않았고 다음 구현 순서로 유지한다.
+
+### Unit 2.4 — 1. 구현한 내용
+
+- 순수 `inferPageAnswerRegions()`와 `PageAnswerRegions v1`을 추가했다. PageTextSource, `text-usable` assessment, TextItem 좌표, 제목 후보가 같은 revision·pageNumber·page geometry인지 확인한 뒤에만 후보를 계산한다.
+- source item 순서와 `hasEOL`로 만든 논리 줄의 TextItemRecord bbox를 회전 전 PDF user space에서 합친다. 제목 줄을 시작 경계, 다음 제목 앞을 끝 경계로 사용해 문제·보기 줄이 첫 영역에 들어가지 않게 했다.
+- `해설→정답`과 `정답→해설` 순서를 구별하고 한 종류 제목만 있는 경우 누락 사유를 남긴다. 같은 종류 제목이 여러 개면 다문제 가능성으로 영역을 만들지 않는다.
+- source 순서와 Y 진행 충돌, 큰 수평 간격의 다단 가능성, 고유 회전, 세로쓰기는 읽기 순서를 입증할 수 없어 `uncertain`으로 보류한다.
+- 마지막 영역은 Text Content 끝까지 후보로 만들되 열린 경계임을 기록한다. 모든 후보는 텍스트 bbox만 포함하고 이미지·수식은 확인하지 못했음을 명시하므로 안전한 Mask로 승인되지 않는다.
+- 일반 UI에는 영역 후보 개수, 후보 없음, 분석 보류와 `안전한 가림은 아직 확인하지 않았습니다`만 표시한다. 전체 원문·좌표·정답 값은 DOM, Console, 자동 결과에 노출하거나 장기 보관하지 않는다.
+- 실제 PDF.js 합성 fixture에서 문제·보기 뒤 `Solution→Answer` 두 영역을 찾고 문제·보기 제외, 텍스트 전용·열린 마지막 경계 사유와 원본 SHA-256 불변을 확인했다.
+- 앱과 Windows x64/ASAR 패키지 버전을 0.2.4로 올렸다. 이전 0.2.3 패키지는 `work/unit-2.4-before-package/release/`에 보존했다.
+
+### Unit 2.4 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 영역 분석 | `src/analysis/page-answer-regions.js` — 입력 검증, 줄 bbox, A/B 순서, 경계, 보류·제한 사유 |
+| UI | `src/ui/pdf-viewer.js`, `index.html`, `src/styles/shell.css` — 영역 후보 개수·없음·보류 공개 상태 |
+| 단위 검사 | `tests/page-answer-regions.test.js` — A/B, 문제/보기 제외, 단일·중복 제목, 읽기 순서·다단·회전·세로쓰기, 실패·개인정보 경계 |
+| PDF.js 통합 | `tests/pdf-text-integration.test.js`, `tests/helpers/pdf-fixtures.js` — 실제 TextContent 두 영역과 원본 해시 |
+| 실제 앱 검사 | `tests/helpers/pdf-selection-checks.js`, `tests/native-dialog.test.js` — 세 실행 모드·Windows 선택 창·원문 DOM 비노출·기존 회귀 |
+| 버전·실행 | `package.json`, `package-lock.json`, `README.md` — 0.2.4와 검사 절차 |
+| 문서 | `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다.
+
+### Unit 2.4 — 3. 실행 방법
+
+프로젝트 루트에서 `npm run dev`로 개발 앱을 실행한다. `npm run build` 후 `npm start`는 빌드 자산 모드이고 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`는 버전 0.2.4 패키지다. 이전 앱이 실행 중이면 완전히 닫고 다시 시작한다.
+
+### Unit 2.4 — 4. 사용자가 직접 테스트할 방법
+
+1. 앱 footer에서 `Unit 2.4 · 해설·정답 영역 후보`를 확인한다.
+2. 충분한 문제·보기 뒤에 줄 시작 `해설:`과 `정답:`이 각각 한 번 있는 단일 열 PDF를 연다. 앱 상태의 `키워드 후보`와 `영역 후보`가 각각 2개를 표시하는지 확인한다.
+3. `정답:`이 먼저 나오고 뒤에 `해설:`이 있는 PDF도 영역 후보 2개를 표시하는지 확인한다. 순서는 일반 UI에 원문으로 노출되지 않는다.
+4. 제목이 하나만 있으면 영역 후보 1개와 안전한 가림 미확인 안내가 보여야 한다. 제목이 없으면 영역을 계산하지 않았다고 표시되어야 한다.
+5. 같은 종류 제목이 두 번 있는 페이지, 두 열처럼 보이는 페이지, 고유 회전 페이지는 경계를 안전하게 계산하지 못했다고 보류되어야 한다. 원문 Viewer는 계속 동작해야 한다.
+6. 후보가 있어도 원문 문장·좌표 사각형·Overlay가 별도 화면에 나타나지 않고 Mask·답 확인·채점이 활성화되지 않아야 한다.
+7. 페이지를 빠르게 이동하거나 PDF를 교체했을 때 이전 후보 상태가 돌아오지 않는지 확인한다. 확대·축소·높이 맞춤과 원본 불변 footer 안내도 유지되어야 한다.
+
+자동 검사는 `npm run format:check`, `npm test`, `npm run build`, `npm run package`, `npm run test:electron`, `npm run test:native`, `npm run test:shutdown -- -Repeats 3` 순서로 실행한다. Electron·native·shutdown은 Windows 데스크톱 창 실행 권한이 필요하다.
+
+### Unit 2.4 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 전체 프로젝트 형식 |
+| `npm test` | 92/92 통과 | 기존 81개와 영역 계약·A/B·경계·보류·개인정보·실제 PDF.js 통합 11개 |
+| 실제 PDF.js fixture | 통과 | `Solution→Answer` 두 영역, 문제·보기 제외, 텍스트 전용·열린 마지막 경계, SHA-256 유지 |
+| `npm run build` | 통과 | Vite 18 modules, 로컬 PDF.js 자산 포함 |
+| `npm run package` | 통과 | Electron 44.0.0 Windows x64/ASAR 버전 0.2.4 |
+| `npm run test:electron` | 3/3 통과 | 개발·빌드·패키지 후보 없음·1개·2개·보류, 원문 DOM 비노출과 Viewer·오프라인·입력·보안 회귀 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창, 한글 PDF 텍스트·좌표 분석·키워드/영역 후보 없음, 취소, 원본 해시 |
+| 패키지 화면 확인 | 통과 | 1120×760 캡처에서 영역 후보 상태·footer·오른쪽 도구 배치 확인 |
+| `npm run test:shutdown -- -Repeats 3` | 16/18 | 개발 7/9, 패키지 9/9. 개발 즉시 종료 2회에서 OPEN-09 GPU 진단 재현 |
+
+종료 18회 모두 창이 닫히고 프로세스 종료 코드 0과 개발 포트 해제를 확인했다. GPU 오류를 숨기거나 그래픽·sandbox 설정을 낮추지 않았다.
+
+### Unit 2.4 — 6. 예상되는 Edge Case
+
+- `해설→정답`과 `정답→해설`은 지원 후보 순서로 구분하지만 제목이 반복되면 한 페이지 여러 문제일 수 있어 전체 페이지를 보류한다.
+- 첫 제목이 첫 논리 줄이면 앞선 문제·보기 근거가 없다는 사유를 남긴다. 제목만 있고 본문 줄이 없으면 빈 본문 사유를 추가한다.
+- PDF.js source item 순서가 실제 위에서 아래 읽기 순서와 다르거나 `hasEOL`이 시각적 줄과 다르면 영역을 보류하거나 경계를 놓칠 수 있다.
+- 같은 높이의 멀리 떨어진 줄은 다단 가능성으로 보수적으로 보류하므로 단일 열의 특수 레이아웃도 과하게 보류할 수 있다.
+- 고유 회전과 세로쓰기는 좌표 수학이 유효해도 영역 읽기 순서를 시각 검증하지 않았으므로 보류한다.
+- 마지막 제목 뒤의 페이지 끝, 다음 문제 시작, 이미지·수식 범위는 Text Content만으로 입증하지 못한다.
+
+### Unit 2.4 — 7. 알려진 제한사항
+
+PageAnswerRegions는 텍스트 bbox 후보일 뿐 안전한 가림 영역이 아니다. 실제 화면과 sourceIndex별 대조, 이미지·수식·클리핑 포함 여부, 실제 출판물의 누락·침범률, 다문제·다단·페이지 연결은 검증하지 않았다. 현재 UI에는 Debug Overlay가 없고 후보 사각형을 표시하지 않는다. Unit 1.0 전체 샘플 행렬도 미착수다.
+
+### Unit 2.4 — 8. Technical Debt
+
+- OPEN-05는 초기 단일 열 영역 후보까지 부분 해결됐지만 bbox 시각 정합과 실제 샘플 정확도는 Unit 2.5·2.6에서 확인해야 한다.
+- 마지막 영역의 닫힌 끝 경계와 이미지·수식 포함 영역은 현재 자동으로 증명할 수 없다.
+- 다문제·다단·페이지 연결은 Phase 4까지 자동 연결하지 않는다.
+- OPEN-09는 이번 종료 반복에서도 개발 즉시 종료 두 번에 재현됐다.
+
+### Unit 2.4 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 2.4 기능의 확인된 선행 수정 사항은 없다. 다만 ROADMAP 기본 순서에서 빠진 Unit 2.5가 여전히 필수이므로 다음은 사용자 요청을 받은 뒤 Debug Overlay에서 TextItem bbox와 기존 키워드·영역 후보 근거의 시각 정합만 검증한다. 그 뒤 Unit 2.6에서 고정 지원·미지원 샘플을 분리해 누출·과다 가림·보류를 측정해야 하며, 그 전에는 후보를 Mask나 CBT 지원으로 사용하면 안 된다. 프로젝트 전체 무오류 완료에는 OPEN-09 해결과 Unit 1.0 샘플 행렬도 계속 필요하다.
+
+### Unit 2.4 — 10. Git Commit Message
+
+제안 메시지: `feat(analysis): infer solution and answer region candidates`
+
+실제 Git 커밋은 만들지 않았다. 메시지는 사용자가 전체 diff와 검사 결과를 검토한 뒤 사용할 제안이다.
+
 ## 0.2.3 작업 기록 — 2026-09-02
 
 **Unit 2.3 제목 키워드 탐색을 구현했다. 일곱 개 키워드의 제목 문맥 후보와 오탐 억제만 추가했으며 Debug Overlay·영역 추정·지원 판정·CBT는 구현하지 않았다.**

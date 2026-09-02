@@ -413,6 +413,7 @@
 
 .analysis-summary-status[data-state='text-insufficient'],
 .analysis-summary-status[data-state='unknown'],
+.analysis-summary-status[data-state='uncertain'],
 .analysis-summary-status[data-state='skipped'] {
   color: var(--color-warning);
 }

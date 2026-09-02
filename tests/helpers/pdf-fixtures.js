@@ -109,6 +109,33 @@ export function keywordPdf() {
   ]);
 }
 
+/** One single-column question with solution then answer region headings. */
+export function regionPdf() {
+  const content = [
+    'BT',
+    '/F1 12 Tf',
+    '1 0 0 1 25 260 Tm',
+    '(Question 1. Choose the correct option.) Tj',
+    '0 -28 Td',
+    '(A. first choice   B. second choice) Tj',
+    '0 -28 Td',
+    '(Solution: apply the stated rule.) Tj',
+    '0 -28 Td',
+    '(Continue the reasoning to the result.) Tj',
+    '0 -28 Td',
+    '(Answer: B) Tj',
+    'ET',
+    '',
+  ].join('\n');
+  return serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [4 0 R] /Count 1 >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 360 300] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+  ]);
+}
+
 /** Create bounded input cases in the caller's test directory, never in user document folders. */
 export async function createPdfFixtures(directory) {
   await mkdir(directory, { recursive: true });
@@ -127,6 +154,7 @@ export async function createPdfFixtures(directory) {
     multipage: path.join(directory, '페이지 이동.pdf'),
     rotated: path.join(directory, '고유 회전.pdf'),
     keyword: path.join(directory, '키워드 후보.pdf'),
+    region: path.join(directory, '영역 후보.pdf'),
     renamed: path.join(directory, '이름만 PDF.pdf'),
     text: path.join(directory, '일반 문서.txt'),
     empty: path.join(directory, '빈 파일.pdf'),
@@ -144,6 +172,7 @@ export async function createPdfFixtures(directory) {
     ['multipage', pagedPdf()],
     ['rotated', rotatedPdf()],
     ['keyword', keywordPdf()],
+    ['region', regionPdf()],
     ['renamed', 'NOT A PDF'],
     ['text', blankPdf()],
     ['empty', ''],
