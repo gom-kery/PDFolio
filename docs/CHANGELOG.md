@@ -8,6 +8,8 @@
 
 작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 작업 트리에는 아직 커밋하지 않은 Unit 2.6 변경이 있었으므로 이를 보존한 채 Unit 2.7 범위만 추가했다. 검증 도중 main과 origin/main의 `4abc0e9` 커밋에 Unit 2.6과 당시의 0.2.7 Shell 코드·테스트가 함께 포함된 상태가 되었음을 확인했고, 이미 공유된 이력을 다시 쓰지 않았다. 이후 남은 문서와 문서 정보 제목 배치만 작업 트리에 추가했다. 사용자가 지정한 바깥쪽 스크롤·문서 정보 아코디언·상시 요약·header 축소와 반응형·접근성·높이 맞춤 회귀만 구현했으며 Phase 3 기능은 시작하지 않았다.
 
+Unit 2.7 커밋 뒤 사용자가 제공한 화면 녹화 세 건을 프레임 단위로 확인했다. 이전/다음 페이지 이동과 높이 맞춤 상태의 창 크기 변경 때 PDF.js가 화면 Canvas의 backing store를 먼저 초기화해 약 한 프레임 동안 PDF 영역 전체가 검게 보였다. 새 페이지를 임시 Canvas에 완성한 뒤 최신 결과만 화면 Canvas로 복사하는 보완을 같은 Unit에 반영했다. 영상 파일은 읽기 전용으로 확인했으며 프로젝트나 패키지에 복사하지 않았다.
+
 ### Unit 2.7 — 1. 구현한 내용
 
 - app shell을 창 높이에 고정해 기본 1120×760 창에서 document root의 세로 스크롤이 생기지 않게 했다. header·main·footer는 한 화면에 유지하고 PDF와 오른쪽 상태 영역이 각자 필요한 스크롤을 소유한다.
@@ -17,6 +19,8 @@
 - 텍스트 분석·키워드 후보·영역 후보·지원 프로파일은 아코디언 밖의 `현재 페이지 분석` 영역에서 항상 보이게 했다. 장문의 지원 단계 설명만 별도 접기 영역으로 바꿨다.
 - 페이지 이동·50–200% 확대·축소·높이 맞춤·좌우 보조 버튼·footer 상태, 일반/진단 실행 분리, PDF 원본 불변과 기존 분석 결과는 유지했다.
 - 높이 맞춤 화면 검사는 Canvas가 가용 높이를 넘지 않으면서 85% 이상을 사용하고 창 크기 변경 뒤 배율이 갱신되는지를 검증하도록 안정화했다. 어댑터의 정확한 목표 높이 계산 단위 검사는 그대로 유지한다.
+- 페이지 이동·배율·높이 맞춤·resize는 PDF.js가 화면에 보이지 않는 임시 Canvas에 새 결과를 먼저 그린다. 완료된 최신 결과만 화면 Canvas의 크기와 픽셀로 한 번에 반영하고, 취소·오류·뒤처진 결과의 임시 Canvas는 즉시 1×1로 줄여 backing bitmap을 해제한다.
+- 실제 Electron 검사는 페이지 이동과 높이 맞춤 resize 동안 화면 Canvas 크기가 바뀐 뒤 다음 animation frame까지 이전 page/scale 상태가 남는 공백 전환이 없는지 확인한다. 잘못된 페이지 번호의 화면 보존은 renderer 픽셀 반복 읽기 대신 Canvas 화면 캡처 비교로 유지했다.
 - 앱과 Windows x64/ASAR 패키지 버전을 0.2.7로 올렸다.
 
 ### Unit 2.7 — 2. 수정/생성된 파일
@@ -27,6 +31,7 @@
 | Shell 스타일 | `src/styles/base.css`, `src/styles/shell.css` — 창 높이·내부 스크롤 소유권, compact header, details/summary, 반응형 배치 |
 | 창 기준 | `electron/config.js` — 기본 창 Shell 높이 계약 주석 |
 | 실제 앱 검사 | `tests/electron.test.js`, `tests/debug-overlay.test.js`, `tests/native-dialog.test.js`, `tests/helpers/pdf-selection-checks.js` — 숨은 상태 조회, root/내부 스크롤, header/footer, 아코디언 키보드, 분석 상시 노출, 높이 맞춤·기존 회귀 |
+| Canvas 전환 보완 | `src/ui/pdf-viewer.js`, `tests/helpers/pdf-selection-checks.js` — 임시 Canvas 렌더·최신 결과 커밋·취소 해제, 페이지/resize 공백 프레임과 잘못된 번호 화면 보존 회귀 |
 | 버전·실행 | `package.json`, `package-lock.json`, `README.md` — 0.2.7과 검사 절차 |
 | 문서 | `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md`, `docs/IDEA_PARKING.md` |
 
@@ -41,7 +46,7 @@
 1. `npm run dev`로 앱을 열고 footer의 `Unit 2.7 · Viewer Shell 정리`를 확인한다. 기본 창에서 앱 바깥쪽 오른쪽 세로 스크롤이 보이지 않고 header와 footer가 동시에 보여야 한다.
 2. PDF를 열지 않은 상태와 연 상태 모두에서 오른쪽의 `문서 정보`가 기본으로 접혀 있는지 확인한다. 키보드 Tab으로 summary에 이동해 Enter로 열고 닫으며 실행 환경·파일명·크기·페이지가 나타나고 포커스 표시가 남는지 확인한다.
 3. 문서 정보를 접어도 `현재 페이지 분석`의 텍스트 분석·키워드 후보·영역 후보·지원 프로파일 상태가 계속 보이는지 확인한다. `지원 프로파일 판정 단계`는 별도로 열고 닫을 수 있어야 한다.
-4. PDF를 열고 페이지 이동, `+`/`-`, `높이 맞춤`, 좌우 보조 버튼을 확인한다. 높이 맞춤에서 PDF가 Viewer 높이를 넘어 잘리지 않고 창 크기를 바꾸면 다시 맞춰져야 한다.
+4. PDF를 열고 페이지 이동, `+`/`-`, `높이 맞춤`, 좌우 보조 버튼을 확인한다. 이전/다음을 빠르게 반복하고 높이 맞춤 상태에서 창을 늘이거나 줄여도 PDF 영역 전체가 검은색 또는 빈 화면으로 반짝이지 않아야 한다. 높이 맞춤에서 PDF가 Viewer 높이를 넘어 잘리지 않고 창 크기를 바꾸면 다시 맞춰져야 한다.
 5. 오른쪽 상태가 길면 사이드 영역 안에서, PDF가 길면 Viewer 안에서만 스크롤되는지 확인한다. 앱 전체 바깥쪽 scrollbar가 새로 생기면 안 된다.
 6. 창을 640×480까지 줄인다. 한 열 배치와 main 내부 세로 스크롤로 PDF·페이지 도구·상태·footer에 접근할 수 있고 가로 넘침이나 겹침이 없어야 한다.
 7. PDF 교체·드롭·취소, 개발자 진단 Overlay와 원본 불변 footer 안내가 기존과 같은지 확인한다. Mask·답 선택·답 확인·채점 기능은 나타나지 않아야 한다.
@@ -55,14 +60,14 @@
 | `npm run format:check` | 통과 | 전체 프로젝트 형식 |
 | `npm test` | 103/103 통과 | 기존 보안·입력·PDF.js·텍스트·좌표·키워드·영역·프로파일 계약 회귀 |
 | `npm run build` / `npm run package` | 통과 | Vite 22 modules, Electron 44.0.0 Windows x64/ASAR 버전 0.2.7 |
-| `npm run test:electron` | 4/4 통과 | 진단·일반 개발·빌드·패키지, root 비스크롤, 내부 스크롤, header/footer, 아코디언·분석 상시 노출·높이 맞춤과 기존 보안 회귀 |
+| `npm run test:electron` | 4/4 통과 | 진단·일반 개발·빌드·패키지, root 비스크롤, 내부 스크롤, header/footer, 아코디언·분석 상시 노출·높이 맞춤, 페이지/resize 중 화면 Canvas 비초기화와 기존 보안 회귀 |
 | `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창, 한글 파일 선택·취소·원본 해시와 숨은 문서 정보 상태 |
 | 기본 창 Shell | 통과 | header 61.78 CSS px, footer 노출, document root scrollTop 0, 문서 정보 기본 닫힘 |
 | 최소 창 Shell | 통과 | 640×480 한 열·main 내부 스크롤, 가로 넘침 없음, 좌우 보조 버튼 숨김 |
 | 높이 맞춤 | 통과 | 세 실행 모드에서 가용 높이 이하·85% 이상 사용, resize 재계산; 정확한 adapter 계산 단위 검사 유지 |
-| `npm run test:shutdown` | 17/18 | 개발 8/9, 패키지 9/9. 개발 즉시 종료 1회에서 OPEN-09 GPU 진단 재현 |
+| `npm run test:shutdown` | 18/18 | Canvas 보완 후 개발 9/9, 패키지 9/9. 앞선 Unit 2.7 실행의 OPEN-09 재현 이력 때문에 미해결 상태는 유지 |
 
-종료 18회 모두 창이 닫히고 프로세스 종료 코드 0과 개발 포트 해제를 확인했다. GPU 오류를 숨기거나 그래픽·sandbox 설정을 낮추지 않았다. 제한된 도구 환경에서 GUI를 처음 실행했을 때 Electron renderer가 로드되지 않아 진단 검사가 시간 초과했지만, Windows 데스크톱 창 실행 권한으로 다시 실행해 위 결과를 얻었다. 이를 제품 실패나 통과 횟수에 섞지 않았다.
+Canvas 보완 후 종료 18회 모두 창이 닫히고 프로세스 종료 코드 0과 개발 포트 해제를 확인했다. GPU 오류를 숨기거나 그래픽·sandbox 설정을 낮추지 않았다. 앞선 Unit 2.7 종료 실행에서 개발 즉시 종료 GPU 진단이 한 번 재현됐으므로 이번 18/18만으로 간헐 원인이 해결됐다고 판정하지 않는다. 제한된 도구 환경에서 GUI를 처음 실행했을 때 Electron renderer가 로드되지 않아 진단 검사가 시간 초과했지만, Windows 데스크톱 창 실행 권한으로 다시 실행해 위 결과를 얻었다. 이를 제품 실패나 통과 횟수에 섞지 않았다.
 
 ### Unit 2.7 — 6. 예상되는 Edge Case
 
@@ -71,24 +76,26 @@
 - 매우 긴 페이지는 50% 최소 배율 때문에 높이 맞춤 후에도 PDF 내부 세로 스크롤이 남을 수 있다. 이는 50–200% 경계를 유지한 결과다.
 - scrollbar의 유무와 CSS pixel 반올림 때문에 높이 맞춤 Canvas가 가용 높이와 몇 픽셀 또는 약간의 여백을 둘 수 있다. 넘치지 않고 충분히 활용하는지를 UI 계약으로 삼는다.
 - native details는 운영체제·Electron 기본 접근성 의미를 사용한다. 실제 스크린 리더와 Windows 디스플레이 배율별 검증은 수행하지 않았다.
+- 새 페이지 렌더 중에는 기존 화면 Canvas와 임시 Canvas가 함께 존재한다. 현재 페이지별 bitmap 상한은 그대로지만 완료 전까지 두 bitmap의 메모리를 일시적으로 사용할 수 있으며, 매우 큰 페이지나 빠른 연속 입력에서는 취소·메모리 해제 시점이 중요하다.
 
 ### Unit 2.7 — 7. 알려진 제한사항
 
-이번 변경은 Viewer Shell 배치와 접근성 회귀에 한정된다. 분석 품질·지원률을 높이거나 안전한 가림을 추가하지 않았고, `canStartCbt`는 계속 false다. 640×480에서는 내부 세로 스크롤이 필요하며 모든 상태를 동시에 볼 수 없다. 실제 200% Windows 디스플레이 배율, 다중 모니터, 스크린 리더 실사용은 검증하지 않았다. OPEN-09도 미해결이다.
+이번 변경은 Viewer Shell 배치·Canvas 전환과 접근성 회귀에 한정된다. 분석 품질·지원률을 높이거나 안전한 가림을 추가하지 않았고, `canStartCbt`는 계속 false다. 자동 검사는 화면 Canvas가 렌더 시작 후 다음 animation frame까지 이전 상태로 남는지를 합성 fixture에서 확인하며 모든 GPU·디스플레이 조합의 시각 결과를 보장하지 않는다. 640×480에서는 내부 세로 스크롤이 필요하며 모든 상태를 동시에 볼 수 없다. 실제 200% Windows 디스플레이 배율, 다중 모니터, 스크린 리더 실사용은 검증하지 않았다. OPEN-09도 미해결이다.
 
 ### Unit 2.7 — 8. Technical Debt
 
-- OPEN-09: 개발 모드 표시 직후 종료에서 간헐적인 Chromium GPU 오류가 계속 재현된다. 이번 결과는 개발 8/9·패키지 9/9다.
+- OPEN-09: 개발 모드 표시 직후 종료에서 간헐적인 Chromium GPU 오류 재현 이력이 있다. Canvas 보완 후 결과는 개발 9/9·패키지 9/9지만 앞선 Unit 2.7 실행의 개발 8/9·패키지 9/9 결과 때문에 해결로 닫지 않는다.
+- Canvas 이중 보유의 실제 peak 메모리는 대표 대용량 PDF와 여러 Windows 배율에서 아직 측정하지 않았다. 현재 상한과 취소 해제를 유지하고 Unit 1.0/OPEN-04 성능 행렬에서 측정해야 한다.
 - Unit 1.0 실제 대표 PDF 행렬과 Windows 디스플레이 배율·접근성 보조기기 검증이 남아 있다.
 - 향후 Phase 3 패널이 추가되면 동일한 내부 스크롤 소유권과 공개 전 정보 노출을 구조 검토에서 다시 확인해야 한다.
 
 ### Unit 2.7 — 9. 다음 Unit 진행 전 수정이 필요한 사항
 
-Unit 2.7 Shell 기능의 확인된 선행 수정 사항은 없다. 다만 Unit 2.6의 모든 `canStartCbt`가 false이므로 Phase 3.1 기능으로 바로 넘어갈 수 없다. 다음 Unit 3.0을 사용자가 요청하면 지원 프로파일 축소·실제 대표 샘플 확보·Phase 4.1 수동 보정 선행 중 안전한 경로와 Question/Region 소유 관계를 먼저 결정해야 한다. 전체 무오류 완료에는 OPEN-09 해결과 Unit 1.0 샘플 행렬도 필요하다.
+Unit 2.7 Shell과 Canvas 전환 기능의 확인된 선행 수정 사항은 없다. 다만 Unit 2.6의 모든 `canStartCbt`가 false이므로 Phase 3.1 기능으로 바로 넘어갈 수 없다. 다음 Unit 3.0을 사용자가 요청하면 지원 프로파일 축소·실제 대표 샘플 확보·Phase 4.1 수동 보정 선행 중 안전한 경로와 Question/Region 소유 관계를 먼저 결정해야 한다. 전체 무오류 완료에는 OPEN-09 해결과 Unit 1.0 샘플·메모리 행렬도 필요하다.
 
 ### Unit 2.7 — 10. Git Commit Message
 
-현재 작업 트리에 남은 변경의 제안 메시지: `feat(shell): finalize viewer layout before phase 3`
+Unit 2.7 커밋 뒤 현재 작업 트리에 남은 Canvas 보완의 제안 메시지: `fix(viewer): prevent PDF canvas flicker during rerender`
 
 이번 작업에서 추가 Git 커밋이나 이력 수정은 만들지 않았다. 메시지는 사용자가 현재 diff와 검사 결과를 검토한 뒤 사용할 제안이다.
 

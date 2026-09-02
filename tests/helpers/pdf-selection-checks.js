@@ -25,6 +25,88 @@ export async function checkPdfSelection(application, page, artifacts) {
   const keywordHash = await hash(files.keyword);
   const regionHash = await hash(files.region);
   const regionReverseHash = await hash(files.regionReverse);
+  const startCanvasFrameProbe = async () =>
+    page.evaluate(() => {
+      const canvas = document.querySelector('#pdf-canvas');
+      const widthDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLCanvasElement.prototype,
+        'width',
+      );
+      const heightDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLCanvasElement.prototype,
+        'height',
+      );
+      const probe = {
+        active: true,
+        writes: 0,
+        staleFrames: [],
+        initialPageNumber: canvas.dataset.pageNumber,
+        initialScale: canvas.dataset.scale,
+      };
+      globalThis.canvasFrameProbe = probe;
+      const observeBackingStoreWrite = () => {
+        probe.writes++;
+        requestAnimationFrame(() => {
+          if (
+            probe.active &&
+            canvas.dataset.pageNumber === probe.initialPageNumber &&
+            canvas.dataset.scale === probe.initialScale
+          ) {
+            probe.staleFrames.push({
+              pageNumber: canvas.dataset.pageNumber,
+              scale: canvas.dataset.scale,
+              width: canvas.width,
+              height: canvas.height,
+            });
+          }
+        });
+      };
+      Object.defineProperties(canvas, {
+        width: {
+          configurable: true,
+          get: () => widthDescriptor.get.call(canvas),
+          set: (value) => {
+            widthDescriptor.set.call(canvas, value);
+            observeBackingStoreWrite();
+          },
+        },
+        height: {
+          configurable: true,
+          get: () => heightDescriptor.get.call(canvas),
+          set: (value) => {
+            heightDescriptor.set.call(canvas, value);
+            observeBackingStoreWrite();
+          },
+        },
+      });
+    });
+  const stopCanvasFrameProbe = async () =>
+    page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              const probe = globalThis.canvasFrameProbe;
+              probe.active = false;
+              const result = {
+                writes: probe.writes,
+                staleFrames: probe.staleFrames,
+              };
+              delete document.querySelector('#pdf-canvas').width;
+              delete document.querySelector('#pdf-canvas').height;
+              resolve(result);
+            }),
+          );
+        }),
+    );
+  const assertCanvasStayedPainted = (probe, label) => {
+    assert.ok(probe.writes > 0, `${label}: visible Canvas was not updated`);
+    assert.deepEqual(
+      probe.staleFrames,
+      [],
+      `${label}: visible Canvas was cleared before the next render completed`,
+    );
+  };
   const dispatchDrop = async ({ filePaths = [], items = [] }) => {
     const box = await page.locator('.workspace').boundingBox();
     assert.ok(box);
@@ -458,8 +540,10 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.notEqual(layout.sideNextDisplay, 'none');
     assert.equal(await page.locator('#side-previous-page').isDisabled(), true);
     assert.equal(await page.locator('#side-next-page').isDisabled(), false);
+    await startCanvasFrameProbe();
     await page.locator('#side-next-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="2"]');
+    assertCanvasStayedPainted(await stopCanvasFrameProbe(), 'page navigation');
     await page.locator('#side-previous-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="1"]');
 
@@ -527,6 +611,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       JSON.stringify(defaultFit),
     );
     assert.ok(defaultFit.fillRatio >= 0.85, JSON.stringify(defaultFit));
+    await startCanvasFrameProbe();
     await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(640, 480),
     );
@@ -537,6 +622,10 @@ export async function checkPdfSelection(application, page, artifacts) {
           'none' &&
         document.querySelector('#pdf-canvas').dataset.scale !== previousScale,
       defaultFit.scale,
+    );
+    assertCanvasStayedPainted(
+      await stopCanvasFrameProbe(),
+      'fit-height window resize',
     );
     assert.equal(
       await page.evaluate(
@@ -575,6 +664,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       'side-navigation',
       'zoom-bounds',
       'fit-height-resize',
+      'canvas-double-buffer',
       'page-text-usable',
       'page-text-insufficient',
       'page-text-not-in-dom',
@@ -591,31 +681,29 @@ export async function checkPdfSelection(application, page, artifacts) {
 
     await page.locator('#previous-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="4"]');
-    const pageFourPixels = await page
-      .locator('#pdf-canvas')
-      .evaluate((canvas) =>
-        Array.from(canvas.getContext('2d').getImageData(50, 50, 1, 1).data),
-      );
+    const pageFourImage = await page.locator('#pdf-canvas').screenshot();
     for (const invalidPage of ['0', '6', '1.5', '']) {
+      await page.locator('#viewer-status').evaluate((element) => {
+        element.dataset.state = 'test-pending';
+        element.textContent = '';
+      });
       await page.locator('#page-number').fill(invalidPage);
       await page.locator('#page-number').press('Enter');
-      await page.waitForFunction(() =>
-        document
-          .querySelector('#viewer-status')
-          .textContent.includes('사이의 정수'),
-      );
+      await page.waitForFunction(() => {
+        const status = document.querySelector('#viewer-status');
+        return (
+          status.dataset.state === 'error' &&
+          status.textContent.includes('사이의 정수')
+        );
+      });
       assert.equal(
         await page.locator('#pdf-canvas').getAttribute('data-page-number'),
         '4',
       );
       assert.equal(await page.locator('#page-number').inputValue(), '4');
       assert.deepEqual(
-        await page
-          .locator('#pdf-canvas')
-          .evaluate((canvas) =>
-            Array.from(canvas.getContext('2d').getImageData(50, 50, 1, 1).data),
-          ),
-        pageFourPixels,
+        await page.locator('#pdf-canvas').screenshot(),
+        pageFourImage,
       );
     }
 
@@ -627,6 +715,11 @@ export async function checkPdfSelection(application, page, artifacts) {
       document.querySelector('#next-page').click();
     });
     await page.waitForSelector('#pdf-canvas[data-page-number="4"]');
+    await page.waitForFunction(() => {
+      const viewer = document.querySelector('#pdf-viewer');
+      const status = document.querySelector('#viewer-status');
+      return viewer.dataset.state === 'ready' && status.hidden;
+    });
     assert.equal(await page.locator('#pdf-page-count').textContent(), '4 / 5');
     assert.equal(await page.locator('#viewer-status').isHidden(), true);
     assert.equal(

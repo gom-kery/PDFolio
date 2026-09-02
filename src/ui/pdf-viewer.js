@@ -17,12 +17,13 @@ const VIEWER_FAILURE_MESSAGES = {
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const FIT_RESIZE_DELAY_MS = 120;
 
-/** Present one adapter-owned Canvas and keep PDF.js details out of selection UI. */
+/** Keep the visible Canvas stable until a PDF.js render is complete. */
 export function initializePdfViewer(document, adapter) {
   const empty = document.querySelector('#viewer-empty');
   const viewer = document.querySelector('#pdf-viewer');
   const status = document.querySelector('#viewer-status');
   const canvas = document.querySelector('#pdf-canvas');
+  const canvasContext = canvas.getContext('2d');
   const pageScroll = document.querySelector('.pdf-page-scroll');
   const pageCount = document.querySelector('#pdf-page-count');
   const documentState = document.querySelector('#document-state');
@@ -60,6 +61,22 @@ export function initializePdfViewer(document, adapter) {
   let scaleMode = 'fixed';
   let resizeTimer = null;
   let analysisRequestId = 0;
+
+  const createRenderCanvas = () => document.createElement('canvas');
+
+  const releaseRenderCanvas = (renderCanvas) => {
+    renderCanvas.width = 1;
+    renderCanvas.height = 1;
+  };
+
+  const commitRenderCanvas = (renderCanvas) => {
+    canvas.width = renderCanvas.width;
+    canvas.height = renderCanvas.height;
+    canvas.style.width = renderCanvas.style.width;
+    canvas.style.height = renderCanvas.style.height;
+    canvasContext.drawImage(renderCanvas, 0, 0);
+    releaseRenderCanvas(renderCanvas);
+  };
 
   const showTextAnalysisStatus = (state, message, reasonCodes = []) => {
     textAnalysisStatus.dataset.state = state;
@@ -371,9 +388,9 @@ export function initializePdfViewer(document, adapter) {
     return Math.max(1, pageScroll.clientHeight - verticalPadding);
   };
 
-  const getRenderOptions = (pageNumber) => ({
+  const getRenderOptions = (pageNumber, renderCanvas) => ({
     pageNumber,
-    canvas,
+    canvas: renderCanvas,
     ...(scaleMode === 'fit-height'
       ? { fitHeight: getFitHeight() }
       : { scale: requestedScale }),
@@ -455,12 +472,16 @@ export function initializePdfViewer(document, adapter) {
     if (totalPages < 1) return { status: 'error', code: 'INVALID_PAGE_NUMBER' };
 
     const ownRequestId = ++requestId;
+    const renderCanvas = createRenderCanvas();
     if (
       !Number.isSafeInteger(pageNumber) ||
       pageNumber < 1 ||
       pageNumber > totalPages
     ) {
-      const rejected = await adapter.renderPage(getRenderOptions(pageNumber));
+      const rejected = await adapter.renderPage(
+        getRenderOptions(pageNumber, renderCanvas),
+      );
+      releaseRenderCanvas(renderCanvas);
       if (ownRequestId === requestId) showInvalidPage();
       return rejected;
     }
@@ -474,13 +495,21 @@ export function initializePdfViewer(document, adapter) {
       `${pageNumber.toLocaleString('ko-KR')}페이지를 불러오고 있습니다.`,
       { preserveCanvas: currentPage > 0 },
     );
-    const rendered = await adapter.renderPage(getRenderOptions(pageNumber));
-    if (ownRequestId !== requestId || rendered.status === 'canceled')
+    const rendered = await adapter.renderPage(
+      getRenderOptions(pageNumber, renderCanvas),
+    );
+    if (ownRequestId !== requestId || rendered.status === 'canceled') {
+      releaseRenderCanvas(renderCanvas);
       return rendered;
-    if (rendered.status === 'rendered')
+    }
+    if (rendered.status === 'rendered') {
+      commitRenderCanvas(renderCanvas);
       applyRenderedPage(rendered, { resetScroll });
-    else if (rendered.code === 'INVALID_PAGE_NUMBER') showInvalidPage();
-    else {
+    } else if (rendered.code === 'INVALID_PAGE_NUMBER') {
+      releaseRenderCanvas(renderCanvas);
+      showInvalidPage();
+    } else {
+      releaseRenderCanvas(renderCanvas);
       requestedPage = currentPage;
       updateControls();
       resetTextAnalysis('페이지를 표시한 뒤 텍스트를 확인합니다.');
@@ -581,16 +610,21 @@ export function initializePdfViewer(document, adapter) {
       updateControls();
       showViewer('loading', 'PDF 첫 페이지를 불러오고 있습니다.');
       pageCount.textContent = '확인 중';
+      const renderCanvas = createRenderCanvas();
       const rendered = await adapter.open({
         data: result.data,
-        canvas,
+        canvas: renderCanvas,
         scale: 1,
       });
-      if (ownRequestId !== requestId || rendered.status === 'canceled')
+      if (ownRequestId !== requestId || rendered.status === 'canceled') {
+        releaseRenderCanvas(renderCanvas);
         return rendered;
-      if (rendered.status === 'rendered')
+      }
+      if (rendered.status === 'rendered') {
+        commitRenderCanvas(renderCanvas);
         applyRenderedPage(rendered, { resetScroll: true });
-      else {
+      } else {
+        releaseRenderCanvas(renderCanvas);
         pageCount.textContent = '표시 불가';
         showViewer(
           'error',

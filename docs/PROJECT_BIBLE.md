@@ -4,7 +4,7 @@
 - 작성일: 2026-08-31
 - 갱신일: 2026-09-03
 - 상태: Unit 2.7 Phase 3 전 Viewer Shell 정리와 회귀 검증 완료. 앱은 버전 0.2.7이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: 기본 창에서 바깥쪽 세로 스크롤이 없는 원문 Viewer Shell, 접을 수 있는 문서 정보, 상시 보이는 현재 페이지 분석 요약, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1, PageAnswerRegions v1, PageSupportProfile v1, 명시적으로 실행할 때만 활성화되는 개발자용 Debug Overlay. 안전한 Mask·Question 소유 관계·정답 추출·CBT 기능은 아직 구현하지 않았다.
+- 현재 산출물: 기본 창에서 바깥쪽 세로 스크롤이 없고 렌더 전환 중 PDF Canvas 공백을 방지하는 원문 Viewer Shell, 접을 수 있는 문서 정보, 상시 보이는 현재 페이지 분석 요약, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1, PageAnswerRegions v1, PageSupportProfile v1, 명시적으로 실행할 때만 활성화되는 개발자용 Debug Overlay. 안전한 Mask·Question 소유 관계·정답 추출·CBT 기능은 아직 구현하지 않았다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
 - 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.7 Viewer Shell 정리에 한하며 Phase 3 구현 승인을 뜻하지 않는다.
 
@@ -315,6 +315,8 @@ PDF/CBT 화면에서는 파일 열기와 오류·진행 상태를 상단, 페이
 Unit 0.3 Shell의 1120×760 기본 창과 640×480 최소 창을 유지한다. Unit 1.1의 선택 버튼과 Unit 1.2의 드롭은 같은 읽기 경계를 사용한다. Unit 1.4의 현재 한 페이지·1부터 시작하는 번호·최신 렌더 우선 계약과 Unit 1.5의 50·75·100·125·150·175·200% 단계 배율을 유지한다. Unit 1.6의 높이 맞춤은 현재 페이지의 scale 1 viewport 높이와 PDF 스크롤 영역의 실제 CSS 세로 가용 공간을 사용하고 창 크기가 바뀌면 다시 계산한다. 계산값은 기존 50–200% 경계를 벗어나지 않으므로 최소 창이나 매우 긴 페이지에서는 PDF 영역 안에 세로 스크롤이 남을 수 있다. PDF 고유 회전은 PDF.js viewport로 반영하되 사용자 회전 버튼은 만들지 않는다. Canvas CSS 크기와 backing pixel 배율을 분리하고, backing bitmap은 최대 16,777,216픽셀·한 변 8,192픽셀로 제한한다. 제한 시 화면 배율은 유지하고 렌더 해상도만 낮춘다.
 
 Unit 2.7의 기본 창에서는 `html/body`가 스크롤하지 않고 header·main·footer가 창 높이 안에 유지된다. PDF는 Viewer 내부, 오른쪽 상태 열은 사이드 내부에서 각각 필요한 만큼 스크롤한다. 56rem 이하에서는 main 자체가 세로로 스크롤해 한 열로 쌓인 모든 영역에 접근할 수 있으며 가로 넘침을 만들지 않는다. header의 표시 높이는 기본 창에서 64 CSS px 이하로 줄인다. 실행 환경·선택 파일·파일 크기·페이지는 기본 닫힘인 native `details/summary` 문서 정보 아코디언에 둔다. 텍스트 분석·키워드 후보·영역 후보·지원 프로파일은 현재 페이지의 중요한 진단이므로 아코디언 밖에서 항상 표시한다. 장문의 단계 안내는 별도 접기 영역으로 두되 상태 문구를 숨기지 않는다. summary는 키보드 Enter로 열고 닫을 수 있고 명확한 포커스 표시를 유지한다.
+
+페이지 이동·배율 변경·높이 맞춤·창 크기 변경에서는 새 PDF 페이지를 화면에 보이지 않는 임시 Canvas에 먼저 완성한다. 최신 요청의 렌더가 끝난 경우에만 화면 Canvas의 크기와 픽셀을 같은 JavaScript 작업 안에서 교체하며, 취소되거나 뒤처진 결과는 임시 Canvas를 즉시 해제한다. 따라서 사용자가 보는 Canvas를 PDF.js 렌더 시작 전에 초기화하지 않는다. 이 방식은 전환 중 이전 화면 Canvas와 임시 Canvas를 함께 보유하므로 현재 Canvas 상한 안에서도 렌더 완료 전까지 일시적으로 두 장의 bitmap 메모리를 사용할 수 있다.
 
 기본 창에서는 앱 상태 아래 오른쪽 사이드 카드에 페이지·배율 도구를 두고, 56rem 이하에서는 PDF 아래이면서 앱 상태보다 앞에 둔다. 같은 상태를 공유하는 이전·다음 보조 버튼은 PDF 좌우에 두며 40rem 이하에서는 숨긴다. 정상 렌더 완료 문구의 중복 행은 숨기고 `PDF를 열었습니다. 원본 파일은 변경하지 않았습니다.`를 footer의 `role=status`에 표시한다. 로딩·오류·잘못된 번호 안내는 Viewer 상단에 유지한다. 선택과 PDF.js 객체는 새로고침·교체·종료 시 정리한다.
 
