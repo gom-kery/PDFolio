@@ -3,6 +3,7 @@ import { assessPageText } from '../analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../analysis/page-text-coordinates.js';
 import { findPageKeywordCandidates } from '../analysis/page-keyword-candidates.js';
 import { inferPageAnswerRegions } from '../analysis/page-answer-regions.js';
+import { classifyPageSupportProfile } from '../analysis/page-support-profile.js';
 import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
 
 const VIEWER_FAILURE_MESSAGES = {
@@ -42,6 +43,9 @@ export function initializePdfViewer(document, adapter) {
   const regionAnalysisStatus = document.querySelector(
     '#region-analysis-status',
   );
+  const supportProfileStatus = document.querySelector(
+    '#support-profile-status',
+  );
   const zoomOutButton = document.querySelector('#zoom-out');
   const zoomInButton = document.querySelector('#zoom-in');
   const fitHeightButton = document.querySelector('#fit-height');
@@ -78,6 +82,45 @@ export function initializePdfViewer(document, adapter) {
     else delete regionAnalysisStatus.dataset.reasonCodes;
   };
 
+  const showSupportProfileStatus = (state, message, reasonCodes = []) => {
+    supportProfileStatus.dataset.state = state;
+    supportProfileStatus.textContent = message;
+    if (reasonCodes.length > 0)
+      supportProfileStatus.dataset.reasonCodes = reasonCodes.join(' ');
+    else delete supportProfileStatus.dataset.reasonCodes;
+  };
+
+  const applySupportProfileResult = (profileResult) => {
+    if (profileResult.status !== 'profile-ready') {
+      showSupportProfileStatus(
+        'unknown',
+        '현재 페이지의 지원 프로파일 근거를 확인할 수 없습니다.',
+        [profileResult.code],
+      );
+      return;
+    }
+    const { verdict, reasonCodes } = profileResult.result;
+    if (verdict === 'profile-match') {
+      showSupportProfileStatus(
+        'profile-match',
+        '현재 페이지는 첫 MVP 분석 프로파일 후보와 맞습니다. 안전한 가림과 CBT 시작은 아직 승인되지 않았습니다.',
+        reasonCodes,
+      );
+    } else if (verdict === 'not-supported') {
+      showSupportProfileStatus(
+        'not-supported',
+        '현재 페이지는 첫 MVP 분석 프로파일을 지원하지 않습니다.',
+        reasonCodes,
+      );
+    } else {
+      showSupportProfileStatus(
+        'hold',
+        '현재 근거로 첫 MVP 분석 프로파일 지원 여부를 판정할 수 없습니다.',
+        reasonCodes,
+      );
+    }
+  };
+
   const resetTextAnalysis = (message) => {
     analysisRequestId++;
     debugOverlay.reset(message);
@@ -89,6 +132,10 @@ export function initializePdfViewer(document, adapter) {
     showRegionAnalysisStatus(
       'idle',
       'PDF를 열면 현재 페이지의 해설·정답 영역 후보를 확인합니다.',
+    );
+    showSupportProfileStatus(
+      'idle',
+      'PDF를 열면 현재 페이지의 첫 MVP 분석 프로파일을 확인합니다.',
     );
   };
 
@@ -105,6 +152,10 @@ export function initializePdfViewer(document, adapter) {
     showRegionAnalysisStatus(
       'analyzing',
       `${pageNumber.toLocaleString('ko-KR')}페이지의 영역 경계를 확인하고 있습니다.`,
+    );
+    showSupportProfileStatus(
+      'analyzing',
+      `${pageNumber.toLocaleString('ko-KR')}페이지의 지원 프로파일을 확인하고 있습니다.`,
     );
     let extraction;
     try {
@@ -134,6 +185,10 @@ export function initializePdfViewer(document, adapter) {
         'skipped',
         '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
       );
+      showSupportProfileStatus(
+        'unknown',
+        '현재 페이지의 지원 프로파일 근거를 확인할 수 없습니다.',
+      );
       return;
     }
     if (assessment.quality === 'text-usable') {
@@ -156,6 +211,11 @@ export function initializePdfViewer(document, adapter) {
           'skipped',
           '텍스트 위치를 확인할 수 없어 영역 결과를 보류했습니다.',
         );
+        showSupportProfileStatus(
+          'unknown',
+          '현재 페이지의 지원 프로파일 근거를 확인할 수 없습니다.',
+          [coordinateResult.code],
+        );
         return;
       }
       showTextAnalysisStatus(
@@ -177,6 +237,10 @@ export function initializePdfViewer(document, adapter) {
         showRegionAnalysisStatus(
           'skipped',
           '제목 키워드를 확인할 수 없어 영역 결과를 보류했습니다.',
+        );
+        showSupportProfileStatus(
+          'unknown',
+          '현재 페이지의 지원 프로파일 근거를 확인할 수 없습니다.',
         );
         return;
       }
@@ -201,6 +265,10 @@ export function initializePdfViewer(document, adapter) {
         showRegionAnalysisStatus(
           'unknown',
           '현재 페이지의 영역 후보를 확인할 수 없습니다.',
+        );
+        showSupportProfileStatus(
+          'unknown',
+          '현재 페이지의 지원 프로파일 근거를 확인할 수 없습니다.',
         );
         return;
       }
@@ -230,6 +298,13 @@ export function initializePdfViewer(document, adapter) {
           regionResult.result.reasonCodes,
         );
       }
+      applySupportProfileResult(
+        classifyPageSupportProfile({
+          assessment,
+          keywordCandidates: keywordResult.result,
+          answerRegions: regionResult.result,
+        }),
+      );
       return;
     }
     if (assessment.quality === 'unknown') {
@@ -250,6 +325,7 @@ export function initializePdfViewer(document, adapter) {
         'skipped',
         '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
       );
+      applySupportProfileResult(classifyPageSupportProfile({ assessment }));
       return;
     }
     const message = assessment.reasonCodes.includes('NO_TEXT_ITEMS')
@@ -273,6 +349,7 @@ export function initializePdfViewer(document, adapter) {
       'skipped',
       '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
     );
+    applySupportProfileResult(classifyPageSupportProfile({ assessment }));
   };
 
   const showViewer = (state, message, { preserveCanvas = false } = {}) => {

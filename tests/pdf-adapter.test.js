@@ -508,6 +508,39 @@ test('text extraction returns a copied PageTextSource with stable options and no
   assert.equal(destroyed, 1);
 });
 
+test('normalizes unavailable PDF.js font metrics while preserving text evidence', async () => {
+  const raw = textContent('Notion PDF의 실제 텍스트를 보존합니다.');
+  raw.styles['fixture-font'].ascent = Number.NaN;
+  raw.styles['fixture-font'].descent = Number.NaN;
+  delete raw.styles['fixture-font'].vertical;
+  const page = textPage({ getTextContent: async () => raw });
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: textDocumentApi(() => ({
+      numPages: 1,
+      getPage: async () => page,
+    })),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+
+  await adapter.open({ data: new Uint8Array(9), canvas: { style: {} } });
+  const result = await adapter.extractPageText({ pageNumber: 1 });
+  assert.equal(result.status, 'extracted');
+  assert.equal(
+    result.source.items[0].sourceText,
+    'Notion PDF의 실제 텍스트를 보존합니다.',
+  );
+  assert.deepEqual(result.source.styles, [
+    {
+      fontName: 'fixture-font',
+      ascent: 0,
+      descent: 0,
+      vertical: false,
+      fontFamily: 'sans-serif',
+    },
+  ]);
+  await adapter.dispose();
+});
+
 test('malformed TextContent and extraction exceptions have stable private-data-free results', async () => {
   let mode = 'malformed';
   const page = textPage({

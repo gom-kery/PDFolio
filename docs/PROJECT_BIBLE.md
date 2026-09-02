@@ -1,12 +1,12 @@
 # Local PDF CBT — Project Bible
 
-- 문서 버전: `0.2.5`
+- 문서 버전: `0.2.6`
 - 작성일: 2026-08-31
 - 갱신일: 2026-09-02
-- 상태: Unit 2.5 분석 결과 Debug Overlay 완료. 앱은 버전 0.2.5이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: 원문 Viewer, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1, PageAnswerRegions v1, 명시적으로 실행할 때만 활성화되는 개발자용 Debug Overlay. 지원 판정·Mask·CBT 기능은 아직 구현하지 않았다.
+- 상태: Unit 2.6 첫 MVP 분석 프로파일 판정·고정 샘플 검증 완료. 앱은 버전 0.2.6이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: 원문 Viewer, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1, PageAnswerRegions v1, PageSupportProfile v1, 명시적으로 실행할 때만 활성화되는 개발자용 Debug Overlay. 안전한 Mask·Question 소유 관계·정답 추출·CBT 기능은 아직 구현하지 않았다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
-- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.5에 한하며 미완료 Unit 2.6 이후의 구현을 뜻하지 않는다.
+- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.6에 한하며 Phase 3 구현 승인을 뜻하지 않는다.
 
 관련 문서: [개발 계획](ROADMAP.md), [요구사항 검토·기술 결정](DECISIONS.md), [변경·Unit 완료 기록](CHANGELOG.md), [후속 아이디어](IDEA_PARKING.md).
 
@@ -14,7 +14,7 @@
 
 사용자가 소유한 문제·보기·해설·정답 PDF를 로컬에서 열어, 답과 해설을 가린 상태로 객관식 문제를 풀게 한다. 답 선택 → 답 확인 → 해당 문제의 해설 공개 → 가능한 경우 채점이 기본 흐름이다. **원본 PDF는 읽기 전용**이며 가림은 화면에서만 수행한다.
 
-사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. 일반 UI에는 원문·좌표 대신 후보 개수와 안전한 가림 미확인 상태만 표시하고 지원 판정·마스크·CBT는 구현하지 않는다. 앱과 package.json은 0.2.5이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
+사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. Unit 2.6은 기존 근거를 새로 추측하지 않고 첫 MVP 분석 프로파일의 `profile-match / not-supported / hold`만 판정한다. `profile-match`도 이미지·수식과 닫힌 마지막 경계, 안전한 Mask, Question 소유 관계가 확인되지 않아 `canStartCbt: false`를 유지한다. 일반 UI에는 원문·좌표 대신 판정 요약만 표시한다. 앱과 package.json은 0.2.6이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
 
 ### 첫 MVP 범위 — 승인 전 제안
 
@@ -90,7 +90,7 @@ flowchart LR
 
 현재 프로젝트 문서 루트는 `outputs/local-pdf-cbt/docs/`이다. `local-pdf-cbt/`를 프로젝트 루트로 사용할 수 있도록 문서 내부 경로는 모두 상대 경로로 유지한다. 프로젝트를 이동해도 연결이 유지되어야 한다.
 
-**Unit 2.3 완료 시점의 현재 구조:**
+**Unit 2.6 완료 시점의 현재 구조:**
 
 ```text
 local-pdf-cbt/
@@ -98,7 +98,7 @@ local-pdf-cbt/
 ├─ electron/            main·preload·로컬 프로토콜·PDF 선택/드롭/검사
 ├─ src/main.js          화면 초기화
 ├─ src/pdf/             PDF.js 어댑터·요청 취소·자원 정리·viewport 좌표 변환
-├─ src/analysis/        페이지 Text Content 품질 분류·TextItemRecord bbox·제목 키워드 후보
+├─ src/analysis/        텍스트 품질·TextItemRecord bbox·제목/영역 후보·지원 프로파일 판정
 ├─ src/shared/          PageTextSource v1 검증과 계약 버전
 ├─ src/ui/              실행 환경·파일 입력·페이지·배율·Canvas·분석 상태 표시
 ├─ src/styles/          기본 스타일·Shell 배치
@@ -163,7 +163,7 @@ tests/fixtures/       재배포 가능한 합성 PDF와 기대 결과
 
 ### 9.0 Phase 2 분석 경계
 
-Unit 2.0은 아래 경계를 승인했고 Unit 2.1은 추출·품질 분류 부분만 구현했다. 이후 책임은 해당 Unit에서만 추가한다.
+Unit 2.0은 아래 경계를 승인했고 Unit 2.1~2.6은 추출·품질·좌표·제목/영역 후보·첫 분석 프로파일 판정을 단계별로 구현했다. 이후 책임은 해당 Unit에서만 추가한다.
 
 ```text
 승인된 PDF bytes
@@ -189,9 +189,11 @@ Unit 2.0은 아래 경계를 승인했고 Unit 2.1은 추출·품질 분류 부�
 | `language` | PDF.js의 문서 언어 문자열 또는 `null`. 페이지 품질의 단독 근거로 쓰지 않음 |
 | `page` | `viewBox[4]`, `userUnit`, 고유 `rotation`. Unit 2.2 좌표 변환 근거이며 Unit 2.1은 의미 좌표를 계산하지 않음 |
 | `items` | 원래 순서의 텍스트 항목. 각 항목은 `sourceIndex`, `sourceText`, `direction`, `transform[6]`, `width`, `height`, `fontName`, `hasEOL`만 포함 |
-| `styles` | 실제 항목이 참조하는 style의 배열. 각 원소는 `fontName`, `ascent`, `descent`, `vertical`, `fontFamily`만 포함해 임의 fontName을 객체 key로 사용하지 않음 |
+| `styles` | 실제 항목이 참조하는 style의 배열. 각 원소는 `fontName`, `ascent`, `descent`, `vertical`, `fontFamily`만 포함해 임의 fontName을 객체 key로 사용하지 않음. PDF.js가 생략하거나 `NaN`으로 주는 ascent/descent는 계약 진입 시 0, 생략한 vertical은 같은 font의 Text Item direction으로 보수적으로 정규화함 |
 
 Unit 2.1의 `PageTextAssessment v1`은 PageTextSource 또는 현재 문서의 추출 실패 결과를 입력으로 받는 순수 분류 결과다. `documentRevision`, `pageNumber`, `quality`, `reasonCodes[]`, 이름 있는 `metrics`와 진단용 `plainText`를 제공한다. `plainText`는 sourceText를 원래 순서로 이어 붙이고 `hasEOL` 뒤에만 줄바꿈을 넣은 값이다. 항목 사이에 추정 공백을 넣지 않으며 읽기 순서나 문단 복원 결과로 사용하지 않는다. `TEXT_EXTRACTION_FAILED`와 `INVALID_TEXT_SOURCE`에서는 plainText를 빈 문자열로 두고 원문을 추정하지 않는다. `NO_DOCUMENT`, 잘못된 pageNumber, `canceled`에는 assessment를 만들지 않는다. 근거 추적은 sourceIndex와 metric으로 유지하고 사용자 원문 전체를 로그에 쓰지 않는다.
+
+Notion/Chromium 출력 한 건에서 실제 Text Item 111개는 정상이지만 참조 font style 네 개의 ascent/descent가 `NaN`이고 vertical이 생략되는 사례를 확인했다. 이 값은 글꼴 보조 metadata이며 원문·transform·크기·fontName과 분리해 0/방향 기반 기본값으로 정규화한다. `Infinity`, 문자열 metric, 잘못된 Text Item·page metadata는 계속 `INVALID_TEXT_SOURCE`다. source 순서와 `hasEOL`은 추정 보정하지 않으므로 인쇄 머리글·바닥글이 `정답 ④` 뒤에 붙는 출력은 답 제목을 오탐하지 않고 미지원으로 남긴다.
 
 품질 상태의 의미는 다음과 같다. Unit 2.1은 고정 합성 샘플과 설치된 PDF.js 6.3.289의 한글+이미지 fixture를 측정해 `MIN_USABLE_NON_WHITESPACE_CHARACTERS = 12`, `MIN_READABLE_CHARACTER_RATIO = 0.8`을 초기 상수로 정했다. 문자는 Unicode code point로 세고 공백은 문자량과 비율의 분모에서 제외한다. replacement character·제어/비공개 문자처럼 문자·숫자·결합 기호·문장부호·기호로 판독할 수 없는 비공백 문자는 suspicious로 센다. 판독 가능 문자가 12개 이상인데 비율이 0.8 미만이면 `unknown / CONFLICTING_SIGNALS`, 그보다 근거가 적으면 `text-insufficient`로 보류한다. 이 값은 범용 정확도 주장이 아니며 Unit 1.0 실제 샘플 행렬에서 재검토한다.
 
@@ -214,7 +216,8 @@ Unit 2.1의 `PageTextAssessment v1`은 PageTextSource 또는 현재 문서의 �
 5. Unit 2.3 완료: 사용자의 명시적 순서 예외에 따라 7개 제목 키워드, 분절 항목, 문맥과 오탐 억제를 순수 함수·실제 PDF.js fixture·일반 UI 후보 수로 검증했다.
 6. Unit 2.4 완료: 사용자의 두 번째 순서 예외에 따라 A/B 순서의 텍스트 영역 후보, 시작·다음 제목 경계, 문제/보기 제외와 보류·제한 사유를 검증했다. 안전한 Mask나 지원 판정으로 승인하지 않았다.
 7. Unit 2.5 완료: 일반 사용자 기능과 분리한 Debug Overlay에서 sourceIndex, bbox와 기존 키워드·영역 후보 근거를 실제 PDF.js Canvas에 시각 대조했다. 50–200% 확대, 높이 맞춤·창 크기 변경과 0/90/180/270도 고유 회전에 다시 투영하고 원문 문자열은 Overlay DOM에 복사하지 않는다.
-8. Unit 2.6: 고정 지원·미지원 샘플에서 지원 판정을 독립 검증하며 키워드나 영역 후보만으로 CBT를 승인하지 않는다.
+8. Unit 2.6 완료: A/B 고정 후보 2개와 미지원·보류 6개를 분리했다. 후보의 보호 대상 Text Item 누락 0/6, 문제 Text Item 침범 0/3, 미지원 샘플 오일치 0/6, 전체 보류 4/8을 기록했다. 이는 합성 Text Item 근거 측정이며 픽셀·이미지·수식 가림 검증이 아니다. 따라서 CBT 착수 가능 판정은 0/8이다.
+9. Unit 2.6 보완: 실제 Notion/Chromium 출력 한 건에서 생략된 font 보조값 때문에 전체 TextContent가 무효화되던 호환성 오류를 수정했다. 111개 Text Item·비공백 186자·판독 비율 1을 `text-usable`로 보존했으며, footer가 답 값 뒤에 이어진 source 순서는 추정하지 않아 정답 제목 누락 미지원으로 안전하게 남겼다.
 
 ### 9.1 추출과 분석은 다른 일이다
 
@@ -241,7 +244,7 @@ Unit 2.2의 `PageTextCoordinates v1`은 `documentRevision`, `pageNumber`, `coord
 - overlay는 Canvas와 같은 `.pdf-page-surface` 안에서 CSS px로 배치한다. PDF.js와 같은 viewport 변환 후 실제 Canvas CSS 크기의 반올림 차이를 보정하며 device pixel ratio와 backing bitmap 좌표를 섞지 않는다. 확대·축소, 높이 맞춤, 창 크기와 고유 회전 변화마다 현재 근거를 다시 투영한다.
 - Text Item은 `T{sourceIndex}`, 키워드 근거는 `K{candidateIndex}`, 영역 후보는 `R{regionIndex}`와 구분된 선으로 표시한다. 전체 PDF 문자열, 정답 값, 파일 경로와 PDF.js 객체는 진단 모델·panel·overlay DOM에 복사하지 않는다.
 - 불충분·확인 불가 텍스트와 계약 불일치는 부분 좌표를 만들지 않고 공개 reason code나 진단 불가 안내로 끝낸다. Overlay를 숨겨도 분석 결과를 공개하거나 저장하지 않으며 파일 교체·페이지 변경·새로고침·종료 시 세션 근거를 폐기한다.
-- 이 시각 대조는 합성 PDF와 현재 Windows 화면에서 좌표 파이프라인을 확인한 결과다. 글리프 윤곽, 이미지·수식, 클리핑, 실제 출판물 전체, 누락·침범률과 CBT 지원 판정은 Unit 2.6의 고정 샘플 검증 전까지 미확정이다.
+- 이 시각 대조는 합성 PDF와 현재 Windows 화면에서 좌표 파이프라인을 확인한 결과다. Unit 2.6은 합성 Text Item 수준의 누락·침범만 별도로 측정했다. 글리프 윤곽, 이미지·수식, 클리핑, 실제 출판물 전체와 픽셀 수준 누출은 계속 미확정이다.
 
 ### 9.4 제목 키워드 후보 계약
 
@@ -266,15 +269,25 @@ Unit 2.4의 `PageAnswerRegions v1`은 같은 documentRevision·pageNumber의 Pag
 - 결과에는 계약 버전, revision, pageNumber, 순서, 근거 sourceIndexes·논리 줄 범위, 회전 전 PDF user space bounds/rects, 공개 reason code만 포함한다. 전체 주변 문장·questionId·정답 값·Mask 승인·지원 판정은 포함하지 않는다.
 - 일반 UI는 후보 원문·좌표를 노출하거나 장기 보관하지 않고 개수·없음·보류와 `안전한 가림은 아직 확인하지 않았습니다`만 표시한다.
 
-고정 Y 이하 전체 가리기와 키워드 일치만으로 자동 공개·채점하는 방식은 계속 금지한다. PageAnswerRegions는 Unit 2.5 시각 대조와 Unit 2.6 지원 판정 전의 세션 후보 자료다.
+고정 Y 이하 전체 가리기와 키워드 일치만으로 자동 공개·채점하는 방식은 계속 금지한다. PageAnswerRegions는 Unit 2.5 시각 대조와 Unit 2.6 프로파일 판정의 세션 후보 자료이며 Mask나 Question 소유 영역이 아니다.
 
-### 9.6 스캔·혼합 문서
+### 9.6 첫 MVP 분석 프로파일 판정 계약
+
+Unit 2.6의 `PageSupportProfile v1`은 같은 revision·pageNumber의 PageTextAssessment v1과, 텍스트가 usable일 때 PageKeywordCandidates v1·PageAnswerRegions v1을 검증한 뒤 기존 근거만 분류한다. 결과에는 계약 버전, 불투명한 revision, pageNumber, profileId, 판정·사유와 개수/순서/종류 요약만 두며 PDF 원문·좌표·정답 값·경로·Question을 복사하지 않는다.
+
+- 첫 프로파일 ID는 `single-page-single-column-two-headings-v1`이다. usable 텍스트, 정확히 한 해설 제목과 한 정답 제목, 정확히 두 영역, `solution-then-answer` 또는 `answer-then-solution`, 첫 제목 앞 문제 내용과 각 영역 본문 근거가 모두 있어야 `profile-match`다.
+- 제목이 없거나 두 제목을 갖추지 못하면 `not-supported`다. 텍스트 불충분/확인 불가, 중복 제목, 읽기 순서·다단 가능성, 회전·세로쓰기처럼 근거가 모호하면 `hold`다. 일반 UI는 이 세 상태의 요약과 공개 reason code만 표시한다.
+- `profile-match`는 분석 규칙과의 일치일 뿐 CBT 지원 승인이 아니다. 모든 일치 결과는 `NON_TEXT_CONTENT_UNVERIFIED`, `OPEN_ENDED_LAST_REGION`, `SAFE_MASK_NOT_VERIFIED`, `QUESTION_OWNERSHIP_NOT_ESTABLISHED`를 유지하고 `canStartCbt: false`를 반환한다.
+- 고정 행렬 8개에서 A/B 후보 2/2 일치, 보호 대상 Text Item 누락 0/6, 문제 Text Item 침범 0/3, 미지원 6개 오일치 0/6을 확인했다. 판정 분포는 profile-match 2/8, not-supported 2/8, hold 4/8(50%)이며 CBT 착수 가능은 0/8이다.
+- 이 행렬은 재배포 가능한 합성 Text Item과 두 실제 PDF.js 합성 fixture에 한정된다. 실제 출판물·사용자 대표 PDF, 이미지·수식·글리프·클리핑과 픽셀 수준 누출/과다 가림은 검증하지 않았다. Unit 1.0 샘플 행렬과 안전한 Mask/Question 소유 관계 증거 전에는 Phase 3의 실제 가림을 지원한다고 선언하지 않는다.
+
+### 9.7 스캔·혼합 문서
 
 문서 전체를 이분법으로 분류하지 않고 **페이지별** `text-usable`, `text-insufficient`, `unknown` 상태를 둔다. 빈 텍스트는 스캔뿐 아니라 빈 페이지·윤곽선 글자·인코딩 문제일 수 있다. 페이지 번호만 추출되거나 OCR 텍스트가 깨진 페이지도 분석 불충분일 수 있다.
 
 문자량·좌표 유효성·문자 품질을 먼저 보고, 필요 시 이미지 연산과 면적을 보조 신호로 검토한다. 임계값은 Unit 2.1 샘플 검증으로 정한다. MVP는 `스캔 또는 텍스트 분석 불가`라고 안내하며 OCR을 자동 실행하지 않는다. 혼합 PDF의 한 페이지 실패가 나머지 페이지 열람을 막지 않게 한다.
 
-### 9.7 화면 레이어와 공개
+### 9.8 화면 레이어와 공개
 
 아래는 동일 페이지 컨테이너 안에서 아래 → 위 순서다.
 

@@ -40,7 +40,9 @@ test(
       page.on('console', (message) => {
         if (message.type() === 'error') errors.push(message.text());
       });
-      await page.waitForSelector('#runtime-status[data-state="connected"]');
+      await page.waitForSelector('#runtime-status[data-state="connected"]', {
+        state: 'attached',
+      });
       const debugUrl = new URL(APP_URL);
       debugUrl.searchParams.set('debugOverlay', '1');
       assert.equal(page.url(), debugUrl.toString());

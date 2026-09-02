@@ -118,10 +118,14 @@ for (const mode of ['dev', 'built', 'packaged']) {
             evidence.normalWarnings.push(message.text());
         });
         page.on('request', (request) => requests.push(request.url()));
-        await page.waitForSelector('#runtime-status[data-state="connected"]');
+        await page.waitForSelector('#runtime-status[data-state="connected"]', {
+          state: 'attached',
+        });
         await page.waitForLoadState('load');
         await page.reload();
-        await page.waitForSelector('#runtime-status[data-state="connected"]');
+        await page.waitForSelector('#runtime-status[data-state="connected"]', {
+          state: 'attached',
+        });
         assert.equal(page.url(), mode === 'dev' ? `${DEV_ORIGIN}/` : APP_URL);
         evidence.renderer = await page.evaluate(() => ({
           title: document.title,
@@ -140,6 +144,39 @@ for (const mode of ['dev', 'built', 'packaged']) {
             document.querySelector('#pdf-debug-panel'),
           ),
         }));
+        evidence.shell = await page.evaluate(() => {
+          const root = document.scrollingElement;
+          const header = document.querySelector('.app-header');
+          const main = document.querySelector('.app-main');
+          const sidebar = document.querySelector('.viewer-sidebar');
+          const footer = document.querySelector('.app-footer');
+          const details = document.querySelector('#document-information');
+          const analysisStatuses = [
+            '#text-analysis-status',
+            '#keyword-analysis-status',
+            '#region-analysis-status',
+            '#support-profile-status',
+          ].map((selector) => document.querySelector(selector));
+          return {
+            outerClientHeight: root.clientHeight,
+            outerScrollHeight: root.scrollHeight,
+            outerScrollTop: root.scrollTop,
+            bodyOverflowY: getComputedStyle(document.body).overflowY,
+            mainOverflowY: getComputedStyle(main).overflowY,
+            sidebarOverflowY: getComputedStyle(sidebar).overflowY,
+            headerHeight: header.getBoundingClientRect().height,
+            footerVisible:
+              footer.getBoundingClientRect().bottom <= innerHeight + 1,
+            detailsOpen: details.open,
+            detailsSummary: details.querySelector('summary').innerText,
+            analysisOutsideDetails: analysisStatuses.every(
+              (status) => !details.contains(status),
+            ),
+            analysisVisible: analysisStatuses.every(
+              (status) => status.getClientRects().length > 0,
+            ),
+          };
+        });
         assert.equal(evidence.renderer.title, 'Local PDF CBT');
         assert.equal(evidence.renderer.language, 'ko');
         assert.match(evidence.renderer.empty, /아직 열린 PDF가 없습니다/);
@@ -159,6 +196,20 @@ for (const mode of ['dev', 'built', 'packaged']) {
         );
         assert.equal(evidence.renderer.controls, 12);
         assert.equal(evidence.renderer.debugPanelPresent, false);
+        assert.ok(
+          evidence.shell.outerScrollHeight <=
+            evidence.shell.outerClientHeight + 1,
+        );
+        assert.equal(evidence.shell.outerScrollTop, 0);
+        assert.equal(evidence.shell.bodyOverflowY, 'hidden');
+        assert.equal(evidence.shell.mainOverflowY, 'hidden');
+        assert.equal(evidence.shell.sidebarOverflowY, 'auto');
+        assert.ok(evidence.shell.headerHeight <= 64);
+        assert.equal(evidence.shell.footerVisible, true);
+        assert.equal(evidence.shell.detailsOpen, false);
+        assert.match(evidence.shell.detailsSummary, /문서 정보/);
+        assert.equal(evidence.shell.analysisOutsideDetails, true);
+        assert.equal(evidence.shell.analysisVisible, true);
         assert.equal(
           await page.locator('#pdf-page-navigation').isHidden(),
           true,
@@ -270,7 +321,10 @@ for (const mode of ['dev', 'built', 'packaged']) {
             await session.defaultSession.closeAllConnections();
           });
           await page.reload();
-          await page.waitForSelector('#runtime-status[data-state="connected"]');
+          await page.waitForSelector(
+            '#runtime-status[data-state="connected"]',
+            { state: 'attached' },
+          );
           evidence.offline = await page.evaluate(() => ({
             online: navigator.onLine,
             url: location.href,
@@ -294,6 +348,15 @@ for (const mode of ['dev', 'built', 'packaged']) {
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth,
           ),
+          true,
+        );
+        assert.equal(
+          await page.evaluate(() => {
+            const root = document.scrollingElement;
+            return (
+              root.scrollTop === 0 && root.scrollHeight <= root.clientHeight + 1
+            );
+          }),
           true,
         );
         await page.locator('.app-footer').scrollIntoViewIfNeeded();

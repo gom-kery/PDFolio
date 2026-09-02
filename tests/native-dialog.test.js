@@ -57,7 +57,9 @@ test(
       page.on('pageerror', (error) =>
         evidence.rendererErrors.push(error.message),
       );
-      await page.waitForSelector('#runtime-status[data-state="connected"]');
+      await page.waitForSelector('#runtime-status[data-state="connected"]', {
+        state: 'attached',
+      });
       evidence.ownerProcessId = await application.evaluate(() => process.pid);
       evidence.launchedProcessId = applicationProcess.pid;
       console.log(
@@ -113,7 +115,7 @@ test(
           action === 'select' ? 'selected' : 'canceled',
         );
         assert.equal(
-          await page.locator('#selected-file-name').innerText(),
+          await page.locator('#selected-file-name').textContent(),
           '한글 문서 & 연습.PDF',
         );
         if (action === 'select') {
@@ -131,6 +133,10 @@ test(
           );
           await page.waitForSelector(
             '#region-analysis-status[data-state="none"]',
+            { timeout: 10_000 },
+          );
+          await page.waitForSelector(
+            '#support-profile-status[data-state="not-supported"]',
             { timeout: 10_000 },
           );
         }

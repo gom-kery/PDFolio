@@ -2,6 +2,104 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.2.6 작업 기록 — 2026-09-02
+
+**Unit 2.6 첫 MVP 분석 프로파일 판정과 고정 샘플 검증을 구현했다. 기존 텍스트·키워드·영역 근거의 일치·미지원·보류만 분류하며, 프로파일이 일치해도 안전한 Mask와 Question 소유 관계가 확인되지 않아 CBT 착수는 승인하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 작업 트리는 Unit 2.5 커밋 `1e1073b` 기준으로 깨끗했다. ROADMAP에 남아 있던 Unit 2.6 범위만 구현했으며 Phase 3의 Mask·선택·공개·정답 추출·채점은 시작하지 않았다.
+
+### Unit 2.6 — 1. 구현한 내용
+
+- 순수 `classifyPageSupportProfile()`과 `PageSupportProfile v1`을 추가했다. 같은 revision·pageNumber의 PageTextAssessment, PageKeywordCandidates, PageAnswerRegions 계약을 검증하며 잘못된 근거에는 부분 판정 없이 공개 오류 코드를 반환한다.
+- 첫 프로파일 `single-page-single-column-two-headings-v1`은 usable 텍스트, 정확히 한 해설 제목과 한 정답 제목, 정확히 두 영역, A/B 제목 순서, 문제 선행 내용과 각 영역 본문 근거를 요구한다.
+- 결과를 `profile-match`, `not-supported`, `hold`로 구분한다. 제목 없음·두 제목 미충족은 미지원, 텍스트 불충분·중복 제목·읽기 순서·다단·회전·세로쓰기 불확실성은 보류한다.
+- 프로파일 일치와 CBT 착수 가능성을 분리했다. 일치 결과에도 이미지·수식 미확인, 열린 마지막 경계, 안전한 Mask 미검증, Question 소유 관계 미확정을 기록하고 `canStartCbt: false`를 유지한다.
+- 일반 UI의 앱 상태에 `지원 프로파일` 요약을 추가했다. PDF 원문·좌표·정답 값은 DOM에 복사하지 않고 프로파일 일치 화면에도 Mask·답 확인·채점을 만들지 않았다.
+- 고정 행렬 8개에서 A/B 후보 2/2 일치, 보호 대상 Text Item 누락 0/6, 문제 Text Item 침범 0/3, 미지원 6개 오일치 0/6을 확인했다. 전체 판정은 일치 2/8, 미지원 2/8, 보류 4/8(50%), CBT 착수 가능 0/8이다.
+- 설치된 PDF.js 6.3.289로 `Solution→Answer`와 `Answer→Solution` 합성 PDF 두 개를 실제 추출해 두 순서를 확인했고 원본 SHA-256을 유지했다.
+- 사용자 제공 Notion/Chromium PDF에서 실제 Text Item은 유효하지만 PDF.js font ascent/descent가 `NaN`, vertical이 생략되어 전체 분석이 보류되는 호환성 오류를 수정했다. 이 보조값만 0과 Text Item direction으로 정규화하며 잘못된 본문·좌표·페이지 값은 계속 거절한다.
+- 보완 후 이 PDF는 111개 Text Item·비공백 186자·판독 비율 1의 `text-usable`로 분류된다. 다만 인쇄 footer `제목 없음1`이 `정답 ④`에 이어지는 PDF.js source 순서는 추정하지 않아 해설 제목 1개만 찾고 정답 제목 누락 미지원으로 남긴다.
+- 앱과 Windows x64/ASAR 패키지 버전을 0.2.6으로 올렸다. 이전 0.2.5 패키지는 `work/unit-2.6-before-package/release/`에 보존했다.
+
+### Unit 2.6 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 프로파일 판정 | `src/analysis/page-support-profile.js` — 입력 계약 검증, 세 판정, CBT 차단 사유와 원문 없는 근거 요약 |
+| 일반 UI | `src/ui/pdf-viewer.js`, `index.html`, `src/styles/shell.css` — 지원 프로파일 상태·사유·범위 안내 |
+| 단위 검사 | `tests/page-support-profile.test.js` — A/B, 미지원·보류, 고정 행렬 수치, 계약·개인정보 경계 |
+| PDF.js 통합 | `tests/pdf-text-integration.test.js`, `tests/helpers/pdf-fixtures.js` — A/B 실제 TextContent 판정과 원본 해시 |
+| PDF.js font 호환성 | `src/pdf/pdf-adapter-core.js`, `tests/pdf-adapter.test.js` — 생략·`NaN` font 보조값 정규화와 계약 회귀 검사 |
+| 실제 앱 검사 | `tests/helpers/pdf-selection-checks.js`, `tests/native-dialog.test.js` — 세 일반 실행 모드·Windows 선택 창·원문 비노출·파일 불변 |
+| 버전·실행 | `package.json`, `package-lock.json`, `README.md` — 0.2.6과 검사 절차 |
+| 문서 | `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다.
+
+### Unit 2.6 — 3. 실행 방법
+
+프로젝트 루트에서 `npm run dev`로 일반 앱을 실행한다. `npm run build` 후 `npm start`는 빌드 자산 모드이고 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`는 버전 0.2.6 패키지다. 이전 앱이 실행 중이면 완전히 닫고 다시 시작한다. 개발자 좌표 대조가 필요한 경우에만 `npm run dev:debug`를 사용한다.
+
+### Unit 2.6 — 4. 사용자가 직접 테스트할 방법
+
+1. 앱 footer에서 `Unit 2.6 · 지원 프로파일 판정`을 확인한다.
+2. 충분한 문제·보기 뒤 `해설:`과 `정답:`이 각각 한 번 있는 단일 열 PDF를 연다. `지원 프로파일`에 첫 MVP 분석 프로파일 후보와 맞지만 CBT 시작은 승인되지 않았다는 안내가 보여야 한다.
+3. `정답:` 뒤 `해설:`이 오는 PDF도 같은 일치 안내를 표시해야 한다. 어느 순서에서도 Mask·답 선택·답 확인·채점 버튼은 나타나지 않아야 한다.
+4. 제목이 없거나 한 종류만 있으면 `지원하지 않습니다`가 보여야 한다. 같은 제목이 반복되거나 다단처럼 보이는 페이지, 고유 회전 페이지, 텍스트가 너무 적거나 이미지·수식 위주인 페이지는 `판정할 수 없습니다`로 보류되어야 한다.
+5. 페이지 이동·PDF 교체를 반복해 이전 프로파일 상태가 늦게 돌아오지 않는지 확인한다. 앱 상태에는 전체 문제·해설·정답 문장과 파일 경로·좌표가 추가로 노출되지 않아야 한다.
+6. 원문 Viewer의 페이지 이동·50–200% 배율·높이 맞춤·좌우 이동과 footer의 원본 불변 안내가 그대로 동작하는지 확인한다.
+7. Notion/브라우저 PDF는 인쇄 설정에서 머리글과 바닥글을 끄고 다시 연다. 켠 출력에서 `정답 ④` 뒤 문서 제목·페이지 번호가 붙으면 앱은 정답 제목을 추정하지 않고 미지원으로 남겨야 한다.
+
+자동 검사는 `npm run format:check`, `npm test`, `npm run build`, `npm run package`, `npm run test:electron`, `npm run test:native`, `npm run test:shutdown -- -Repeats 3` 순서로 실행한다. Electron·native·shutdown은 Windows 데스크톱 창 실행 권한이 필요하다.
+
+### Unit 2.6 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 전체 프로젝트 형식 |
+| `npm test` | 103/103 통과 | 기존 97개와 프로파일 계약·행렬 4개, 역순 PDF.js 통합 1개, 누락 font 보조값 정규화 1개 |
+| 고정 프로파일 행렬 | 통과 | 일치 2/8, 미지원 2/8, 보류 4/8; 보호 Text Item 누락 0/6, 문제 침범 0/3, 미지원 오일치 0/6, CBT 착수 0/8 |
+| 실제 PDF.js fixture | 통과 | A/B 두 순서, 두 영역, 원본 SHA-256 유지 |
+| `npm run build` | 통과 | Vite 22 modules, 로컬 PDF.js·프로파일 판정 포함 |
+| `npm run package` | 통과 | Electron 44.0.0 Windows x64/ASAR 버전 0.2.6 |
+| `npm run test:electron` | 4/4 통과 | 진단 1경로와 일반 개발·빌드·패키지 3경로, 세 판정·원문 DOM 비노출·Viewer·오프라인·입력·보안 회귀 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창, 미지원 판정·취소·원본 해시 |
+| 패키지 화면 확인 | 통과 | 지원 프로파일 상태·범위 안내·footer·기존 Viewer 배치 |
+| 사용자 Notion/Chromium PDF 읽기 전용 진단 | 부분 통과 | 실제 텍스트 111개·비공백 186자·판독 비율 1·이미지 paint 0개, 텍스트/좌표 분석 가능. footer source 순서 때문에 정답 제목 누락·미지원 |
+| `npm run test:shutdown -- -Repeats 3` | 16/18 | 개발 7/9, 패키지 9/9. 개발 즉시 종료 2회에서 OPEN-09 GPU 진단 재현 |
+
+종료 18회 모두 창이 닫히고 프로세스 종료 코드 0과 개발 포트 해제를 확인했다. GPU 오류를 숨기거나 그래픽·sandbox 설정을 낮추지 않았다.
+
+### Unit 2.6 — 6. 예상되는 Edge Case
+
+- 제목이 두 개여도 이미지·수식에만 해설이나 정답이 있으면 텍스트 영역은 이를 확인하지 못한다. 현재는 일치와 동시에 CBT 불가 사유를 유지한다.
+- 마지막 제목 뒤에 다음 문제나 footer가 있으면 열린 마지막 영역에 함께 들어갈 수 있다. 닫힌 경계를 추측하지 않는다.
+- 한 종류 제목만 있는 페이지는 영역 후보가 있더라도 두 제목 프로파일에는 미지원이다. 중복 제목·다단·회전은 명백한 미지원 대신 보류될 수 있다.
+- PDF.js source 순서가 시각 순서와 다르거나 제목 글자가 이미지/윤곽선이면 일치하지 않거나 보류될 수 있다.
+- Notion/Chromium 인쇄의 머리글·바닥글이 `hasEOL` 없이 답 값 뒤에 붙으면 정답 제목을 의도적으로 인식하지 않는다. 인쇄 설정에서 머리글과 바닥글을 끄는 것이 현재 안전한 우회 방법이다.
+- 보류 50%는 작은 합성 행렬의 분포다. 실제 문서 전체의 보류율이나 인식률로 해석하지 않는다.
+
+### Unit 2.6 — 7. 알려진 제한사항
+
+고정 행렬은 합성 Text Item과 작은 PDF.js 합성 fixture 두 개에 한정된다. 사용자 제공 Notion/Chromium PDF 한 건은 호환성과 source 순서 제한을 확인한 진단 샘플로만 사용했고 프로젝트·패키지에 복사하지 않았다. 보호 Text Item 누락·문제 침범 수치는 픽셀·글리프·클리핑·이미지·수식 누출이나 과다 가림을 측정하지 않는다. 실제 대표 PDF 행렬과 Unit 1.0 전체 샘플 행렬은 없으며 `canStartCbt`는 모든 결과에서 false다. 현재 일반 UI 판정은 분석 진단이며 실제 CBT 지원 목록이 아니다.
+
+### Unit 2.6 — 8. Technical Debt
+
+- OPEN-03은 합성 프로파일 목록만 부분 해결됐다. 저작권과 개인정보를 지키는 실제 대표 PDF 행렬이 필요하다.
+- OPEN-05는 Text Item 수준 수치만 확보했다. 안전한 Mask를 위해 글리프·클리핑·이미지·수식과 닫힌 경계를 화면 수준에서 검증해야 한다.
+- Question과 Region 소유 관계가 없으며 한 페이지 한 문제 가정도 실제 문서로 확인하지 않았다.
+- OPEN-09는 이번 보완 종료 반복에서도 개발 즉시 종료 두 번에 재현됐다.
+
+### Unit 2.6 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 2.6 분석 판정 자체의 확인된 선행 수정 사항은 없다. 다만 결과가 `canStartCbt: false`이므로 Phase 3.1 기능에 바로 들어갈 수 없다. 다음 계획 Unit 3.0을 사용자가 요청하면 상태·소유 관계와 함께 지원 프로파일 축소, 실제 대표 샘플 확보, 또는 Phase 4.1 수동 영역 지정을 앞당기는 일정 변경 중 안전한 경로를 먼저 결정해야 한다. 프로젝트 전체 무오류 완료에는 OPEN-09 해결과 Unit 1.0 샘플 행렬도 계속 필요하다.
+
+### Unit 2.6 — 10. Git Commit Message
+
+제안 메시지: `feat(analysis): classify MVP profiles and normalize PDF font metadata`
+
+실제 Git 커밋은 만들지 않았다. 메시지는 사용자가 전체 diff와 검사 결과를 검토한 뒤 사용할 제안이다.
+
 ## 0.2.5 작업 기록 — 2026-09-02
 
 **Unit 2.5 분석 결과 Debug Overlay를 구현했다. 명시적 개발 진단 모드에서 기존 Text Item·키워드·영역 후보의 좌표 근거만 Canvas와 대조하며 새로운 분석 규칙·지원 판정·Mask·정답 추출·CBT는 구현하지 않았다.**

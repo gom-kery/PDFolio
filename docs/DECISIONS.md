@@ -1,12 +1,12 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.2.5`
+- 문서 버전: `0.2.6`
 - 갱신일: 2026-09-02
-- 상태: Unit 2.5 분석 결과 Debug Overlay 완료. 앱은 버전 0.2.5이며 OPEN-09와 Unit 1.0은 미해결.
+- 상태: Unit 2.6 첫 MVP 분석 프로파일 판정·고정 샘플 검증 완료. 앱은 버전 0.2.6이며 OPEN-09와 Unit 1.0은 미해결.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
-이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보, Unit 2.5에서 개발자용 화면 좌표 대조를 검증했다. 안전한 가림 지원 판정은 아직 시작하지 않았다.
+이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보, Unit 2.5에서 개발자용 화면 좌표 대조, Unit 2.6에서 첫 MVP 분석 프로파일의 일치·미지원·보류를 검증했다. 분석 프로파일과의 일치는 안전한 Mask나 CBT 지원 승인이 아니다.
 
 ## 1. 요구사항 분석
 
@@ -372,7 +372,7 @@
 
 - 상태: **채택 — Unit 2.1 구현·검증 완료**, 2026-09-02. 앱과 Windows x64/ASAR 패키지는 버전 0.2.1이다.
 - 추출 구현: PDF 어댑터의 `extractPageText({ pageNumber })`는 현재 문서의 유효한 페이지 한 개에만 `getTextContent({ includeMarkedContent: false, disableNormalization: false })`를 호출한다. 성공 결과는 `status: extracted`와 PageTextSource v1이고, 문서 없음·잘못된 페이지·논리 취소·추출 실패·잘못된 TextContent는 원문 예외 없이 안정된 공개 코드로 반환한다. 전체 문서 선행 추출이나 페이지 캐시는 없다.
-- 복사·검증: sourceIndex와 sourceText 순서를 유지하고 direction·transform[6]·width·height·fontName·hasEOL, page viewBox·userUnit·rotation, 실제 참조 font style만 새 객체·배열로 복사한다. 필수 값이 없거나 유한하지 않은 TextContent는 부분 복구하지 않고 `INVALID_TEXT_SOURCE`로 보류한다. 결과에는 경로·파일 바이트·PDF.js 객체·임의 style key가 없다.
+- 복사·검증: sourceIndex와 sourceText 순서를 유지하고 direction·transform[6]·width·height·fontName·hasEOL, page viewBox·userUnit·rotation, 실제 참조 font style만 새 객체·배열로 복사한다. Text Item·page metadata와 fontFamily가 잘못되거나 font metric이 문자열·무한대이면 부분 복구하지 않고 `INVALID_TEXT_SOURCE`로 보류한다. PDF.js가 font ascent/descent를 생략·`NaN`으로 주는 경우만 0으로, vertical을 생략한 경우만 같은 font의 `ttb` direction 여부로 정규화한다. 결과에는 경로·파일 바이트·PDF.js 객체·임의 style key가 없다.
 - 품질 상수: 한글 분절, 빈/벡터·이미지 위주, 혼합, 페이지 번호 수준, replacement character 고정 샘플과 설치된 PDF.js 6.3.289의 한글+이미지 fixture를 근거로 `MIN_USABLE_NON_WHITESPACE_CHARACTERS = 12`, `MIN_READABLE_CHARACTER_RATIO = 0.8`을 채택한다. 실제 fixture는 6개 item·비공백 73자·판독 가능 비율 1이었다. 이 기준은 후속 분석 입력 보류선이며 정확도·CBT 지원 확률이 아니다.
 - 분류 규칙: 항목 없음은 `text-insufficient / NO_TEXT_ITEMS`, 공백뿐이면 `WHITESPACE_ONLY`, 12자 미만이면 `TOO_LITTLE_TEXT`, 판독 가능 비율 0.8 미만이면 `LOW_TEXT_QUALITY`다. 판독 가능 문자가 12개 이상인데 품질 비율은 낮은 상충 결과만 `unknown / CONFLICTING_SIGNALS`로 둔다. 잘못된 source와 추출 실패도 각각 `unknown`이고 canceled·문서 없음·잘못된 페이지에는 assessment를 만들지 않는다.
 - 수명·정리: documentRevision은 open 시도와 dispose에서 증가하고 별도 text request id가 빠른 추출을 구분한다. 늦은 결과는 두 값이 모두 최신일 때만 채택한다. PDF.js 6.3.289가 자원 해제를 `PDFDocumentLoadingTask.destroy()`에 제공하고 PDFDocumentProxy에는 destroy를 제공하지 않음을 실제 타입·fixture로 확인해 loading task를 정리 주체로 사용한다. 텍스트 실패는 Canvas 상태를 바꾸지 않는다.
@@ -425,17 +425,29 @@
 - 검증: 형식, Node 97개, 설치된 PDF.js 합성 fixture의 Text Item 7개·키워드 2개·영역 2개를 실제 Canvas 위에 대조했다. 100→125% 확대, 높이 맞춤과 창 크기 변경, 0/90/180/270도 고유 회전에서 Canvas와 Overlay CSS 크기·사각형 재투영을 확인했다. 일반 실행 DOM 비생성, 진단 DOM 원문 비복사, 숨김/표시, 개발·빌드·패키지 Electron 4/4와 실제 Windows 선택 창 1/1이 통과했다. 종료 반복은 개발 8/9·패키지 9/9이며 개발 즉시 종료 한 번에서 기존 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
 - 제외 범위: 새로운 키워드·영역 규칙, 실제 출판물 지원률·누락/침범 측정, 글리프 잉크·클리핑·이미지·수식 경계, 지원 판정, Question·정답 추출·Mask·공개·채점·CBT, 저장, OCR/AI는 Unit 2.5에 포함하지 않는다. 다음 구현 순서는 Unit 2.6이다.
 
+### ADR-030 — Unit 2.6 분석 프로파일 일치와 CBT 착수 가능성 분리
+
+- 상태: **채택 — Unit 2.6 구현·검증 완료**, 2026-09-02. 앱과 Windows x64/ASAR 패키지는 버전 0.2.6이다.
+- 판정 경계: `PageSupportProfile v1`은 같은 revision·pageNumber의 PageTextAssessment v1과 usable 페이지의 PageKeywordCandidates v1·PageAnswerRegions v1만 받는다. 기존 근거를 재해석해 제목·영역을 새로 만들지 않으며 계약 불일치는 원문 없는 공개 오류로 끝낸다.
+- 첫 분석 프로파일: `single-page-single-column-two-headings-v1`은 usable 텍스트, 정확히 한 해설 제목과 한 정답 제목, 정확히 두 영역, A/B 제목 순서, 첫 제목 앞 문제 내용과 각 영역 본문 근거를 요구한다. 모두 맞으면 `profile-match`, 명백한 제목 부족은 `not-supported`, 텍스트·읽기 순서·레이아웃 근거가 불확실하면 `hold`다.
+- 안전 결정: `profile-match`와 `canStartCbt`를 분리한다. 현재 영역은 텍스트 bbox뿐이고 마지막 영역의 닫힌 끝, 이미지·수식, Question 소유 관계와 안전한 Mask를 입증하지 못했다. 따라서 모든 일치 결과에 `NON_TEXT_CONTENT_UNVERIFIED`, `OPEN_ENDED_LAST_REGION`, `SAFE_MASK_NOT_VERIFIED`, `QUESTION_OWNERSHIP_NOT_ESTABLISHED`를 유지하고 `canStartCbt: false`로 고정한다.
+- 개인정보·UI: 결과와 일반 UI에는 프로파일 ID, 판정, 공개 reason code, 품질·후보/영역 개수·순서·종류 요약만 둔다. PDF 원문·좌표·정답 값·파일 경로·PDF.js 객체·Question은 복사하거나 장기 보관하지 않는다. 프로파일 일치 화면도 Mask·답 확인·채점을 활성화하지 않는다.
+- 고정 행렬: A/B 후보 2개는 2/2 일치했고 보호 대상 Text Item 누락 0/6, 문제 Text Item 침범 0/3이었다. 미지원·보류 6개의 오일치는 0/6이었다. 전체 분포는 profile-match 2/8, not-supported 2/8, hold 4/8(50%), CBT 착수 가능 0/8이다. 두 A/B PDF.js 합성 fixture도 순서와 원본 SHA-256 불변을 확인했다.
+- 실제 호환성 보완: 사용자 제공 Notion/Chromium PDF 한 건은 Text Item 111개와 이미지 paint 0개인데 참조 font style 네 개의 ascent/descent가 `NaN`, vertical이 생략돼 기존 어댑터에서 `INVALID_TEXT_SOURCE`가 됐다. 선택적인 font 보조값만 정규화해 비공백 186자·판독 비율 1의 `text-usable` 근거를 보존했다. PDF.js source 순서에서 footer `제목 없음1`이 `정답 ④` 뒤에 붙는 현상은 오탐 방지를 위해 추정 복구하지 않아 정답 제목 누락·미지원으로 유지한다.
+- 검증: 형식, Node 103개, 빌드 22 modules, Windows x64/ASAR 패키지, 개발자 진단·일반 개발·빌드·패키지 Electron 4/4와 실제 Windows 선택 창 1/1이 통과했다. 종료 반복은 개발 7/9·패키지 9/9이며 개발 즉시 종료 두 번에서 기존 OPEN-09가 재현됐다. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이다.
+- 제한·인계: 고정 행렬은 합성 Text Item과 작은 실제 PDF.js 합성 fixture에 한정된다. 실제 Notion/Chromium 출력 한 건은 font metadata 호환성과 footer source 순서만 확인한 진단 샘플이며 지원률·안전한 가림 근거가 아니다. 실제 출판물 대표 행렬, 글리프·클리핑·이미지·수식, 픽셀 누출/과다 가림은 검증하지 않았다. Unit 3.0 구조 검토는 가능하지만 Phase 3.1 기능 전에 지원 범위 축소·대표 샘플 확보·Phase 4.1 수동 보정 선행 중 안전한 경로를 결정해야 한다. Mask·Question·정답 추출·공개·채점·CBT·저장·OCR/AI는 Unit 2.6 범위 밖이다.
+
 ## 5. 유보 항목과 해결 상태
 
 | ID | 항목 | 결정 시점 | 지금의 처리 |
 | --- | --- | --- | --- |
 | OPEN-01 | 지원 OS 최소 버전·패키징 도구·정확한 의존성 버전 | Unit 0.2 | 해결: Windows 11 x64, ADR-011/013의 버전과 Packager 채택 |
 | OPEN-02 | renderer ESM과 sandbox preload 연결·로컬 자산 프로토콜 | Unit 0.2~1.3 | 해결: ADR-012/015/016/020. Windows x64 패키지와 PDF.js worker·CMap·ICC·표준 글꼴·WASM의 로컬 경로·거부 경로 재검증 완료 |
-| OPEN-03 | 실제 대표 PDF와 지원 프로파일 목록 | Unit 1.0~2.6 | 샘플 행렬만 작성. 사용자 문서 업로드/공유 요청 없음 |
+| OPEN-03 | 실제 대표 PDF와 지원 프로파일 목록 | Unit 1.0~2.6 | 부분 해결: Unit 2.6에서 첫 합성 분석 프로파일과 A/B·미지원 고정 행렬을 기록했다. 사용자 제공 Notion/Chromium 출력 한 건으로 font metadata 호환성과 footer source 순서 제한을 확인했지만 대표 행렬에는 편입하지 않았고 Unit 1.0 전체 행렬은 미착수 |
 | OPEN-04 | 파일 크기·Canvas 픽셀·캐시·시간 예산 | Unit 1.1 / 1.6 | 부분 해결: 50 MiB 입력 상한, 현재 Canvas 16,777,216픽셀·한 변 8,192픽셀 상한, 작은 합성 PDF의 첫 페이지·높이 맞춤·마지막 페이지 10초 안전 기준을 적용했다. 모든 실물 PDF의 파서/렌더 시간과 캐시 예산은 샘플 행렬·실사용 측정 전까지 유보 |
-| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1 텍스트 품질, Unit 2.2 근사 bbox·viewport 변환, Unit 2.3 제목 키워드, Unit 2.4 단일 열 A/B 영역 후보에 이어 Unit 2.5 합성 PDF에서 Text Item·키워드·영역 좌표의 Canvas 정합과 확대·높이 맞춤·창 크기·회전을 대조했다. 실제 글리프/클리핑·이미지/수식 포함 영역, 실제 출판물 누락·침범률과 지원 임계값은 Unit 2.6 증거 전까지 미확정 |
+| OPEN-05 | bbox 여백·줄 묶음·텍스트 품질·인식 임계값 | Unit 2.1~2.6 | 부분 해결: Unit 2.1~2.5의 품질·좌표·제목·영역·Canvas 대조와 Unit 2.6 합성 행렬 측정에 더해 Notion/Chromium의 누락 font 보조값을 정규화했다. footer가 답 값 뒤에 이어지는 source 순서, 실제 글리프/클리핑·이미지/수식 포함 영역, 실제 출판물·픽셀 수준 누출/침범률은 미확정이며 이 때문에 CBT 착수를 승인하지 않음 |
 | OPEN-06 | 서명·설치형/포터블 공개 배포·업데이트 정책 | MVP 검증 후 | 로컬 테스트 패키지와 구분; 이번 범위 밖 |
-| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.5 종료 반복에서 개발 즉시 종료 1회 재현, 결과 개발 8/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
+| OPEN-09 | 빠른 창 종료 후 간헐적 Chromium GPU 오류 로그 | Unit 0.4 / 전체 무오류 완료 전 | 미해결: Unit 2.6 보완 종료 반복에서 개발 즉시 종료 2회 재현, 결과 개발 7/9·패키지 9/9. 18회 모두 창 종료·종료 코드 0·포트 해제는 정상. 원인 규명·안전한 수정과 반복 재검증 필요. 로그/그래픽/보안 해제 우회 금지 |
 | OPEN-07 | 저장 경로·문서 해시·SQLite 스키마·백업 형식 | Phase 5.0 | 메모리만 사용 |
 | OPEN-08 | OCR/AI 엔진·언어·모델·서비스 비용 | Phase 9.0 / 10.0 | 의존성 추가 없음 |
 

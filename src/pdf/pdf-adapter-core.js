@@ -49,6 +49,26 @@ function invalidTextSource() {
   });
 }
 
+function normalizeOptionalFontMetric(value) {
+  if (Number.isFinite(value)) return value;
+  if (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'number' && Number.isNaN(value))
+  )
+    return 0;
+  throw invalidTextSource();
+}
+
+function normalizeOptionalVertical(value, items, fontName) {
+  if (typeof value === 'boolean') return value;
+  if (value === undefined || value === null)
+    return items.some(
+      (item) => item.fontName === fontName && item.direction === 'ttb',
+    );
+  throw invalidTextSource();
+}
+
 function copyPageTextSource({ record, page, pageNumber, textContent }) {
   if (
     !textContent ||
@@ -98,19 +118,16 @@ function copyPageTextSource({ record, page, pageNumber, textContent }) {
     if (!Object.prototype.hasOwnProperty.call(textContent.styles, fontName))
       throw invalidTextSource();
     const style = textContent.styles[fontName];
-    if (
-      !style ||
-      !Number.isFinite(style.ascent) ||
-      !Number.isFinite(style.descent) ||
-      typeof style.vertical !== 'boolean' ||
-      typeof style.fontFamily !== 'string'
-    )
+    if (!style || typeof style.fontFamily !== 'string')
       throw invalidTextSource();
+    const ascent = normalizeOptionalFontMetric(style.ascent);
+    const descent = normalizeOptionalFontMetric(style.descent);
+    const vertical = normalizeOptionalVertical(style.vertical, items, fontName);
     return {
       fontName,
-      ascent: style.ascent,
-      descent: style.descent,
-      vertical: style.vertical,
+      ascent,
+      descent,
+      vertical,
       fontFamily: style.fontFamily,
     };
   });

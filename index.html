@@ -101,83 +101,112 @@
         <div class="viewer-sidebar">
           <aside class="status-panel" aria-labelledby="status-title">
             <h2 id="status-title">앱 상태</h2>
-            <dl class="status-list">
-              <div class="status-item">
-                <dt>실행 환경</dt>
-                <dd
-                  id="runtime-status"
-                  role="status"
-                  aria-atomic="true"
-                  data-state="checking"
-                >
-                  <p class="runtime-label">
-                    <span class="status-dot" aria-hidden="true"></span>
-                    <span data-status-label>확인 중</span>
-                  </p>
-                  <p class="runtime-detail" data-status-detail>
-                    실행 환경을 확인하고 있습니다.
-                  </p>
-                </dd>
-              </div>
-              <div class="status-item">
-                <dt>선택한 파일</dt>
-                <dd id="selected-file-name">선택한 파일 없음</dd>
-              </div>
-              <div class="status-item">
-                <dt>파일 크기</dt>
-                <dd id="selected-file-size">—</dd>
-              </div>
-              <div class="status-item">
-                <dt>페이지</dt>
-                <dd id="pdf-page-count">—</dd>
-              </div>
-              <div class="status-item">
-                <dt>텍스트 분석</dt>
-                <dd
-                  id="text-analysis-status"
-                  class="analysis-summary-status text-analysis-status"
-                  role="status"
-                  aria-atomic="true"
-                  data-state="idle"
-                >
-                  PDF를 열면 현재 페이지의 텍스트를 확인합니다.
-                </dd>
-              </div>
-              <div class="status-item">
-                <dt>키워드 후보</dt>
-                <dd
-                  id="keyword-analysis-status"
-                  class="analysis-summary-status"
-                  role="status"
-                  aria-atomic="true"
-                  data-state="idle"
-                >
-                  PDF를 열면 현재 페이지의 제목 키워드를 확인합니다.
-                </dd>
-              </div>
-              <div class="status-item">
-                <dt>영역 후보</dt>
-                <dd
-                  id="region-analysis-status"
-                  class="analysis-summary-status"
-                  role="status"
-                  aria-atomic="true"
-                  data-state="idle"
-                >
-                  PDF를 열면 현재 페이지의 해설·정답 영역 후보를 확인합니다.
-                </dd>
-              </div>
-            </dl>
-            <div class="scope-note">
-              <h3>좌표 Debug Overlay 검증 단계</h3>
+            <details id="document-information" class="document-information">
+              <summary>
+                <span>문서 정보</span>
+                <span class="document-information-hint">
+                  실행 환경 · 파일 · 페이지
+                </span>
+              </summary>
+              <dl class="status-list document-information-list">
+                <div class="status-item">
+                  <dt>실행 환경</dt>
+                  <dd
+                    id="runtime-status"
+                    role="status"
+                    aria-atomic="true"
+                    data-state="checking"
+                  >
+                    <p class="runtime-label">
+                      <span class="status-dot" aria-hidden="true"></span>
+                      <span data-status-label>확인 중</span>
+                    </p>
+                    <p class="runtime-detail" data-status-detail>
+                      실행 환경을 확인하고 있습니다.
+                    </p>
+                  </dd>
+                </div>
+                <div class="status-item">
+                  <dt>선택한 파일</dt>
+                  <dd id="selected-file-name">선택한 파일 없음</dd>
+                </div>
+                <div class="status-item">
+                  <dt>파일 크기</dt>
+                  <dd id="selected-file-size">—</dd>
+                </div>
+                <div class="status-item">
+                  <dt>페이지</dt>
+                  <dd id="pdf-page-count">—</dd>
+                </div>
+              </dl>
+            </details>
+            <section
+              class="analysis-status-section"
+              aria-labelledby="analysis-status-title"
+            >
+              <h3 id="analysis-status-title">현재 페이지 분석</h3>
+              <dl class="status-list analysis-status-list">
+                <div class="status-item">
+                  <dt>텍스트 분석</dt>
+                  <dd
+                    id="text-analysis-status"
+                    class="analysis-summary-status text-analysis-status"
+                    role="status"
+                    aria-atomic="true"
+                    data-state="idle"
+                  >
+                    PDF를 열면 현재 페이지의 텍스트를 확인합니다.
+                  </dd>
+                </div>
+                <div class="status-item">
+                  <dt>키워드 후보</dt>
+                  <dd
+                    id="keyword-analysis-status"
+                    class="analysis-summary-status"
+                    role="status"
+                    aria-atomic="true"
+                    data-state="idle"
+                  >
+                    PDF를 열면 현재 페이지의 제목 키워드를 확인합니다.
+                  </dd>
+                </div>
+                <div class="status-item">
+                  <dt>영역 후보</dt>
+                  <dd
+                    id="region-analysis-status"
+                    class="analysis-summary-status"
+                    role="status"
+                    aria-atomic="true"
+                    data-state="idle"
+                  >
+                    PDF를 열면 현재 페이지의 해설·정답 영역 후보를 확인합니다.
+                  </dd>
+                </div>
+                <div class="status-item">
+                  <dt>지원 프로파일</dt>
+                  <dd
+                    id="support-profile-status"
+                    class="analysis-summary-status"
+                    role="status"
+                    aria-atomic="true"
+                    data-state="idle"
+                  >
+                    PDF를 열면 현재 페이지의 첫 MVP 분석 프로파일을 확인합니다.
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <details class="scope-note">
+              <summary>지원 프로파일 판정 단계</summary>
               <p>
                 선택하거나 드롭한 PDF를 한 페이지씩 이동하고 50–200% 범위로
                 확대·축소하거나 높이에 맞춰 표시합니다. 현재 페이지의 텍스트
-                품질·PDF 좌표·제목 키워드와 영역 후보만 계산합니다. 명시적인
-                개발 진단 모드에서만 좌표 Overlay를 표시하며 화면 가림과
-                문제풀이는 아직 지원하지 않습니다.
+                품질·PDF 좌표·제목 키워드·영역 후보를 근거로 첫 MVP 분석
+                프로파일만 판정합니다. 프로파일 일치는 안전한 가림이나 CBT 시작
+                승인이 아닙니다. 좌표 Overlay는 명시적인 개발 진단 모드에서만
+                표시합니다.
               </p>
-            </div>
+            </details>
           </aside>
 
           <nav
@@ -228,7 +257,7 @@
           data-state="idle"
           hidden
         ></p>
-        <p>Unit 2.5 · 분석 결과 Debug Overlay</p>
+        <p>Unit 2.7 · Viewer Shell 정리</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>

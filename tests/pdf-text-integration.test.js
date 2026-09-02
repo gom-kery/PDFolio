@@ -14,6 +14,7 @@ import { assessPageText } from '../src/analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../src/analysis/page-text-coordinates.js';
 import { findPageKeywordCandidates } from '../src/analysis/page-keyword-candidates.js';
 import { inferPageAnswerRegions } from '../src/analysis/page-answer-regions.js';
+import { classifyPageSupportProfile } from '../src/analysis/page-support-profile.js';
 import { createPdfAdapterCore } from '../src/pdf/pdf-adapter-core.js';
 import {
   convertPdfPointToViewport,
@@ -23,6 +24,7 @@ import {
   coordinatePdf,
   keywordPdf,
   regionPdf,
+  regionReversePdf,
 } from './helpers/pdf-fixtures.js';
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -268,6 +270,57 @@ test('installed PDF.js infers two text-only regions in solution-answer order', a
   assert.ok(regions.result.reasonCodes.includes('NON_TEXT_CONTENT_UNVERIFIED'));
   assert.ok(regions.result.reasonCodes.includes('OPEN_ENDED_LAST_REGION'));
   assert.ok(!JSON.stringify(regions.result).includes('Continue the reasoning'));
+  const profile = classifyPageSupportProfile({
+    assessment,
+    keywordCandidates: keywords.result,
+    answerRegions: regions.result,
+  });
+  assert.equal(profile.result.verdict, 'profile-match');
+  assert.equal(profile.result.canStartCbt, false);
+  assert.equal(
+    createHash('sha256').update(original).digest('hex'),
+    originalHash,
+  );
+  await adapter.dispose();
+});
+
+test('installed PDF.js matches the answer-solution profile without approving CBT', async () => {
+  const original = regionReversePdf();
+  const originalHash = createHash('sha256').update(original).digest('hex');
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: wrapPdfJsForTextExtraction({}),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+  const opened = await adapter.open({
+    data: new Uint8Array(original),
+    canvas: { style: {} },
+  });
+  assert.equal(opened.status, 'rendered');
+
+  const extraction = await adapter.extractPageText({ pageNumber: 1 });
+  const assessment = assessPageText(extraction);
+  const coordinates = createPageTextCoordinates(extraction.source);
+  const keywords = findPageKeywordCandidates({
+    source: extraction.source,
+    assessment,
+  });
+  const regions = inferPageAnswerRegions({
+    source: extraction.source,
+    assessment,
+    coordinates: coordinates.coordinates,
+    keywordCandidates: keywords.result,
+  });
+  const profile = classifyPageSupportProfile({
+    assessment,
+    keywordCandidates: keywords.result,
+    answerRegions: regions.result,
+  });
+
+  assert.equal(profile.status, 'profile-ready');
+  assert.equal(profile.result.verdict, 'profile-match');
+  assert.equal(profile.result.evidence.sequence, 'answer-then-solution');
+  assert.equal(profile.result.canStartCbt, false);
+  assert.ok(profile.result.reasonCodes.includes('SAFE_MASK_NOT_VERIFIED'));
   assert.equal(
     createHash('sha256').update(original).digest('hex'),
     originalHash,

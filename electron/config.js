@@ -8,7 +8,7 @@ export const DEV_PORT = 5173;
 export const DEV_ORIGIN = `http://${DEV_HOST}:${DEV_PORT}`;
 export const DEV_SOCKET_ORIGIN = `ws://${DEV_HOST}:${DEV_PORT}`;
 
-// Bounds include the native window frame; smaller content can scroll vertically.
+// Bounds include the native frame; the default shell fits without body scrolling.
 export const WINDOW_SIZE = {
   width: 1120,
   height: 760,
