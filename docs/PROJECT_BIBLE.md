@@ -3,10 +3,10 @@
 - 문서 버전: `0.2.7`
 - 작성일: 2026-08-31
 - 갱신일: 2026-09-03
-- 상태: Unit 2.7 Phase 3 전 Viewer Shell 정리와 회귀 검증 완료. 앱은 버전 0.2.7이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: 기본 창에서 바깥쪽 세로 스크롤이 없고 렌더 전환 중 PDF Canvas 공백을 방지하는 원문 Viewer Shell, 접을 수 있는 문서 정보, 상시 보이는 현재 페이지 분석 요약, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1, PageAnswerRegions v1, PageSupportProfile v1, 명시적으로 실행할 때만 활성화되는 개발자용 Debug Overlay. 안전한 Mask·Question 소유 관계·정답 추출·CBT 기능은 아직 구현하지 않았다.
+- 상태: Unit 2.7.2 Viewer 전환·높이 맞춤 안정화와 회귀 검증 완료. 앱은 버전 0.2.7이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: 기본 창에서 바깥쪽 세로 스크롤이 없고 렌더 전환 중 PDF Canvas 공백·레이아웃 이동·높이 맞춤 반복 렌더를 방지하는 원문 Viewer Shell, 접을 수 있는 문서 정보, 상시 보이는 현재 페이지 분석 요약, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1, PageAnswerRegions v1, PageSupportProfile v1, 명시적으로 실행할 때만 활성화되는 개발자용 Debug Overlay. 안전한 Mask·Question 소유 관계·정답 추출·CBT 기능은 아직 구현하지 않았다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
-- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.7 Viewer Shell 정리에 한하며 Phase 3 구현 승인을 뜻하지 않는다.
+- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.7.2 Viewer 안정화에 한하며 Phase 3 구현 승인을 뜻하지 않는다.
 
 관련 문서: [개발 계획](ROADMAP.md), [요구사항 검토·기술 결정](DECISIONS.md), [변경·Unit 완료 기록](CHANGELOG.md), [후속 아이디어](IDEA_PARKING.md).
 
@@ -14,7 +14,7 @@
 
 사용자가 소유한 문제·보기·해설·정답 PDF를 로컬에서 열어, 답과 해설을 가린 상태로 객관식 문제를 풀게 한다. 답 선택 → 답 확인 → 해당 문제의 해설 공개 → 가능한 경우 채점이 기본 흐름이다. **원본 PDF는 읽기 전용**이며 가림은 화면에서만 수행한다.
 
-사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. Unit 2.6은 기존 근거를 새로 추측하지 않고 첫 MVP 분석 프로파일의 `profile-match / not-supported / hold`만 판정한다. `profile-match`도 이미지·수식과 닫힌 마지막 경계, 안전한 Mask, Question 소유 관계가 확인되지 않아 `canStartCbt: false`를 유지한다. 일반 UI에는 원문·좌표 대신 판정 요약만 표시한다. Unit 2.7은 분석 규칙을 바꾸지 않고 Viewer Shell만 정리한다. 기본 1120×760 창의 바깥쪽 세로 스크롤을 없애고, 실행 환경·파일·페이지 정보는 기본 닫힘 문서 정보 아코디언으로 묶으며, 현재 페이지 분석 요약은 항상 표시한다. 앱과 package.json은 0.2.7이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
+사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. Unit 2.6은 기존 근거를 새로 추측하지 않고 첫 MVP 분석 프로파일의 `profile-match / not-supported / hold`만 판정한다. `profile-match`도 이미지·수식과 닫힌 마지막 경계, 안전한 Mask, Question 소유 관계가 확인되지 않아 `canStartCbt: false`를 유지한다. 일반 UI에는 원문·좌표 대신 판정 요약만 표시한다. Unit 2.7은 분석 규칙을 바꾸지 않고 Viewer Shell을 정리하고, 2.7.1은 임시 Canvas로 검은 공백 전환을 막는다. Unit 2.7.2는 로딩 안내를 레이아웃과 분리하고 실제 목표 배율이 달라질 때만 높이 맞춤 자동 렌더를 실행해 페이지 이동·창 크기 변경의 덜컥거림을 막는다. 앱과 package.json은 0.2.7이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
 
 ### 첫 MVP 범위 — 승인 전 제안
 
@@ -90,7 +90,7 @@ flowchart LR
 
 현재 프로젝트 문서 루트는 `outputs/local-pdf-cbt/docs/`이다. `local-pdf-cbt/`를 프로젝트 루트로 사용할 수 있도록 문서 내부 경로는 모두 상대 경로로 유지한다. 프로젝트를 이동해도 연결이 유지되어야 한다.
 
-**Unit 2.7 완료 시점의 현재 구조:**
+**Unit 2.7.2 완료 시점의 현재 구조:**
 
 ```text
 local-pdf-cbt/
@@ -219,6 +219,7 @@ Notion/Chromium 출력 한 건에서 실제 Text Item 111개는 정상이지만 
 8. Unit 2.6 완료: A/B 고정 후보 2개와 미지원·보류 6개를 분리했다. 후보의 보호 대상 Text Item 누락 0/6, 문제 Text Item 침범 0/3, 미지원 샘플 오일치 0/6, 전체 보류 4/8을 기록했다. 이는 합성 Text Item 근거 측정이며 픽셀·이미지·수식 가림 검증이 아니다. 따라서 CBT 착수 가능 판정은 0/8이다.
 9. Unit 2.6 보완: 실제 Notion/Chromium 출력 한 건에서 생략된 font 보조값 때문에 전체 TextContent가 무효화되던 호환성 오류를 수정했다. 111개 Text Item·비공백 186자·판독 비율 1을 `text-usable`로 보존했으며, footer가 답 값 뒤에 이어진 source 순서는 추정하지 않아 정답 제목 누락 미지원으로 안전하게 남겼다.
 10. Unit 2.7 완료: 기본 1120×760 창에서 document root 스크롤이 생기지 않고 header·main·footer가 한 화면에 유지됨을 확인했다. 문서 정보 아코디언은 키보드로 열고 닫을 수 있으며, 접힌 동안에도 텍스트·키워드·영역·지원 프로파일 요약은 계속 보인다. 640×480에서는 main 내부 스크롤로 모든 영역에 접근하고, 높이 맞춤은 PDF가 가용 영역을 넘지 않으면서 그 높이의 85% 이상을 사용하도록 세 실행 모드에서 회귀 검증했다.
+11. Unit 2.7.2 완료: 페이지 로딩 안내가 나타나도 PDF page stage의 top·height가 1 CSS px보다 크게 바뀌지 않고, 높이 맞춤·창 크기 자동 렌더가 완료된 뒤 450ms 동안 화면 Canvas가 다시 교체되지 않음을 개발·빌드·패키지 세 모드에서 확인했다.
 
 ### 9.1 추출과 분석은 다른 일이다
 
@@ -317,6 +318,8 @@ Unit 0.3 Shell의 1120×760 기본 창과 640×480 최소 창을 유지한다. U
 Unit 2.7의 기본 창에서는 `html/body`가 스크롤하지 않고 header·main·footer가 창 높이 안에 유지된다. PDF는 Viewer 내부, 오른쪽 상태 열은 사이드 내부에서 각각 필요한 만큼 스크롤한다. 56rem 이하에서는 main 자체가 세로로 스크롤해 한 열로 쌓인 모든 영역에 접근할 수 있으며 가로 넘침을 만들지 않는다. header의 표시 높이는 기본 창에서 64 CSS px 이하로 줄인다. 실행 환경·선택 파일·파일 크기·페이지는 기본 닫힘인 native `details/summary` 문서 정보 아코디언에 둔다. 텍스트 분석·키워드 후보·영역 후보·지원 프로파일은 현재 페이지의 중요한 진단이므로 아코디언 밖에서 항상 표시한다. 장문의 단계 안내는 별도 접기 영역으로 두되 상태 문구를 숨기지 않는다. summary는 키보드 Enter로 열고 닫을 수 있고 명확한 포커스 표시를 유지한다.
 
 페이지 이동·배율 변경·높이 맞춤·창 크기 변경에서는 새 PDF 페이지를 화면에 보이지 않는 임시 Canvas에 먼저 완성한다. 최신 요청의 렌더가 끝난 경우에만 화면 Canvas의 크기와 픽셀을 같은 JavaScript 작업 안에서 교체하며, 취소되거나 뒤처진 결과는 임시 Canvas를 즉시 해제한다. 따라서 사용자가 보는 Canvas를 PDF.js 렌더 시작 전에 초기화하지 않는다. 이 방식은 전환 중 이전 화면 Canvas와 임시 Canvas를 함께 보유하므로 현재 Canvas 상한 안에서도 렌더 완료 전까지 일시적으로 두 장의 bitmap 메모리를 사용할 수 있다.
+
+Unit 2.7.2부터 페이지 로딩·오류 안내는 `.pdf-viewer` 안에서 PDF page stage와 겹치는 상태 알림으로 표시하고 flex 배치 크기에 참여하지 않는다. 안내가 나타나거나 사라져도 page stage의 시작 위치와 가용 높이를 바꾸지 않아야 한다. 높이 맞춤 자동 대응은 마지막으로 렌더한 페이지의 scale 1 높이와 현재 세로 가용 공간으로 목표 배율을 다시 계산하고, 기존 배율과 0.001보다 크게 다를 때만 실행한다. 창 크기 자동 대응은 기존 Canvas를 유지한 채 조용히 수행해 진행 안내가 반복되지 않아야 한다. 직접 페이지 이동·확대·오류 안내의 `role=status`와 50–200% 배율 경계는 유지한다.
 
 기본 창에서는 앱 상태 아래 오른쪽 사이드 카드에 페이지·배율 도구를 두고, 56rem 이하에서는 PDF 아래이면서 앱 상태보다 앞에 둔다. 같은 상태를 공유하는 이전·다음 보조 버튼은 PDF 좌우에 두며 40rem 이하에서는 숨긴다. 정상 렌더 완료 문구의 중복 행은 숨기고 `PDF를 열었습니다. 원본 파일은 변경하지 않았습니다.`를 footer의 `role=status`에 표시한다. 로딩·오류·잘못된 번호 안내는 Viewer 상단에 유지한다. 선택과 PDF.js 객체는 새로고침·교체·종료 시 정리한다.
 

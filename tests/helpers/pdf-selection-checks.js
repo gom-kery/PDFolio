@@ -107,6 +107,82 @@ export async function checkPdfSelection(application, page, artifacts) {
       `${label}: visible Canvas was cleared before the next render completed`,
     );
   };
+  const assertCanvasBecameIdle = async (label) => {
+    await startCanvasFrameProbe();
+    await page.waitForTimeout(450);
+    const probe = await stopCanvasFrameProbe();
+    assert.equal(probe.writes, 0, `${label}: fit-height render did not settle`);
+    assert.deepEqual(probe.staleFrames, []);
+  };
+  const startViewerGeometryProbe = async () =>
+    page.evaluate(() => {
+      const stage = document.querySelector('.pdf-page-stage');
+      const status = document.querySelector('#viewer-status');
+      const initial = stage.getBoundingClientRect();
+      const probe = {
+        active: true,
+        initialTop: initial.top,
+        initialHeight: initial.height,
+        maximumTopDelta: 0,
+        maximumHeightDelta: 0,
+        statusShown: 0,
+      };
+      const sample = () => {
+        const bounds = stage.getBoundingClientRect();
+        probe.maximumTopDelta = Math.max(
+          probe.maximumTopDelta,
+          Math.abs(bounds.top - probe.initialTop),
+        );
+        probe.maximumHeightDelta = Math.max(
+          probe.maximumHeightDelta,
+          Math.abs(bounds.height - probe.initialHeight),
+        );
+        if (probe.active) requestAnimationFrame(sample);
+      };
+      const observer = new MutationObserver((records) => {
+        probe.statusShown += records.filter(
+          (record) => record.oldValue !== null,
+        ).length;
+        sample();
+      });
+      observer.observe(status, {
+        attributes: true,
+        attributeOldValue: true,
+        attributeFilter: ['hidden'],
+      });
+      probe.observer = observer;
+      globalThis.viewerGeometryProbe = probe;
+      sample();
+    });
+  const stopViewerGeometryProbe = async () =>
+    page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              const probe = globalThis.viewerGeometryProbe;
+              probe.active = false;
+              probe.observer.disconnect();
+              resolve({
+                maximumTopDelta: probe.maximumTopDelta,
+                maximumHeightDelta: probe.maximumHeightDelta,
+                statusShown: probe.statusShown,
+              });
+            }),
+          );
+        }),
+    );
+  const assertViewerGeometryStayedStable = (probe, label) => {
+    assert.ok(probe.statusShown > 0, `${label}: loading status was not shown`);
+    assert.ok(
+      probe.maximumTopDelta <= 1,
+      `${label}: page stage moved vertically by ${probe.maximumTopDelta}px`,
+    );
+    assert.ok(
+      probe.maximumHeightDelta <= 1,
+      `${label}: page stage height changed by ${probe.maximumHeightDelta}px`,
+    );
+  };
   const dispatchDrop = async ({ filePaths = [], items = [] }) => {
     const box = await page.locator('.workspace').boundingBox();
     assert.ok(box);
@@ -541,9 +617,14 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(await page.locator('#side-previous-page').isDisabled(), true);
     assert.equal(await page.locator('#side-next-page').isDisabled(), false);
     await startCanvasFrameProbe();
+    await startViewerGeometryProbe();
     await page.locator('#side-next-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="2"]');
     assertCanvasStayedPainted(await stopCanvasFrameProbe(), 'page navigation');
+    assertViewerGeometryStayedStable(
+      await stopViewerGeometryProbe(),
+      'page navigation',
+    );
     await page.locator('#side-previous-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="1"]');
 
@@ -611,6 +692,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       JSON.stringify(defaultFit),
     );
     assert.ok(defaultFit.fillRatio >= 0.85, JSON.stringify(defaultFit));
+    await assertCanvasBecameIdle('fit-height activation');
     await startCanvasFrameProbe();
     await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(640, 480),
@@ -627,6 +709,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       await stopCanvasFrameProbe(),
       'fit-height window resize',
     );
+    await assertCanvasBecameIdle('fit-height window resize');
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -665,6 +748,8 @@ export async function checkPdfSelection(application, page, artifacts) {
       'zoom-bounds',
       'fit-height-resize',
       'canvas-double-buffer',
+      'viewer-geometry-stability',
+      'fit-height-quiescence',
       'page-text-usable',
       'page-text-insufficient',
       'page-text-not-in-dom',
@@ -681,7 +766,9 @@ export async function checkPdfSelection(application, page, artifacts) {
 
     await page.locator('#previous-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="4"]');
-    const pageFourImage = await page.locator('#pdf-canvas').screenshot();
+    const pageFourImage = await page
+      .locator('#pdf-canvas')
+      .evaluate((canvas) => canvas.toDataURL('image/png'));
     for (const invalidPage of ['0', '6', '1.5', '']) {
       await page.locator('#viewer-status').evaluate((element) => {
         element.dataset.state = 'test-pending';
@@ -702,7 +789,9 @@ export async function checkPdfSelection(application, page, artifacts) {
       );
       assert.equal(await page.locator('#page-number').inputValue(), '4');
       assert.deepEqual(
-        await page.locator('#pdf-canvas').screenshot(),
+        await page
+          .locator('#pdf-canvas')
+          .evaluate((canvas) => canvas.toDataURL('image/png')),
         pageFourImage,
       );
     }

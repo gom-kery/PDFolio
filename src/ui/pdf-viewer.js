@@ -16,6 +16,7 @@ const VIEWER_FAILURE_MESSAGES = {
 };
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const FIT_RESIZE_DELAY_MS = 120;
+const FIT_SCALE_EPSILON = 0.001;
 
 /** Keep the visible Canvas stable until a PDF.js render is complete. */
 export function initializePdfViewer(document, adapter) {
@@ -57,6 +58,7 @@ export function initializePdfViewer(document, adapter) {
   let requestedPage = 0;
   let totalPages = 0;
   let currentScale = 1;
+  let currentPageBaseHeight = 0;
   let requestedScale = 1;
   let scaleMode = 'fixed';
   let resizeTimer = null;
@@ -388,6 +390,23 @@ export function initializePdfViewer(document, adapter) {
     return Math.max(1, pageScroll.clientHeight - verticalPadding);
   };
 
+  const getFitTargetScale = () => {
+    if (!Number.isFinite(currentPageBaseHeight) || currentPageBaseHeight <= 0)
+      return null;
+    return Math.min(
+      MAX_RENDER_SCALE,
+      Math.max(MIN_RENDER_SCALE, getFitHeight() / currentPageBaseHeight),
+    );
+  };
+
+  const needsFitHeightRender = () => {
+    const targetScale = getFitTargetScale();
+    return (
+      targetScale === null ||
+      Math.abs(targetScale - currentScale) > FIT_SCALE_EPSILON
+    );
+  };
+
   const getRenderOptions = (pageNumber, renderCanvas) => ({
     pageNumber,
     canvas: renderCanvas,
@@ -432,6 +451,7 @@ export function initializePdfViewer(document, adapter) {
     requestedPage = rendered.pageNumber;
     totalPages = rendered.pageCount;
     currentScale = rendered.scale;
+    currentPageBaseHeight = rendered.height / rendered.scale;
     requestedScale = scaleMode === 'fixed' ? rendered.scale : requestedScale;
     pageCount.textContent = `${currentPage} / ${totalPages}`;
     canvas.dataset.pageNumber = String(currentPage);
@@ -468,7 +488,10 @@ export function initializePdfViewer(document, adapter) {
     canvas.hidden = false;
   };
 
-  const renderPage = async (pageNumber, { resetScroll = false } = {}) => {
+  const renderPage = async (
+    pageNumber,
+    { resetScroll = false, announceLoading = true } = {},
+  ) => {
     if (totalPages < 1) return { status: 'error', code: 'INVALID_PAGE_NUMBER' };
 
     const ownRequestId = ++requestId;
@@ -492,7 +515,9 @@ export function initializePdfViewer(document, adapter) {
     updateControls();
     showViewer(
       'loading',
-      `${pageNumber.toLocaleString('ko-KR')}페이지를 불러오고 있습니다.`,
+      announceLoading
+        ? `${pageNumber.toLocaleString('ko-KR')}페이지를 불러오고 있습니다.`
+        : '',
       { preserveCanvas: currentPage > 0 },
     );
     const rendered = await adapter.renderPage(
@@ -580,8 +605,12 @@ export function initializePdfViewer(document, adapter) {
           document.defaultView.clearTimeout(resizeTimer);
         resizeTimer = document.defaultView.setTimeout(() => {
           resizeTimer = null;
-          if (scaleMode === 'fit-height' && totalPages > 0)
-            void renderPage(currentPage);
+          if (
+            scaleMode === 'fit-height' &&
+            totalPages > 0 &&
+            needsFitHeightRender()
+          )
+            void renderPage(currentPage, { announceLoading: false });
         }, FIT_RESIZE_DELAY_MS);
       })
     : null;
@@ -595,6 +624,7 @@ export function initializePdfViewer(document, adapter) {
       requestedPage = 0;
       totalPages = 0;
       currentScale = 1;
+      currentPageBaseHeight = 0;
       requestedScale = 1;
       scaleMode = 'fixed';
       resetTextAnalysis('PDF를 열면 현재 페이지의 텍스트를 확인합니다.');

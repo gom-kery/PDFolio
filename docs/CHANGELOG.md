@@ -2,6 +2,87 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## Unit 2.7.2 안정화 작업 기록 — 2026-09-03
+
+**사용자 후속 영상에서 확인한 페이지 이동·창 크기 변경의 PDF 영역 상하 이동을 수정했다. 로딩 안내가 Viewer 높이를 바꾸지 않게 하고, 높이 맞춤 자동 렌더가 안정 상태에서 반복되지 않게 했다. 앱 SemVer는 0.2.7을 유지하며 Phase 3 기능은 추가하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS, Git 상태와 Unit 2.7.1 커밋 `09a8a89`을 확인했다. 시작 작업 트리는 `main...origin/main` 기준으로 깨끗했다. 후속 영상의 0.05초 간격 프레임에서 페이지 5·6 이동 때 약 40 CSS px의 상하 이동이 반복되고, 이 크기가 기존 로딩 상태 행의 padding·line-height·border와 일치함을 확인했다. 영상은 읽기 전용으로 분석했고 프로젝트·패키지에 포함하지 않았다.
+
+### Unit 2.7.2 — 1. 구현한 내용
+
+- `viewer-status`를 Viewer 내부의 겹침 알림으로 바꿔 표시·숨김이 PDF page stage의 flex 높이와 시작 위치를 바꾸지 않게 했다. 기존 한국어 로딩·오류 문구와 `role=status`는 유지했다.
+- 마지막 완료 렌더의 `rendered.height / rendered.scale`을 현재 페이지의 scale 1 기준 높이로 보관한다. ResizeObserver는 현재 가용 높이의 목표 배율이 실제 현재 배율과 0.001보다 크게 다를 때만 렌더를 예약한다.
+- 창 크기에 따른 자동 높이 맞춤은 기존 Canvas를 유지하면서 진행 알림 없이 수행한다. 직접 페이지 이동은 로딩 알림을 유지한다.
+- 임시 Canvas에서 완성한 최신 결과만 화면 Canvas에 반영하는 Unit 2.7.1 계약, 120ms resize debounce, 50–200% 경계와 페이지별 고유 높이는 유지했다.
+- 실제 Electron 회귀에 페이지 이동 중 page stage top·height 안정성, 높이 맞춤 활성화·resize 완료 뒤 450ms Canvas 무변경 검사를 추가했다.
+- 오류 알림이 Canvas 위에 겹쳐도 잘못된 페이지 번호 입력 전후의 실제 Canvas bitmap이 같은지는 화면 합성 캡처가 아닌 Canvas 자체 PNG 데이터로 비교한다.
+- footer에 `Unit 2.7.2 · Viewer 안정화`를 표시하고 새 개발·빌드·Windows x64/ASAR 패키지를 생성했다.
+
+### Unit 2.7.2 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| Viewer 렌더 상태 | `src/ui/pdf-viewer.js` — scale 1 기준 높이 보관, 같은 배율 자동 렌더 억제, resize 진행 알림 억제 |
+| Viewer 스타일·표시 | `src/styles/shell.css`, `index.html` — 레이아웃 비참여 상태 알림, Unit 2.7.2 footer |
+| 실제 앱 회귀 | `tests/helpers/pdf-selection-checks.js` — page stage 좌표 안정성, 450ms 렌더 정지, Canvas 자체 데이터 보존 |
+| 사용·기준 문서 | `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다. 이전 2.7.1 패키지는 `work/unit-2.7.2-before-package/release/`에 보관한 뒤 새 패키지를 만들었다.
+
+### Unit 2.7.2 — 3. 실행 방법
+
+프로젝트 루트에서 `npm run dev`로 일반 앱을 실행한다. `npm run build` 후 `npm start`는 새 빌드 자산을 실행하며, `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`는 새 Windows 패키지다. 이전 실행 창이 남아 있으면 완전히 닫고 새로 실행한다.
+
+### Unit 2.7.2 — 4. 사용자가 직접 테스트할 방법
+
+1. 앱을 열고 footer가 `Unit 2.7.2 · Viewer 안정화`인지 확인한 뒤 여러 페이지 PDF를 선택한다.
+2. PDF가 보이면 `높이 맞춤`을 한 번 누르고 2초 이상 기다린다. PDF 크기와 위치가 스스로 반복해서 바뀌거나 로딩 안내가 반복되면 안 된다.
+3. PDF 좌우의 이전·다음 버튼을 천천히 한 번씩 누른다. `n페이지를 불러오고 있습니다.` 알림은 PDF 위에 잠시 겹쳐 보일 수 있지만 PDF 작업 영역 전체가 아래로 밀렸다가 올라오면 안 된다.
+4. 이전·다음을 빠르게 여러 번 누른다. 마지막으로 요청한 페이지만 표시되고, 이전 Canvas가 유지되다가 새 페이지가 한 번에 바뀌어야 한다. 검은색·빈 화면이나 반복 상하 이동이 없어야 한다.
+5. `높이 맞춤` 상태에서 창의 오른쪽 또는 아래쪽 테두리를 잡고 천천히 늘였다 줄인 뒤 놓는다. 조절 중 기존 PDF가 유지되고, 놓은 뒤 새 높이에 한 번 맞춰진 다음 정지해야 한다.
+6. 잘못된 페이지 번호 `0` 또는 전체 페이지보다 큰 수를 입력한다. 오류 알림이 겹쳐 표시되어도 현재 페이지 내용과 번호는 바뀌지 않아야 한다.
+7. 같은 검사를 `npm run build` 후 `npm start`와 새 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`에서 반복한다.
+
+### Unit 2.7.2 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 전체 프로젝트 형식 |
+| `npm test` | 103/103 통과 | 기존 보안·입력·PDF.js·분석 계약 회귀 |
+| `npm run build` / `npm run package` | 통과 | Vite 22 modules, Electron 44.0.0 Windows x64/ASAR, 앱 0.2.7 |
+| `npm run test:electron` | 4/4 통과 | 진단·개발·빌드·패키지, page stage top/height 1px 이하 변화, 높이 맞춤 안정 후 450ms Canvas write 0회, 기존 회귀 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창, 한글 PDF·취소·원본 불변 |
+| `npm run test:shutdown` | 개발 7/9·패키지 9/9 | 개발 즉시 종료 2회에서 기존 OPEN-09 재현; 모든 18회 창 종료·종료 코드 0·포트 해제 정상 |
+
+첫 전체 Electron 실행에서 개발 모드는 새 소스를 사용해 geometry 검사를 통과했지만, 빌드·패키지는 이전 2.7.1 산출물이어서 새 검사가 의도대로 실패했다. 이전 산출물을 보관하고 다시 빌드·패키징한 뒤 최종 4/4를 확인했다. 오류 알림을 겹침 방식으로 바꿔 화면 캡처에 알림까지 포함되던 기존 Canvas 보존 검사는 Canvas 자체 데이터 비교로 고쳤다.
+
+### Unit 2.7.2 — 6. 예상되는 Edge Case
+
+- 로딩·오류 알림은 PDF 상단 일부를 잠시 가릴 수 있다. 알림이 사라지면 원문은 그대로 보이며 page stage 크기와 스크롤 위치는 바뀌지 않아야 한다.
+- 높이 맞춤 목표 배율 차이가 0.001 이하면 미세한 CSS 반올림으로 보고 다시 렌더하지 않는다. 사용자가 체감할 수 있는 창 크기 변화는 이보다 큰 목표 차이를 만들어 정상 재렌더된다.
+- 서로 높이가 다른 PDF 페이지로 이동할 때는 현재 페이지에 맞는 scale 1 높이를 새로 받아야 하므로 페이지 전환 렌더 자체는 생략하지 않는다.
+- 창 크기를 계속 드래그하면 120ms debounce 이후 중간 렌더가 취소될 수 있다. 최신 요청만 화면에 반영하고 기존 Canvas는 완료까지 유지한다.
+
+### Unit 2.7.2 — 7. 알려진 제한사항
+
+상태 알림은 Viewer 안에서 겹쳐 표시되므로 짧은 시간 동안 원문 상단을 가릴 수 있다. 자동 회귀는 합성 PDF와 현재 Windows 11 환경에서 geometry·Canvas write를 확인하며, 모든 실제 PDF·GPU·디스플레이 배율·모니터 조합의 체감 움직임을 보장하지 않는다. 이번 변경은 페이지 렌더 안정화에 한정되며 분석 지원률과 `canStartCbt: false` 결과는 바꾸지 않는다.
+
+### Unit 2.7.2 — 8. Technical Debt
+
+- OPEN-09는 이번 종료 검사에서도 개발 즉시 종료 두 번에 재현됐다. Viewer 덜컥거림과 별도로 원인을 규명해야 하며 GPU·sandbox 설정 완화로 숨기지 않는다.
+- 실제 사용자 PDF와 Windows 200% 표시 배율, 다중 모니터에서 페이지 전환·연속 resize 영상을 다시 확인할 필요가 있다.
+- 임시 Canvas 이중 보유의 peak 메모리는 Unit 1.0/OPEN-04 대표 파일 행렬에서 측정해야 한다.
+
+### Unit 2.7.2 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+영상에서 확인한 Viewer 상하 이동에 대한 코드·자동 검사 보완은 완료했다. 사용자가 실제 PDF로 같은 동작을 확인해 잔여 체감 움직임이 있는지 검토할 수 있다. 다음 계획 Unit은 3.0 구조 검토이며, Unit 2.6의 모든 `canStartCbt`가 false이므로 안전한 Mask·Question 소유 관계 결정을 먼저 해야 한다. OPEN-09와 Unit 1.0은 별도 미해결 상태로 유지한다.
+
+### Unit 2.7.2 — 10. Git Commit Message
+
+제안: `fix(viewer): stabilize fit-height page transitions`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다. 사용자가 현재 diff와 검사 결과를 확인한 뒤 사용할 메시지다.
+
 ## 0.2.7 작업 기록 — 2026-09-03
 
 **Unit 2.7 Phase 3 전 Viewer Shell 정리를 구현했다. 기본 창 바깥쪽 세로 스크롤을 없애고 문서 정보를 접을 수 있게 했으며, 현재 페이지 분석 상태는 항상 보이게 유지했다. 분석 규칙·Mask·CBT 기능은 변경하지 않았다.**
