@@ -458,7 +458,158 @@ export async function checkPdfSelection(application, page, artifacts) {
     });
     const cases = [];
 
+    const drawManualRegion = async (kind, start, end) => {
+      await page.locator(`#select-${kind}-region`).click();
+      const overlay = page.locator('#manual-region-overlay');
+      const box = await overlay.boundingBox();
+      assert.ok(box);
+      await page.mouse.move(
+        box.x + box.width * start.x,
+        box.y + box.height * start.y,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        box.x + box.width * end.x,
+        box.y + box.height * end.y,
+        { steps: 3 },
+      );
+      await page.mouse.up();
+    };
+    const readNormalizedManualRegions = async () =>
+      page.locator('#manual-region-overlay').evaluate((overlay) => {
+        const bounds = overlay.getBoundingClientRect();
+        return Array.from(overlay.querySelectorAll('.manual-region-rect'))
+          .map((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              kind: element.dataset.kind,
+              x: (rect.left - bounds.left) / bounds.width,
+              y: (rect.top - bounds.top) / bounds.height,
+              width: rect.width / bounds.width,
+              height: rect.height / bounds.height,
+              background: getComputedStyle(element).backgroundColor,
+            };
+          })
+          .sort((left, right) => left.kind.localeCompare(right.kind));
+      });
+
+    const manualSetup = page.locator('#manual-region-setup');
+    assert.equal(await manualSetup.isVisible(), true);
+    assert.match(
+      await page.locator('#manual-region-status').innerText(),
+      /확정된 수동 영역이 없습니다/,
+    );
+    await page.locator('#start-manual-region-setup').click();
+    await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+    assert.match(
+      await page.locator('#manual-region-status').innerText(),
+      /아직 CBT가 아닙니다/,
+    );
+    await drawManualRegion(
+      'solution',
+      { x: 0.18, y: 0.12 },
+      { x: 0.76, y: 0.2 },
+    );
+    await drawManualRegion(
+      'answer',
+      { x: 0.18, y: 0.27 },
+      { x: 0.58, y: 0.34 },
+    );
+    assert.equal(
+      await page.locator('#preview-manual-regions').isEnabled(),
+      true,
+    );
+    await page.locator('#preview-manual-regions').click();
+    await page.waitForSelector('#manual-region-overlay[data-mode="preview"]');
+    const initialManualRegions = await readNormalizedManualRegions();
+    assert.deepEqual(
+      initialManualRegions.map(({ kind }) => kind),
+      ['answer', 'solution'],
+    );
+    assert.ok(
+      initialManualRegions.every(
+        ({ background }) => background === 'rgb(31, 41, 39)',
+      ),
+    );
+    await page.locator('#zoom-in').click();
+    await page.waitForSelector('#pdf-canvas[data-scale="1.25"]');
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#manual-region-overlay')?.dataset.mode ===
+          'preview' &&
+        document
+          .querySelector('#manual-region-overlay')
+          ?.getBoundingClientRect().width ===
+          document.querySelector('#pdf-canvas')?.getBoundingClientRect().width,
+    );
+    const zoomedManualRegions = await readNormalizedManualRegions();
+    for (const [index, initial] of initialManualRegions.entries()) {
+      const zoomed = zoomedManualRegions[index];
+      for (const key of ['x', 'y', 'width', 'height'])
+        assert.ok(
+          Math.abs(initial[key] - zoomed[key]) < 0.005,
+          `${initial.kind} ${key} changed after zoom`,
+        );
+    }
+    await page.locator('#zoom-out').click();
+    await page.waitForSelector('#pdf-canvas[data-scale="1"]');
+    await page.locator('#fit-height').click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#fit-height')?.getAttribute('aria-pressed') ===
+          'true' &&
+        document.querySelector('#pdf-canvas')?.dataset.scale !== '1' &&
+        document.querySelector('#manual-region-overlay')?.dataset.mode ===
+          'preview',
+    );
+    const fitManualRegions = await readNormalizedManualRegions();
+    for (const [index, initial] of initialManualRegions.entries()) {
+      const fitted = fitManualRegions[index];
+      for (const key of ['x', 'y', 'width', 'height'])
+        assert.ok(
+          Math.abs(initial[key] - fitted[key]) < 0.005,
+          `${initial.kind} ${key} changed after fit height`,
+        );
+    }
+    await page.locator('#confirm-manual-regions').click();
+    await page.waitForSelector('#manual-region-setup[data-state="confirmed"]');
+    const firstQuestionId = await manualSetup.getAttribute('data-question-id');
+    assert.match(firstQuestionId, /^question-/);
+    assert.equal(await page.locator('#manual-region-overlay').isHidden(), true);
+    assert.equal(await page.locator('#manual-region-editor').isHidden(), true);
+    await page.locator('#start-manual-region-setup').click();
+    await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+    assert.equal(await manualSetup.getAttribute('data-question-id'), null);
+    await page.locator('#cancel-manual-regions').click();
+    assert.equal(
+      await manualSetup.getAttribute('data-question-id'),
+      firstQuestionId,
+    );
+    assert.match(
+      await page.locator('#manual-region-status').innerText(),
+      /이전 확정 상태는 유지합니다/,
+    );
+    assert.equal(await hash(), originalHash);
+    cases.push(
+      'manual-region-draw-preview-confirm',
+      'manual-region-pdf-coordinate-zoom-projection',
+      'manual-region-fit-height-projection',
+      'manual-region-cancel-preserves-confirmation',
+      'manual-region-no-original-file-change',
+    );
+
     await select({ canceled: false, filePaths: [files.keyword] }, 'selected');
+    assert.equal(
+      await page
+        .locator('#manual-region-setup')
+        .getAttribute('data-question-id'),
+      null,
+    );
+    assert.match(
+      await page.locator('#manual-region-status').innerText(),
+      /확정된 수동 영역이 없습니다/,
+    );
+    cases.push('manual-region-file-replacement-clears-session');
     await page.waitForSelector('#keyword-analysis-status[data-state="found"]', {
       timeout: 10_000,
     });
@@ -594,6 +745,28 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(await page.locator('#page-number').inputValue(), '1');
     assert.equal(await page.locator('#first-page').isDisabled(), true);
     assert.equal(await page.locator('#previous-page').isDisabled(), true);
+
+    await page.locator('#start-manual-region-setup').click();
+    await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+    await drawManualRegion(
+      'solution',
+      { x: 0.16, y: 0.12 },
+      { x: 0.72, y: 0.2 },
+    );
+    await page.locator('#side-next-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="2"]');
+    assert.equal(await page.locator('#manual-region-editor').isHidden(), true);
+    assert.match(
+      await page.locator('#manual-region-status').innerText(),
+      /완료하지 않은 영역 편집을 취소/,
+    );
+    await page.locator('#side-previous-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="1"]');
+    assert.match(
+      await page.locator('#manual-region-status').innerText(),
+      /확정된 수동 영역이 없습니다/,
+    );
+    cases.push('manual-region-page-change-cancels-draft');
 
     const layout = await page.evaluate(() => {
       const workspace = document.querySelector('.workspace');
@@ -834,7 +1007,26 @@ export async function checkPdfSelection(application, page, artifacts) {
         height: canvas.getBoundingClientRect().height,
       }));
     assert.ok(rotatedSize.height > rotatedSize.width);
-    cases.push('intrinsic-rotation');
+    await page.locator('#start-manual-region-setup').click();
+    await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+    await drawManualRegion(
+      'solution',
+      { x: 0.16, y: 0.12 },
+      { x: 0.72, y: 0.22 },
+    );
+    await drawManualRegion('answer', { x: 0.16, y: 0.3 }, { x: 0.58, y: 0.4 });
+    await page.locator('#preview-manual-regions').click();
+    await page.waitForSelector('#manual-region-overlay[data-mode="preview"]');
+    const rotatedManualRegions = await readNormalizedManualRegions();
+    assert.equal(rotatedManualRegions.length, 2);
+    assert.ok(
+      rotatedManualRegions.every(
+        ({ x, y, width, height }) =>
+          x >= 0 && y >= 0 && x + width <= 1.005 && y + height <= 1.005,
+      ),
+    );
+    await page.locator('#cancel-manual-regions').click();
+    cases.push('intrinsic-rotation', 'manual-region-intrinsic-rotation');
 
     await select({ canceled: false, filePaths: [files.valid] }, 'selected');
     assert.equal(await page.locator('#pdf-page-count').textContent(), '1 / 1');

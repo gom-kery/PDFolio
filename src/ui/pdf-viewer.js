@@ -5,6 +5,7 @@ import { findPageKeywordCandidates } from '../analysis/page-keyword-candidates.j
 import { inferPageAnswerRegions } from '../analysis/page-answer-regions.js';
 import { classifyPageSupportProfile } from '../analysis/page-support-profile.js';
 import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
+import { initializeManualRegionSetup } from './manual-region-setup.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -53,6 +54,9 @@ export function initializePdfViewer(document, adapter) {
   const fitHeightButton = document.querySelector('#fit-height');
   const zoomLevel = document.querySelector('#zoom-level');
   const debugOverlay = initializePdfDebugOverlay(document);
+  const manualRegionSetup = initializeManualRegionSetup(document, {
+    disabled: debugOverlay.enabled,
+  });
   let requestId = 0;
   let currentPage = 0;
   let requestedPage = 0;
@@ -471,6 +475,7 @@ export function initializePdfViewer(document, adapter) {
     updateControls();
     showViewer('ready', '');
     debugOverlay.setViewport(rendered);
+    manualRegionSetup.setViewport(rendered);
     if (resetScroll) {
       pageScroll.scrollTop = 0;
       pageScroll.scrollLeft = 0;
@@ -510,8 +515,10 @@ export function initializePdfViewer(document, adapter) {
     }
 
     requestedPage = pageNumber;
-    if (pageNumber !== currentPage)
+    if (pageNumber !== currentPage) {
+      manualRegionSetup.prepareForPageChange(pageNumber);
       resetTextAnalysis('페이지를 표시한 뒤 텍스트를 확인합니다.');
+    }
     updateControls();
     showViewer(
       'loading',
@@ -620,6 +627,7 @@ export function initializePdfViewer(document, adapter) {
   return {
     async open(result) {
       const ownRequestId = ++requestId;
+      manualRegionSetup.resetDocument();
       currentPage = 0;
       requestedPage = 0;
       totalPages = 0;
@@ -651,6 +659,7 @@ export function initializePdfViewer(document, adapter) {
         return rendered;
       }
       if (rendered.status === 'rendered') {
+        manualRegionSetup.openDocument(rendered);
         commitRenderCanvas(renderCanvas);
         applyRenderedPage(rendered, { resetScroll: true });
       } else {
@@ -667,6 +676,10 @@ export function initializePdfViewer(document, adapter) {
 
     goToPage,
 
+    getManualRegionConfirmation(pageNumber = currentPage) {
+      return manualRegionSetup.getConfirmation(pageNumber);
+    },
+
     async dispose() {
       requestId++;
       resetTextAnalysis('PDF를 열면 현재 페이지의 텍스트를 확인합니다.');
@@ -674,6 +687,7 @@ export function initializePdfViewer(document, adapter) {
       if (resizeTimer !== null) document.defaultView?.clearTimeout(resizeTimer);
       await adapter.dispose();
       debugOverlay.dispose();
+      manualRegionSetup.dispose();
     },
   };
 }

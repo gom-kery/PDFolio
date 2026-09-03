@@ -2,6 +2,103 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.0 / Unit 4.1 작업 기록 — 2026-09-03
+
+**Unit 3.1의 선행 관문인 한 페이지·한 문제용 수동 해설·정답 영역 설정을 구현했다. 사용자가 원문에서 두 사각형을 직접 지정하고 불투명 미리보기 뒤 확정한 Question/Region만 현재 세션에 유지한다. 이 설정 Overlay는 아직 CBT Mask가 아니며 정답 추출·선택·공개·채점은 추가하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 시작 작업 트리는 `main...origin/main` 기준으로 깨끗했고 HEAD는 `431078d`의 Unit 3.0 커밋이었다.
+
+### Unit 4.1 — 1. 구현한 내용
+
+- PDF를 연 일반 Viewer의 오른쪽 사이드에 `해설·정답 영역 설정` 카드를 추가했다. 설정 중 원문과 정답이 보일 수 있고 아직 CBT가 아니라는 안내를 유지한다.
+- 현재 페이지에서 `solution`과 `answer` 사각형을 각각 하나 포인터로 지정한다. Canvas CSS 좌표를 회전 전 PDF user space로 역변환하고 유한한 양수 크기, 페이지 범위, 최소 8 CSS px와 상호 비겹침을 검증한다.
+- 두 영역이 유효할 때만 불투명 가림 미리보기를 허용한다. 사용자가 확정하면 세션 독립 Question v1 하나와 소유된 Region v1 두 개를 원자적으로 만들고 설정 Overlay를 숨긴다.
+- 기존 확정 수정 중에는 확정을 후속 Mask 입력으로 제공하지 않는다. 취소하면 이전 확정을 복원하고 재확정하면 새 ID로 교체한다.
+- 페이지 이동은 미완료 초안만 취소하며 같은 페이지의 확정은 유지한다. 파일 교체·documentRevision 변경·새로고침·종료는 전체 수동 확정을 폐기한다. 원본 PDF에는 쓰지 않는다.
+- 확대·축소·높이 맞춤·창 크기와 PDF 고유 회전마다 저장 PDF 좌표를 현재 viewport와 Canvas CSS 크기로 다시 투영한다.
+- Debug Overlay 실행에서는 수동 설정 UI를 숨겨 좌표 진단과 사용자 확정을 동시에 수행하지 않게 했다.
+- 첫 Phase 3 실행 전 코드 버전이므로 SemVer를 0.3.0으로 올리고 Windows x64/ASAR 패키지를 새로 생성했다. 이전 패키지는 `work/unit-4.1-before-package/release/`에 보관했다.
+
+### Unit 4.1 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 수동 설정 도메인 | `src/cbt/manual-region-setup.js` — 사각형 검증·좌표 역변환·Question/Region 확정·세션 무효화 |
+| 수동 설정 UI | `src/ui/manual-region-setup.js` — 드래그·미리보기·수정·확정·취소·viewport 재투영 |
+| Viewer 연결 | `src/ui/pdf-viewer.js`, `src/pdf/pdf-adapter-core.js` — 페이지 geometry/revision 전달과 문서·페이지 수명 연결 |
+| 화면 | `index.html`, `src/styles/shell.css` — 설정 카드·Overlay·상태·Unit footer |
+| 단위·통합 검사 | `tests/manual-region-setup.test.js`, `tests/pdf-adapter.test.js`, `tests/helpers/pdf-selection-checks.js`, `tests/electron.test.js`, `tests/debug-overlay.test.js` |
+| 버전·명령 | `package.json`, `package-lock.json` — 0.3.0과 새 단위 검사 포함 |
+| 문서 | `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/IDEA_PARKING.md`, `docs/CHANGELOG.md` |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다.
+
+### Unit 4.1 — 3. 실행 방법
+
+```powershell
+npm run dev
+```
+
+빌드 결과는 `npm run build` 뒤 `npm start`, 새 패키지는 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`로 실행한다.
+
+### Unit 4.1 — 4. 사용자가 직접 테스트할 방법
+
+1. 한 페이지에 한 문제와 해설·정답이 함께 있는 PDF를 열고 오른쪽 `해설·정답 영역 설정`의 `영역 설정 시작`을 누른다.
+2. `해설`과 `정답`을 각각 선택해 PDF 위에서 겹치지 않게 드래그한다. 두 영역을 모두 지정하기 전에는 `가림 미리보기`가 비활성인지 확인한다.
+3. 일부러 8px보다 작은 영역이나 기존 영역과 겹치는 영역을 그려 안내와 미리보기 차단을 확인한 뒤 올바르게 다시 지정한다.
+4. `가림 미리보기`에서 두 영역이 완전히 불투명하고 예상 내용만 덮는지 확인한다. `수정`으로 돌아갔다가 다시 미리보기하고 `영역 확정`을 누른다.
+5. `확정 영역 수정` 뒤 `취소`해 이전 확정이 유지되는지, 다시 확정하면 새 영역으로 교체되는지 확인한다.
+6. 미리보기 중 50–200% 확대·축소와 `높이 맞춤`, 창 크기 변경을 수행해 사각형이 같은 PDF 내용에 남는지 확인한다. 고유 회전 PDF에서도 페이지 안에 정렬되어야 한다.
+7. 미완료 편집 중 다음 페이지로 이동해 초안 취소 안내를 확인한다. 확정 페이지를 재방문하면 같은 세션의 확정이 유지되고 다른 PDF를 열면 사라져야 한다.
+8. 확정 뒤에도 CBT Mask·보기 선택·답 확인·공개·채점은 나타나지 않는지 확인한다. `npm run dev:debug`에서는 수동 설정 카드가 숨겨져야 한다.
+
+### Unit 4.1 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 108/108 통과 | 수동 좌표 0/90/180/270도 왕복, 잘못된 영역, Question/Region 소유, 확정·취소·무효화 포함 |
+| `npm run build` | 통과 | Vite 24 modules, 로컬 PDF.js 자산 |
+| Windows x64/ASAR 패키지 | 통과 | 버전 0.3.0 새 패키지 생성 |
+| `npm run test:electron` | 4/4 통과 | Debug 1, 일반 개발·빌드·패키지 3; 드래그·미리보기·확정·확대·높이 맞춤·회전·파일/페이지 수명·원본 해시 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 소유 파일 선택 창·한글 PDF·취소·원본 불변 |
+| `npm run test:shutdown` | 개발 7/9, 패키지 9/9 / 전체 무오류 보류 | 개발 즉시 종료 두 번에서 기존 OPEN-09 GPU 진단 재현. 18회 모두 창 종료·종료 코드 0·포트 해제 정상 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 4.1 — 6. 예상되는 Edge Case
+
+- 두 영역이 모두 없거나 하나만 있으면 부분 확정하지 않는다.
+- 역방향 드래그는 정규화하지만 페이지 밖·0 크기·비유한 좌표와 실제 겹침은 거부한다. 경계가 닿기만 하는 경우는 겹침으로 보지 않는다.
+- 텍스트가 없거나 분석 보류인 이미지·수식 페이지도 사용자가 렌더된 원문을 보고 지정할 수 있다. 자동 후보·분석 상태는 확정을 대신하지 않는다.
+- 확대·높이 맞춤·고유 회전은 화면 사각형만 재투영하고 저장 PDF 좌표를 바꾸지 않는다.
+- 렌더 중 빠르게 다른 페이지나 파일로 이동하면 미완료 초안과 이전 문서 확정을 현재 화면에 적용하지 않는다.
+
+### Unit 4.1 — 7. 알려진 제한사항
+
+- 한 페이지에 문제 하나, 해설·정답 사각형 각 하나만 지원한다. 여러 문제·여러 열·여러 사각형·여러 페이지 연결은 지원하지 않는다.
+- 수동 확정은 앱 메모리에만 있어 파일 교체·새로고침·종료 뒤 복원되지 않는다.
+- 설정 미리보기는 CBT Mask가 아니다. 준비 전 전체 덮개, Text Layer 우회 차단, 답 선택·공개·채점은 아직 없다.
+- 포인터 드래그만 지원한다. 키보드 좌표 입력·경계 손잡이 크기 조절·터치 실기기 검증은 수행하지 않았다.
+- 실제 사용자 PDF의 픽셀 수준 누출·과다 가림과 Windows 200% 디스플레이 배율·스크린 리더는 검증하지 않았다.
+- 최종 종료 반복에서 개발 즉시 종료 두 번에 기존 Chromium GPU 진단이 재현되어 OPEN-09는 미해결로 유지한다. 모든 창 종료·종료 코드 0·포트 해제는 정상이었고 패키지는 9/9였다. Unit 1.0 대표 샘플 행렬도 미착수다.
+
+### Unit 4.1 — 8. Technical Debt
+
+- 사각형 키보드 지정·미세 조정, 크기 조절 손잡이와 터치 입력 접근성이 필요하다.
+- 4/5지 선택은 Unit 3.2 범위다. 현재 Question은 기본 `choiceCount: 4`로 만들며 아직 풀이에 사용하지 않는다.
+- 다문제·복수 Region·페이지 연결과 영구 보정 저장은 Phase 4 범용 확장과 Phase 5 범위다.
+- 실제 출판물 샘플에서 사용자가 확정한 사각형의 픽셀 누출과 문제·보기 침범을 검증해야 한다.
+
+### Unit 4.1 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 4.1 선행 관문에서 확인된 필수 수정은 없다. 다음 계획 Unit은 3.1이며, 여기서 확정 Question/Region만 입력으로 별도 불투명 CBT Mask, 준비 전 전체 덮개와 Text Layer 우회 차단을 구현·검증해야 한다. 정답 추출·선택·공개·채점은 Unit 3.1에 포함하지 않는다. 전체 프로젝트 완료 전에는 OPEN-09와 Unit 1.0을 계속 추적한다.
+
+### Unit 4.1 — 10. Git Commit Message
+
+제안: `feat(cbt): add Unit 4.1 manual region confirmation`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다. 사용자가 현재 diff를 확인한 뒤 사용할 메시지다.
+
 ## Unit 3.0 작업 기록 — 2026-09-03
 
 **CBT 구현 전 Question/Region/Answer/Attempt v1의 상태·소유·무효화 계약을 확정했다. 현재 자동 분석 후보를 Mask 입력으로 승인하지 않고, Unit 4.1의 한 페이지·한 문제 수동 영역 확정을 Unit 3.1보다 먼저 진행하도록 일정을 조정했다. 문서 전용 Unit이며 앱 코드는 바꾸지 않았다.**

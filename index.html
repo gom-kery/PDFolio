@@ -84,6 +84,13 @@
                     aria-label="선택한 PDF 페이지"
                     hidden
                   ></canvas>
+                  <div
+                    id="manual-region-overlay"
+                    class="manual-region-overlay"
+                    aria-label="해설과 정답 영역 지정 화면"
+                    aria-describedby="manual-region-instruction"
+                    hidden
+                  ></div>
                 </div>
               </div>
               <button
@@ -245,6 +252,76 @@
               </button>
             </div>
           </nav>
+          <section
+            id="manual-region-setup"
+            class="manual-region-setup"
+            aria-labelledby="manual-region-title"
+            data-state="idle"
+            hidden
+          >
+            <h2 id="manual-region-title">해설·정답 영역 설정</h2>
+            <p
+              id="manual-region-status"
+              class="manual-region-status"
+              role="status"
+              aria-atomic="true"
+              data-state="idle"
+            ></p>
+            <button
+              id="start-manual-region-setup"
+              class="manual-region-start"
+              type="button"
+            >
+              영역 설정 시작
+            </button>
+            <div id="manual-region-editor" class="manual-region-editor" hidden>
+              <p class="manual-region-warning">
+                설정 화면에서는 원문과 정답이 보일 수 있습니다. 아직 CBT가
+                아닙니다.
+              </p>
+              <p
+                id="manual-region-instruction"
+                class="manual-region-instruction"
+              >
+                해설 버튼을 선택한 뒤 PDF 위에서 가릴 범위를 드래그하세요.
+              </p>
+              <div
+                class="manual-region-kind-controls"
+                aria-label="지정할 영역 종류"
+              >
+                <button
+                  id="select-solution-region"
+                  type="button"
+                  aria-pressed="true"
+                >
+                  해설
+                </button>
+                <button
+                  id="select-answer-region"
+                  type="button"
+                  aria-pressed="false"
+                >
+                  정답
+                </button>
+              </div>
+              <p
+                id="manual-region-selection-summary"
+                class="manual-region-selection-summary"
+              ></p>
+              <div class="manual-region-actions">
+                <button id="preview-manual-regions" type="button" disabled>
+                  가림 미리보기
+                </button>
+                <button id="edit-manual-regions" type="button" hidden>
+                  수정
+                </button>
+                <button id="confirm-manual-regions" type="button" hidden>
+                  영역 확정
+                </button>
+                <button id="cancel-manual-regions" type="button">취소</button>
+              </div>
+            </div>
+          </section>
         </div>
       </main>
 
@@ -257,7 +334,7 @@
           data-state="idle"
           hidden
         ></p>
-        <p>Unit 2.7.2 · Viewer 안정화</p>
+        <p>Unit 4.1 · 수동 영역 확정</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>

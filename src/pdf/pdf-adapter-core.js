@@ -43,6 +43,25 @@ function isFiniteNumberArray(value, length) {
   );
 }
 
+function copyRenderPageGeometry(page) {
+  if (
+    !isFiniteNumberArray(page?.view, 4) ||
+    page.view[2] <= page.view[0] ||
+    page.view[3] <= page.view[1] ||
+    !Number.isFinite(page.userUnit) ||
+    page.userUnit <= 0 ||
+    !Number.isFinite(page.rotate)
+  )
+    return null;
+  const rotation = ((page.rotate % 360) + 360) % 360;
+  if (![0, 90, 180, 270].includes(rotation)) return null;
+  return {
+    viewBox: [...page.view],
+    userUnit: page.userUnit,
+    rotation,
+  };
+}
+
 function invalidTextSource() {
   return Object.assign(new Error('Invalid TextContent'), {
     code: 'INVALID_TEXT_SOURCE',
@@ -333,8 +352,10 @@ export function createPdfAdapterCore({
       record.scale = renderScale;
       return {
         status: 'rendered',
+        documentRevision: record.documentRevision,
         pageNumber,
         pageCount: record.pageCount,
+        page: copyRenderPageGeometry(page),
         width: viewport.width,
         height: viewport.height,
         scale: renderScale,

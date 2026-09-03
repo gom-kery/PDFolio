@@ -74,8 +74,10 @@ test('PDF adapter opens page 1 and renders bounded page numbers with local asset
   const data = Uint8Array.from([0x25, 0x50, 0x44, 0x46]);
   assert.deepEqual(await adapter.open({ data, canvas, pixelRatio: 2 }), {
     status: 'rendered',
+    documentRevision: 1,
     pageNumber: 1,
     pageCount: 7,
+    page: null,
     width: 210.5,
     height: 297.5,
     scale: 1,
@@ -111,8 +113,10 @@ test('PDF adapter opens page 1 and renders bounded page numbers with local asset
     });
   assert.deepEqual(await adapter.renderPage({ pageNumber: 7, canvas }), {
     status: 'rendered',
+    documentRevision: 1,
     pageNumber: 7,
     pageCount: 7,
+    page: null,
     width: 210.5,
     height: 297.5,
     scale: 1,
@@ -285,8 +289,10 @@ test('rapid page requests cancel older work and keep the newest page', async () 
   assert.deepEqual(await pageTwo, { status: 'canceled', code: 'CANCELED' });
   assert.deepEqual(await pageFour, {
     status: 'rendered',
+    documentRevision: 1,
     pageNumber: 4,
     pageCount: 4,
+    page: null,
     width: 156,
     height: 300,
     scale: 1.5,
@@ -443,7 +449,16 @@ test('text extraction returns a copied PageTextSource with stable options and no
     status: 'error',
     code: 'NO_DOCUMENT',
   });
-  await adapter.open({ data: new Uint8Array(9), canvas: { style: {} } });
+  const opened = await adapter.open({
+    data: new Uint8Array(9),
+    canvas: { style: {} },
+  });
+  assert.equal(opened.documentRevision, 1);
+  assert.deepEqual(opened.page, {
+    viewBox: [0, 0, 200, 200],
+    userUnit: 1,
+    rotation: 0,
+  });
   assert.deepEqual(await adapter.extractPageText({ pageNumber: 0 }), {
     status: 'error',
     code: 'INVALID_PAGE_NUMBER',
