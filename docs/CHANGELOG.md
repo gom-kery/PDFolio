@@ -2,6 +2,85 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## Unit 3.0 작업 기록 — 2026-09-03
+
+**CBT 구현 전 Question/Region/Answer/Attempt v1의 상태·소유·무효화 계약을 확정했다. 현재 자동 분석 후보를 Mask 입력으로 승인하지 않고, Unit 4.1의 한 페이지·한 문제 수동 영역 확정을 Unit 3.1보다 먼저 진행하도록 일정을 조정했다. 문서 전용 Unit이며 앱 코드는 바꾸지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS, CHANGELOG, IDEA_PARKING과 Git 상태를 확인했다. 시작 작업 트리는 `main...origin/main` 기준으로 깨끗했고 HEAD는 `5850eea`의 Unit 2.7.2 커밋이었다.
+
+### Unit 3.0 — 1. 구현한 내용
+
+- Question/Region/Answer/Attempt v1의 최소 필드와 세션 `documentRevision` 소유 관계를 확정했다.
+- `CbtReadiness v1`을 `blocked/ready/active/original-view`의 파생 상태로 정의하고, Canvas·공개 우회 차단·현재 viewport Mask가 모두 준비되기 전에는 CBT를 시작하지 않게 했다.
+- 미선택, 선택 변경, 보기 수 변경, 답 확인, 정답 불명, 페이지 재방문, 배율 변경, 원문 보기, 파일 교체와 수동 영역 재편집의 상태 전이·무효화 규칙을 확정했다.
+- Unit 2.6의 세 대안을 검토했다. 프로파일 축소와 대표 샘플 확보만으로 비텍스트 경계·Question 소유권을 증명할 수 없어, Unit 4.1의 첫 MVP 수동 영역 지정·미리보기·확정을 Unit 3.1보다 먼저 배치했다.
+- 자동 PageAnswerRegions와 `profile-match`는 계속 초안 참고 근거이며 사용자 확인 없이 Question/Region으로 승격하지 않도록 했다.
+- ADR-003/005/006/007의 제안을 Unit 3.0 범위에서 채택하고 세부 결정은 ADR-033에 기록했다.
+
+### Unit 3.0 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 기준 계약 | `docs/PROJECT_BIBLE.md` — CBT 준비 상태, 수동 확인 관문, v1 데이터·상태 전이·무효화 규칙 |
+| 일정 | `docs/ROADMAP.md` — Unit 3.0 완료, Unit 4.1 첫 MVP 범위 선행, Unit 3.1 차단 조건 |
+| 결정 | `docs/DECISIONS.md` — ADR-033과 관련 기존 ADR·OPEN 상태 갱신 |
+| 아이디어 추적 | `docs/IDEA_PARKING.md` — IDEA-001 채택·미구현 및 선행 MVP 범위 표시 |
+| 완료 기록 | `docs/CHANGELOG.md` — Unit 3.0 범위·검증·제한·인계 기록 |
+
+소스 코드, 테스트 코드, `package.json`, `package-lock.json`, `dist/`, `release/`는 변경하지 않았다. 실행 앱과 패키지의 버전은 계속 0.2.7이다.
+
+### Unit 3.0 — 3. 실행 방법
+
+문서 전용 Unit이므로 런타임 실행은 해당 없다. PROJECT_BIBLE 9.9·10·11, ROADMAP Phase 3·4와 다음 착수 조건, DECISIONS ADR-033을 함께 열어 같은 계약과 순서인지 확인한다.
+
+### Unit 3.0 — 4. 사용자가 직접 테스트할 방법
+
+1. PROJECT_BIBLE 9.9에서 현재 자동 후보가 Question/Region으로 자동 승격되지 않는지 확인한다.
+2. PROJECT_BIBLE 11에서 Question/Region/Answer/Attempt v1이 같은 `documentRevision`으로 연결되고, 페이지 번호·파일명·표시 문제 번호를 questionId로 쓰지 않는지 확인한다.
+3. 상태 표에서 미선택 확인 차단, 선택 확정과 공개·채점의 원자적 전이, `unknown/ambiguous → ungradable`, 페이지 재방문 보존, 파일 교체·재편집 무효화를 확인한다.
+4. ROADMAP 실행 순서가 `3.0 → 4.1 첫 MVP 범위 → 3.1`이고 Unit 3.1이 선행 차단 상태인지 확인한다.
+5. Phase 4.1 선행 범위가 같은 페이지의 해설·정답 사각형 각 하나, 미리보기·확정·취소·재편집·좌표 왕복에 한정되고 다문제·자동 분리·저장을 포함하지 않는지 확인한다.
+6. `git diff --name-only`에서 문서 다섯 개만 변경되고 앱 코드와 package 파일이 변경되지 않았는지 확인한다.
+
+### Unit 3.0 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| 문서 간 상태·순서 대조 | 통과 | Unit 3.0 완료, Unit 4.1 선행, Unit 3.1 차단, 앱 0.2.7 유지 |
+| 계약 용어 대조 | 통과 | 네 v1 레코드, CbtReadiness, revision·questionId 소유, 무효화·원자 전이 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+| `npm run format:check` | 통과 | 프로젝트 형식 검사 |
+| 런타임·Electron·패키지 검사 | 해당 없음 | 앱 코드·의존성·빌드 산출물을 변경하지 않은 문서 전용 Unit |
+
+### Unit 3.0 — 6. 예상되는 Edge Case
+
+- 자동 후보와 사용자가 그린 영역이 달라도 사용자 확정 전에는 draft이며 Mask 입력이 아니다.
+- 해설·정답 사각형이 겹치거나 페이지 밖·0 크기·유효하지 않은 좌표면 부분 확정하지 않는다.
+- 영역을 확정한 뒤 파일이 교체되거나 documentRevision이 바뀌면 같은 파일명이어도 기존 상태를 재사용하지 않는다.
+- 정답 추출이 불명확해도 안전하게 확정한 영역의 공개와 채점 결과는 분리하며, 후속 구현에서 `채점 불가`가 정상 상태가 된다.
+- 확대·높이 맞춤·고유 회전에서는 PDF 좌표 자체를 바꾸지 않고 새 viewport용 Mask가 준비될 때까지 전체 덮개가 필요하다.
+
+### Unit 3.0 — 7. 알려진 제한사항
+
+이번 Unit은 계약과 일정만 확정했다. 수동 드래그 UI, 좌표 역변환, 미리보기 Mask, Text Layer 우회 차단, 객관식 선택·답 확인·정답 추출·채점은 구현하지 않았다. 실제 사용자 PDF와 Unit 1.0 대표 샘플 행렬도 검증하지 않았으며 OPEN-09는 그대로다.
+
+### Unit 3.0 — 8. Technical Debt
+
+- Unit 4.1에서 포인터·키보드 기반 영역 지정의 접근성, 최소 사각형 크기, 경계 손잡이와 취소/재편집 UX를 실제 UI로 검증해야 한다.
+- 사용자 확정이 비텍스트 내용까지 충분히 덮는지는 미리보기와 실제 화면 검증이 필요하다. 수동 확인도 DRM이나 누출 0% 보장은 아니다.
+- Unit 1.0에서 재배포 가능한 대표 샘플 행렬과 실제 문서 검증 범위를 계속 준비해야 한다.
+- 다문제·복수 사각형·공유 해설·여러 페이지와 영구 보정 저장은 현 v1 계약의 지원 범위가 아니다.
+
+### Unit 3.0 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+다음 계획 Unit은 선행 배치한 Unit 4.1의 첫 MVP 수동 영역 지정·미리보기·확정이다. 이 기능이 PDF user space 좌표 왕복, 확대·높이 맞춤·고유 회전, 취소·재편집, 범위 밖·겹침, 파일/revision 변경을 검증하기 전에는 Unit 3.1 Mask Layer를 진행하지 않는다. Unit 4.1 착수는 별도 사용자 요청이 필요하다.
+
+### Unit 3.0 — 10. Git Commit Message
+
+제안: `docs(cbt): define Unit 3.0 state and ownership contracts`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다. 사용자가 현재 diff를 확인한 뒤 사용할 메시지다.
+
 ## Unit 2.7.2 안정화 작업 기록 — 2026-09-03
 
 **사용자 후속 영상에서 확인한 페이지 이동·창 크기 변경의 PDF 영역 상하 이동을 수정했다. 로딩 안내가 Viewer 높이를 바꾸지 않게 하고, 높이 맞춤 자동 렌더가 안정 상태에서 반복되지 않게 했다. 앱 SemVer는 0.2.7을 유지하며 Phase 3 기능은 추가하지 않았다.**

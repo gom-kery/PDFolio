@@ -3,10 +3,10 @@
 - 문서 버전: `0.2.7`
 - 작성일: 2026-08-31
 - 갱신일: 2026-09-03
-- 상태: Unit 2.7.2 Viewer 전환·높이 맞춤 안정화와 회귀 검증 완료. 앱은 버전 0.2.7이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: 기본 창에서 바깥쪽 세로 스크롤이 없고 렌더 전환 중 PDF Canvas 공백·레이아웃 이동·높이 맞춤 반복 렌더를 방지하는 원문 Viewer Shell, 접을 수 있는 문서 정보, 상시 보이는 현재 페이지 분석 요약, PageTextSource/PageTextAssessment v1, 회전 전 PDF user space의 TextItemRecord bbox와 PDF ↔ viewport 변환, PageKeywordCandidates v1, PageAnswerRegions v1, PageSupportProfile v1, 명시적으로 실행할 때만 활성화되는 개발자용 Debug Overlay. 안전한 Mask·Question 소유 관계·정답 추출·CBT 기능은 아직 구현하지 않았다.
+- 상태: Unit 3.0 CBT 상태·소유 관계 구조 검토 완료. 앱은 버전 0.2.7이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: Unit 2.7.2 원문 Viewer Shell과 Phase 2 분석 계약, Unit 3.0의 Question/Region/Answer/Attempt v1 및 CBT 준비 상태·무효화 계약. 안전한 Mask·정답 추출·선택·공개·채점 UI는 아직 구현하지 않았으며, Unit 4.1의 첫 MVP 수동 영역 확정이 Unit 3.1보다 먼저 필요하다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
-- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 2.7.2 Viewer 안정화에 한하며 Phase 3 구현 승인을 뜻하지 않는다.
+- 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 3.0 구조 검토에 한하며 Mask·정답 추출·CBT UI 구현 승인을 뜻하지 않는다.
 
 관련 문서: [개발 계획](ROADMAP.md), [요구사항 검토·기술 결정](DECISIONS.md), [변경·Unit 완료 기록](CHANGELOG.md), [후속 아이디어](IDEA_PARKING.md).
 
@@ -16,7 +16,9 @@
 
 사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. Unit 2.6은 기존 근거를 새로 추측하지 않고 첫 MVP 분석 프로파일의 `profile-match / not-supported / hold`만 판정한다. `profile-match`도 이미지·수식과 닫힌 마지막 경계, 안전한 Mask, Question 소유 관계가 확인되지 않아 `canStartCbt: false`를 유지한다. 일반 UI에는 원문·좌표 대신 판정 요약만 표시한다. Unit 2.7은 분석 규칙을 바꾸지 않고 Viewer Shell을 정리하고, 2.7.1은 임시 Canvas로 검은 공백 전환을 막는다. Unit 2.7.2는 로딩 안내를 레이아웃과 분리하고 실제 목표 배율이 달라질 때만 높이 맞춤 자동 렌더를 실행해 페이지 이동·창 크기 변경의 덜컥거림을 막는다. 앱과 package.json은 0.2.7이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
 
-### 첫 MVP 범위 — 승인 전 제안
+Unit 3.0은 Phase 2의 모든 `canStartCbt: false`를 그대로 받아들인다. 프로파일을 더 좁히거나 합성 샘플을 추가하는 것만으로는 이미지·수식 경계와 Question 소유권을 입증할 수 없으므로, **Unit 4.1의 첫 MVP 수동 해설·정답 영역 확정 기능을 Unit 3.1보다 먼저 진행**한다. 사용자가 원문을 보며 한 페이지의 한 문제에 속한 해설·정답 영역을 각각 확인한 뒤에만 Question/Region이 `confirmed`가 된다. 이 결정은 자동 Mask나 CBT를 구현한 것이 아니며 앱과 package.json은 계속 0.2.7이다.
+
+### 첫 MVP 범위 — Unit 3.0 채택
 
 | 구분 | 첫 MVP에서의 처리 |
 | --- | --- |
@@ -30,9 +32,10 @@
 | 정답 불명 | 해설 가림이 안전하게 추정되면 선택·공개는 가능하되 결과는 `채점 불가` |
 | 지원 외 형식 | 가림·문제 대응이 불확실하면 CBT를 시작하지 않음. 안내 후 사용자가 선택하면 원문 열람 |
 | 저장 | PDF를 연 동안만 메모리에 선택·공개·채점 상태 유지. 앱 종료, PDF 닫기·교체 시 초기화 |
-| 제외 | 자동 문제 분리, 여러 문제/열, 페이지 간 연결, 수동 영역 지정, 영구 저장, OCR, AI |
+| 영역 확정 | 한 페이지·한 문제의 해설/정답 사각형을 사용자가 미리보기 후 확정. Unit 4.1 선행 MVP 범위 |
+| 제외 | 자동 문제 분리, 여러 문제/열, 페이지 간 연결, 복수·다페이지 수동 영역, 영구 저장, OCR, AI |
 
-이는 범용 PDF 지원 약속을 제한하는 제안이다. 해당 제한 없이 임의 PDF를 첫 MVP에서 지원하려면 문제 분리·수동 보정의 일정을 앞당겨 재승인해야 한다. 검증되지 않은 파일을 지원 형식으로 단정하지 않는다.
+이는 범용 PDF 지원 약속을 제한하는 채택 범위다. 해당 제한 없이 임의 PDF를 첫 MVP에서 지원하려면 문제 분리와 수동 보정 확장 일정을 다시 검토해야 한다. 검증되지 않은 파일을 지원 형식으로 단정하지 않는다.
 
 ## 2. Local First 원칙
 
@@ -220,6 +223,7 @@ Notion/Chromium 출력 한 건에서 실제 Text Item 111개는 정상이지만 
 9. Unit 2.6 보완: 실제 Notion/Chromium 출력 한 건에서 생략된 font 보조값 때문에 전체 TextContent가 무효화되던 호환성 오류를 수정했다. 111개 Text Item·비공백 186자·판독 비율 1을 `text-usable`로 보존했으며, footer가 답 값 뒤에 이어진 source 순서는 추정하지 않아 정답 제목 누락 미지원으로 안전하게 남겼다.
 10. Unit 2.7 완료: 기본 1120×760 창에서 document root 스크롤이 생기지 않고 header·main·footer가 한 화면에 유지됨을 확인했다. 문서 정보 아코디언은 키보드로 열고 닫을 수 있으며, 접힌 동안에도 텍스트·키워드·영역·지원 프로파일 요약은 계속 보인다. 640×480에서는 main 내부 스크롤로 모든 영역에 접근하고, 높이 맞춤은 PDF가 가용 영역을 넘지 않으면서 그 높이의 85% 이상을 사용하도록 세 실행 모드에서 회귀 검증했다.
 11. Unit 2.7.2 완료: 페이지 로딩 안내가 나타나도 PDF page stage의 top·height가 1 CSS px보다 크게 바뀌지 않고, 높이 맞춤·창 크기 자동 렌더가 완료된 뒤 450ms 동안 화면 Canvas가 다시 교체되지 않음을 개발·빌드·패키지 세 모드에서 확인했다.
+12. Unit 3.0 완료: Question/Region/Answer/Attempt v1의 소유·상태·무효화 계약과 CBT 준비 관문을 문서로 확정했다. 현재 자동 후보를 Question으로 승격하지 않으며 Unit 4.1의 사용자 확인 수동 영역 지정을 Unit 3.1보다 먼저 진행한다. 문서 전용 Unit이므로 런타임 검증은 해당 없다.
 
 ### 9.1 추출과 분석은 다른 일이다
 
@@ -309,6 +313,38 @@ Loading/Uncertain Cover    준비 전·실패 시 페이지 전체를 가리는 
 - 이 장치는 학습 보조다. 개발자 도구·원본 파일 접근 등을 막는 DRM이나 시험 부정행위 방지 기능이 아니다.
 - Phase 1~2의 개발용 PDF/Debug 화면은 CBT가 아니며 원문이 노출될 수 있음을 표시한다. MVP의 공개 전 차단 조건은 Unit 3.1 이후 적용한다.
 
+### 9.9 Unit 3.0 CBT 준비 상태와 소유 관계
+
+Unit 3.0은 문서 전용 구조 검토다. Phase 2의 `PageAnswerRegions`와 `PageSupportProfile`은 계속 승인 전 후보이며 이를 `Question`이나 `Region`으로 자동 승격하지 않는다. 현재 고정 샘플의 CBT 준비 가능 결과는 0건이므로 앱은 계속 원문 Viewer로만 동작한다.
+
+첫 MVP의 안전 경로는 다음과 같다.
+
+1. 사용자가 원문이 보이는 별도 설정 화면에서 한 페이지·한 문제의 해설 영역과 정답 영역을 직접 지정한다. 설정 화면은 CBT가 아니며 정답이 보일 수 있음을 표시한다.
+2. 자동 후보가 있으면 초안의 참고 근거로만 쓸 수 있다. `profile-match`나 후보 좌표만으로 확인을 대신하지 않는다.
+3. 동일한 `documentRevision`과 `pageNumber` 안에서 해설·정답 영역이 각각 하나이고 유효한 PDF user space 사각형이며 서로 겹치지 않을 때만 미리보기를 허용한다.
+4. 사용자가 가림 미리보기를 확인해야 `Question.setupStatus`와 두 `Region.confirmation`을 한 번에 `confirmed`로 바꾼다. 부분 확정은 없다.
+5. 파일·revision·페이지가 바뀌거나 확정 영역을 다시 편집하면 관련 Question, Answer, Attempt와 Mask 준비 상태를 즉시 무효화한다.
+6. Unit 4.1의 위 기능과 좌표 왕복 검증을 마치기 전에는 Unit 3.1 Mask Layer를 시작하지 않는다. 영구 저장은 Phase 5까지 하지 않는다.
+
+`CbtReadiness v1`은 저장 레코드가 아닌 파생 상태다.
+
+| 상태 | 진입 조건과 처리 |
+| --- | --- |
+| `blocked` | 문서/페이지 불일치, 설정 미확정, 영역 오류, 렌더·Mask 미준비 중 하나라도 존재. CBT를 시작하지 않음 |
+| `ready` | 같은 revision의 확정 Question과 해설·정답 Region, 현재 viewport에 투영된 불투명 Mask, Canvas와 공개 우회 차단이 모두 준비됨 |
+| `active` | `ready` 상태에서만 풀이를 시작. 현재 questionId의 Attempt만 변경 가능 |
+| `original-view` | 사용자가 정답 노출 가능성을 확인하고 원문 보기를 선택한 상태. 해당 페이지는 현재 CBT 대상에서 제외 |
+
+`ready` 판정은 프로파일 일치와 독립적이다. 준비 중에는 `Loading/Uncertain Cover`를 유지하고 준비 상태를 한 번에 전환한다. 확대·높이 맞춤·창 크기·페이지 이동 때 기존 공개 상태를 바꾸지 않으며, 새 viewport의 Mask가 준비되기 전에 새 페이지 프레임을 공개하지 않는다. Debug Overlay와 수동 설정 화면은 `active`와 동시에 켤 수 없다.
+
+소유 관계는 다음 불변 조건을 따른다.
+
+- 첫 MVP의 Question은 하나의 세션 문서 revision과 페이지 하나에 속한다. 페이지 번호, 표시 문제 번호, 파일명은 questionId가 아니다.
+- 각 Region은 정확히 하나의 Question에 속하고, 첫 MVP에서는 하나의 Question이 `solution` 하나와 `answer` 하나를 가진다. Region 공유와 여러 페이지 연결은 Phase 4 후속 범위다.
+- Answer는 같은 Question의 `answer` Region만 근거로 삼으며 Mask 적합성과 별도로 판정한다.
+- Attempt는 같은 Question과 revision에만 속한다. 다른 questionId의 Mask, 선택, 공개, 채점 상태를 바꾸지 않는다.
+- 식별자는 세션 안에서만 유효한 불투명 값이다. 새 파일, 재분석, 앱 새로고침·종료 뒤 재사용하지 않는다.
+
 ## 10. UI 기본 원칙
 
 PDF/CBT 화면에서는 파일 열기와 오류·진행 상태를 상단, 페이지·배율 조절을 PDF 주변, 선택지·답 확인·결과를 향후 학습 패널에 배치한다. 미구현 미래 기능의 버튼은 만들지 않는다.
@@ -326,14 +362,17 @@ Unit 2.7.2부터 페이지 로딩·오류 안내는 `.pdf-viewer` 안에서 PDF 
 | 상태/행동 | 규칙 |
 | --- | --- |
 | 파일 없음 | 열기·드롭 안내. 답 확인 비활성화 |
-| 로딩·분석 중 | 진행 상태와 취소/파일 교체. CBT에서는 페이지 덮개 유지 |
-| 미선택 | 하나를 선택하기 전 답 확인 비활성화 |
-| 선택 완료 | 하나만 선택. 답 확인 전 선택과 보기 수 변경 가능; 보기 수 변경 시 선택 초기화 |
-| 답 확인 | 선택을 잠그고 해당 문제 해설 공개. 중복 클릭으로 기록 중복 생성 금지 |
+| 분석·설정 중 | 원문 Viewer 또는 정답 노출 가능성을 표시한 설정 화면. CBT로 표시하지 않으며 설정 초안은 시작 근거가 아님 |
+| CBT 준비 중·실패 | 전체 덮개 유지. 같은 revision의 Question/Region·Canvas·Text Layer 우회 차단·Mask가 모두 준비될 때만 `ready` |
+| 미선택 | `active`, `masked`, `ungraded`. 하나를 선택하기 전 답 확인 비활성화 |
+| 선택 완료 | 하나만 선택. 답 확인 전 선택과 4/5지 설정 변경 가능; 보기 수 변경 시 선택 초기화하고 범위 밖 Answer를 무효화 |
+| 답 확인 | 미선택이면 차단. 선택 잠금·현재 questionId의 해설/정답 공개·채점을 한 전이로 처리하고 중간 상태나 중복 기록을 만들지 않음 |
 | 정답 명확 | `맞음` 또는 `틀림`, 사용자 선택과 추출 정답 표시 |
 | 정답 불명·충돌 | `채점 불가`, 자동 판정하지 않았다는 설명. 틀림으로 집계하지 않음 |
-| 페이지 재방문 | 같은 PDF가 열린 동안 선택·공개·결과 유지 |
-| 파일 교체·종료 | 메모리 상태 초기화. 저장되지 않음을 UI에서 안내 |
+| 페이지 재방문·배율 변경 | 같은 revision의 선택·잠금·공개·결과 유지. 새 viewport Mask 준비 전에는 전체 덮개 유지 |
+| 수동 영역 재편집 | 기존 확정을 해제하고 관련 Answer/Attempt/Mask 준비 상태 무효화. 다시 확인 전 CBT 시작 금지 |
+| 원문 보기 | 정답 노출 가능성을 확인한 뒤 해당 페이지를 현재 CBT 대상에서 제외. 복귀 시 준비 상태를 처음부터 재검증 |
+| 파일 교체·새로고침·종료 | Question/Region/Answer/Attempt와 준비 상태 초기화. 저장되지 않음을 UI에서 안내 |
 
 첫 MVP는 페이지 탐색이다. 버튼을 `이전 문제/다음 문제`로 잘못 표시하지 않는다. 문제 탐색은 Phase 4 이후 추가한다. 같은 질문의 다시 풀기·시도 누적은 Phase 5로 유보한다.
 
@@ -341,20 +380,22 @@ Unit 2.7.2부터 페이지 로딩·오류 안내는 `.pdf-viewer` 안에서 PDF 
 
 ## 11. 데이터 관리 원칙
 
-MVP 데이터는 필요한 Unit에서만 도입하는 메모리 레코드다. 아래는 DB 설계나 즉시 구현할 전체 클래스 목록이 아니다.
+MVP 데이터는 필요한 Unit에서만 도입하는 메모리 레코드다. Unit 3.0은 아래 v1 계약을 확정하지만 구현은 각 후속 Unit에서 필요한 범위만 추가한다. DB 설계나 즉시 구현할 전체 클래스 목록이 아니다.
 
 | 개념 | 최소 계약 / 용도 |
 | --- | --- |
-| PdfDocument | 세션 내 `documentId`, 표시 이름, 페이지 수. 원본 경로는 가능하면 main만 보유 |
+| PdfDocument | 세션 내 `documentId`, `documentRevision`, 표시 이름, 페이지 수. 원본 경로는 가능하면 main만 보유 |
 | PageAnalysis | 문서·페이지·분석 버전, 텍스트 상태, 지원 상태, 근거·실패 사유 |
-| Question | 독립 `questionId`, `documentId`, `sourceKind: page-single`, `pageRefs[]`, `regionIds[]`, 보기 수 |
-| Region | `regionId`, `questionId`, `page`, `kind: answer/solution`, 좌표 공간, `rects[]`, 출처·근거 |
-| Answer | `questionId`, `value: 1..5 또는 null`, `status: known/unknown/ambiguous`, 추출 근거. 가림 적합성과 독립 |
-| Attempt | 현재 연 문서에서 문제별 선택, 공개 여부, `ungraded/correct/incorrect/ungradable`. 답 확인 시 확정 |
+| Question v1 | `contractVersion: 1`, 세션 독립 `questionId`, `documentId`, `documentRevision`, `sourceKind: manual-page-single-v1`, 길이 1의 `pageRefs[]`, 해설·정답 두 `regionIds[]`, `choiceCount: 4 또는 5`, `setupStatus: draft/confirmed/invalid` |
+| Region v1 | `contractVersion: 1`, `regionId`, `questionId`, `documentRevision`, `pageNumber`, `kind: answer/solution`, `coordinateSpace: pdf-user-space`, 첫 MVP의 유효한 축 정렬 사각형 하나, `source: manual`, `confirmation: draft/confirmed` |
+| Answer v1 | `contractVersion: 1`, `questionId`, `documentRevision`, 같은 Question의 `answerRegionId`, `value: 1..5 또는 null`, `status: pending/known/unknown/ambiguous`, 추출 근거. 가림 적합성과 독립 |
+| Attempt v1 | `contractVersion: 1`, 세션 독립 `attemptId`, `questionId`, `documentRevision`, `selectedChoice: 1..5 또는 null`, `selectionStatus: unselected/selected/locked`, `revealStatus: masked/revealed`, `gradeStatus: ungraded/correct/incorrect/ungradable` |
 
 정답은 해당 질문의 정답 영역에서만 추출한다. `①`~`⑤`, 숫자 1~5와 허용 구분 표기를 정규화하되 모든 숫자를 답으로 읽지 않는다. 복수 후보·범위 밖 번호·보기 수 불일치·복수 정답은 `unknown/ambiguous`로 남기고 채점하지 않는다.
 
-페이지 번호를 questionId로 취급하지 않는다. 첫 MVP에서는 Question 하나의 pageRefs 길이가 1이지만 Phase 4에서 여러 페이지/영역으로 확장 가능해야 한다. 새 PDF 열기와 재분석 시 오래된 ID·선택·결과가 섞이지 않게 한다.
+페이지 번호를 questionId로 취급하지 않는다. 첫 MVP에서는 Question 하나의 pageRefs 길이가 1이고 Region 종류별 사각형이 하나지만 이후 계약 버전에서 여러 페이지/영역으로 확장할 수 있다. Region은 페이지 viewBox 안의 유한한 양수 크기여야 하고 두 종류가 서로 겹치면 확정하지 않는다. Answer의 `known`은 허용 표기에서 정확히 하나가 추출되고 `choiceCount` 범위 안일 때뿐이다. Attempt는 질문마다 현재 세션에 하나만 두며 재시도 이력은 만들지 않는다.
+
+Question/Region 확정, Answer 분석과 Attempt는 같은 `documentRevision`을 가져야 한다. 질문 설정을 다시 열거나 영역·보기 수를 바꾸면 의존 결과를 보수적으로 무효화한다. 답 확인은 `selected → locked`, `masked → revealed`, `ungraded → correct/incorrect/ungradable`을 원자적으로 적용한다. `known`이 아니면 반드시 `ungradable`이며 `incorrect`로 바꾸지 않는다.
 
 영구 저장은 Phase 5다. 도입 시 콘텐츠 해시 등 문서 식별, 규칙 버전·스키마 버전, 원본 변경 감지, 백업·복구·삭제 정책을 함께 설계한다. 파일명이나 경로만으로 같은 PDF를 판별하지 않는다. 북마크·학습 세션은 그때 추가하고 오답 목록은 Attempt의 파생 조회를 우선 검토한다.
 
@@ -376,7 +417,7 @@ Electron 권고에 따라 renderer의 `nodeIntegration: false`, `contextIsolatio
 
 Unit 시작 시 목표, 제외 범위, 선행 Unit, 완료 기준을 확인한다. 구현 → 실행 가능한 검증 → 구조/회귀 검토 → 문서 갱신 순서로 마친다. 현재 Unit의 기준을 충족하지 못하면 다음 Unit으로 넘어가지 않는다.
 
-순서 조정은 사용자가 명시적으로 요청한 Unit에만 적용한다. Unit 2.3과 2.4를 Unit 2.5보다 먼저 구현한 예외와 뒤이은 Unit 2.5 완료는 기존 오류 없음 조건을 낮추지 않는다. 최소 입력 상한·서명 정책은 ADR-017/018, 드롭 경계는 ADR-019, Phase 2 순서 예외와 분석 계약은 ADR-027/028, 진단 Overlay 경계는 ADR-029, Phase 3 전 Viewer Shell 경계는 ADR-031에 기록한다.
+순서 조정은 사용자가 명시적으로 요청한 Unit에만 적용한다. Unit 2.3과 2.4를 Unit 2.5보다 먼저 구현한 예외와 뒤이은 Unit 2.5 완료는 기존 오류 없음 조건을 낮추지 않는다. 최소 입력 상한·서명 정책은 ADR-017/018, 드롭 경계는 ADR-019, Phase 2 순서 예외와 분석 계약은 ADR-027/028, 진단 Overlay 경계는 ADR-029, Phase 3 전 Viewer Shell 경계는 ADR-031, Unit 3.0 CBT 상태·소유 관계와 Unit 4.1 선행 결정은 ADR-033에 기록한다.
 
 각 Unit 완료 기록에는 반드시 다음 10항목을 넣는다.
 
