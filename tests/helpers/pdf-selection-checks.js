@@ -609,12 +609,14 @@ export async function checkPdfSelection(application, page, artifacts) {
     await page.waitForSelector('#manual-region-setup[data-state="confirmed"]');
     await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
     await page.waitForSelector('#choice-selection:not([hidden])');
+    assert.equal(await page.locator('#confirm-choice').isDisabled(), true);
     assert.equal(
       await page.locator('#choice-selection').getAttribute('data-choice-count'),
       '4',
     );
     assert.equal(await page.locator('input[name="answer-choice"]').count(), 4);
     await page.locator('input[name="answer-choice"][value="3"]').check();
+    assert.equal(await page.locator('#confirm-choice').isEnabled(), true);
     assert.equal(
       await page
         .locator('#choice-selection')
@@ -649,6 +651,26 @@ export async function checkPdfSelection(application, page, artifacts) {
         .locator('#choice-selection')
         .getAttribute('data-selected-choice'),
       '5',
+    );
+    await page.locator('#confirm-choice').click();
+    assert.equal(
+      await page
+        .locator('#choice-selection')
+        .getAttribute('data-selection-status'),
+      'locked',
+    );
+    assert.equal(await page.locator('#confirm-choice').isDisabled(), true);
+    assert.equal(
+      await page.locator('input[name="choice-count"][value="5"]').isDisabled(),
+      true,
+    );
+    assert.equal(
+      await page.locator('input[name="answer-choice"][value="5"]').isDisabled(),
+      true,
+    );
+    assert.match(
+      await page.locator('#choice-selection-status').innerText(),
+      /아직 공개하지 않습니다/,
     );
     const firstQuestionId = await manualSetup.getAttribute('data-question-id');
     assert.match(firstQuestionId, /^question-/);
@@ -709,7 +731,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       'cbt-mask-blocks-unconfirmed-page',
       'cbt-mask-hides-confirmed-solution-and-answer',
       'cbt-mask-has-no-text-layer-bypass',
-      'choice-selection-four-five-single-choice-and-edit-invalidation',
+      'choice-selection-four-five-single-choice-confirmation-and-edit-invalidation',
     );
 
     await select({ canceled: false, filePaths: [files.keyword] }, 'selected');

@@ -21,6 +21,7 @@ test('starts with the confirmed Question choice count and stores one selection o
     documentRevision: 7,
     choiceCount: 4,
     selectedChoice: null,
+    selectionStatus: 'unselected',
   });
   assert.equal(
     store.selectChoice({
@@ -61,6 +62,7 @@ test('allows only four or five choices and clears the selected answer when the c
   assert.equal(configured.status, 'ready');
   assert.equal(configured.selection.choiceCount, 5);
   assert.equal(configured.selection.selectedChoice, null);
+  assert.equal(configured.selection.selectionStatus, 'unselected');
   assert.equal(
     store.selectChoice({
       questionId: 'question-one',
@@ -84,6 +86,53 @@ test('allows only four or five choices and clears the selected answer when the c
       choiceNumber: 6,
     }).code,
     'INVALID_CHOICE_NUMBER',
+  );
+});
+
+test('requires a selected choice, then locks exactly one confirmation without revealing or grading', () => {
+  const store = createChoiceSelectionStore();
+  store.syncQuestion(question);
+  assert.equal(
+    store.confirmChoice({
+      questionId: 'question-one',
+      documentRevision: 7,
+    }).code,
+    'CHOICE_NOT_SELECTED',
+  );
+  store.selectChoice({
+    questionId: 'question-one',
+    documentRevision: 7,
+    choiceNumber: 2,
+  });
+  const confirmed = store.confirmChoice({
+    questionId: 'question-one',
+    documentRevision: 7,
+  });
+  assert.equal(confirmed.status, 'confirmed');
+  assert.equal(confirmed.selection.selectedChoice, 2);
+  assert.equal(confirmed.selection.selectionStatus, 'locked');
+  assert.equal(
+    store.selectChoice({
+      questionId: 'question-one',
+      documentRevision: 7,
+      choiceNumber: 3,
+    }).code,
+    'CHOICE_LOCKED',
+  );
+  assert.equal(
+    store.configureChoiceCount({
+      questionId: 'question-one',
+      documentRevision: 7,
+      choiceCount: 5,
+    }).code,
+    'CHOICE_LOCKED',
+  );
+  assert.equal(
+    store.confirmChoice({
+      questionId: 'question-one',
+      documentRevision: 7,
+    }).code,
+    'CHOICE_ALREADY_CONFIRMED',
   );
 });
 

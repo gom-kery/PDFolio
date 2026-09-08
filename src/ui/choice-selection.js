@@ -24,6 +24,7 @@ export function initializeChoiceSelection(document, { disabled = false } = {}) {
   const status = document.querySelector('#choice-selection-status');
   const countControls = document.querySelector('#choice-count-controls');
   const options = document.querySelector('#choice-options');
+  const confirmButton = document.querySelector('#confirm-choice');
   const store = createChoiceSelectionStore();
   let activeQuestion = null;
 
@@ -42,14 +43,23 @@ export function initializeChoiceSelection(document, { disabled = false } = {}) {
     section.dataset.questionId = selection.questionId;
     section.dataset.choiceCount = String(selection.choiceCount);
     section.dataset.selectedChoice = String(selection.selectedChoice ?? '');
+    section.dataset.selectionStatus = selection.selectionStatus;
     status.textContent = message;
-    for (const input of countControls.querySelectorAll('input'))
+    const isLocked = selection.selectionStatus === 'locked';
+    for (const input of countControls.querySelectorAll('input')) {
       input.checked = Number(input.value) === selection.choiceCount;
+      input.disabled = isLocked;
+    }
     options.replaceChildren(
       ...Array.from({ length: selection.choiceCount }, (_, index) =>
         createChoiceOption(document, index + 1, selection.selectedChoice),
       ),
     );
+    for (const input of options.querySelectorAll('input'))
+      input.disabled = isLocked;
+    confirmButton.disabled =
+      isLocked || selection.selectionStatus !== 'selected';
+    confirmButton.textContent = isLocked ? '답 선택 확정됨' : '답 확인';
   };
 
   const showActiveQuestion = (question) => {
@@ -65,9 +75,11 @@ export function initializeChoiceSelection(document, { disabled = false } = {}) {
     const { selection } = result;
     render(
       selection,
-      selection.selectedChoice === null
-        ? '보기 수를 고르고 답을 하나 선택하세요. 답 확인 전까지 선택을 바꿀 수 있습니다.'
-        : `${selection.selectedChoice}번을 선택했습니다. 답 확인 전까지 선택을 바꿀 수 있습니다.`,
+      selection.selectionStatus === 'locked'
+        ? `${selection.selectedChoice}번 선택을 확정했습니다. 해설과 정답은 아직 공개하지 않습니다.`
+        : selection.selectedChoice === null
+          ? '보기 수를 고르고 답을 하나 선택하세요. 답 확인 전까지 선택을 바꿀 수 있습니다.'
+          : `${selection.selectedChoice}번을 선택했습니다. 답 확인 전까지 선택을 바꿀 수 있습니다.`,
     );
   };
 
@@ -99,6 +111,16 @@ export function initializeChoiceSelection(document, { disabled = false } = {}) {
       render(
         result.selection,
         `${result.selection.selectedChoice}번을 선택했습니다. 답 확인 전까지 선택을 바꿀 수 있습니다.`,
+      );
+  });
+
+  confirmButton.addEventListener('click', () => {
+    if (!activeQuestion) return;
+    const result = store.confirmChoice(activeQuestion);
+    if (result.status === 'confirmed')
+      render(
+        result.selection,
+        `${result.selection.selectedChoice}번 선택을 확정했습니다. 해설과 정답은 아직 공개하지 않습니다.`,
       );
   });
 

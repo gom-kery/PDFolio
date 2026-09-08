@@ -2,6 +2,58 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.3 / Unit 3.3 작업 기록 — 2026-09-08
+
+**선택 전 답 확인을 차단하고, 선택 뒤 한 번만 답을 확정해 4/5지·답 선택·중복 확인을 잠갔다. 잠금은 세션 메모리 상태이며 해설·정답 공개·정답 추출·채점은 수행하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 시작 HEAD는 `b9a8404`의 Unit 3.2 커밋이었고 작업 트리는 깨끗했다.
+
+### Unit 3.3 — 1. 구현한 내용
+
+- `unselected → selected → locked` 선택 상태 전이를 추가했다. 선택이 없으면 `답 확인`은 비활성화되고 store도 `CHOICE_NOT_SELECTED`로 거절한다.
+- 확인하면 현재 Question/revision의 선택과 보기 수를 잠근다. 확인 뒤 선택·보기 수 변경은 `CHOICE_LOCKED`, 중복 확인은 `CHOICE_ALREADY_CONFIRMED`로 거절한다.
+- 잠금 상태는 버튼과 native radio를 비활성화하고, 해설과 정답이 아직 공개되지 않았음을 안내한다. 수동 영역 재편집·파일 교체·새로고침·종료에서는 기존 세션 상태를 폐기한다.
+
+### Unit 3.3 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 선택 상태 | `src/cbt/choice-selection.js` — 선택 전이, 확인·잠금과 중복·변경 거절 |
+| 선택 화면 | `src/ui/choice-selection.js`, `index.html`, `src/styles/shell.css` — `답 확인` 버튼, 잠금 표시와 입력 비활성화 |
+| 검사 | `tests/choice-selection.test.js`, `tests/helpers/pdf-selection-checks.js`, `tests/electron.test.js` — 미선택 차단, 확인 뒤 잠금·무효화·일반/진단 회귀 |
+| 버전·문서 | `package.json`, `package-lock.json`, `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 0.3.3 기록 |
+
+### Unit 3.3 — 3. 사용자가 직접 테스트할 방법
+
+1. 일반 앱에서 해설·정답 영역을 수동 확정해 `답 선택` 카드를 표시합니다.
+2. 답을 고르기 전에는 `답 확인`이 비활성화인지 확인합니다.
+3. 4지 또는 5지에서 하나를 선택하고 `답 확인`을 누릅니다. 선택 확정 안내가 보이고 보기 수·선택 radio·확인 버튼이 비활성화되어야 합니다.
+4. 확정 뒤에도 해설·정답 사각형이 계속 가려지고 정답 값·채점 결과가 나타나지 않아야 합니다.
+5. `확정 영역 수정`을 시작한 뒤 취소합니다. 카드가 복원되면 4지 미선택 상태여야 합니다. 다른 PDF를 열어도 카드는 숨겨져야 합니다.
+
+### Unit 3.3 — 4. 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 115/115 통과 | 미선택 차단, 한 번만 확인, 잠금 뒤 변경·중복 거절과 기존 PDF/CBT 회귀 |
+| `npm run build` | 통과 | Vite 28 modules, 로컬 PDF.js 자산; 500 kB 초과 번들 안내만 기존과 동일 |
+| `npm run test:electron` | Debug·개발·빌드 3/4 통과 | 선택·확정·잠금, 수동 재편집 무효화, 진단 모드 차단 |
+| Windows x64/ASAR 재패키지·패키지 Electron | 대기 | 실행 중인 3.2 패키지가 19 controls를 반환하여 0.3.3의 22 controls 검사를 통과할 수 없음 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 3.3 — 5. 알려진 제한사항과 다음 Unit
+
+- `locked`는 메모리 전용 선택 상태이며 Attempt, 공개 상태, 정답 값이나 채점 결과가 아니다.
+- 다음 계획 Unit 3.4에서만 확정 Question의 Mask 공개를 연결한다. 정답 추출과 채점은 각각 Unit 3.5와 3.6 전까지 추가하지 않는다.
+- 실행 중인 패키지 앱을 모두 닫은 뒤 `npm run package`, `npm run test:electron`, `npm run test:native`를 다시 실행해야 0.3.3 패키지 검증을 완료로 기록할 수 있다.
+
+### Unit 3.3 — 6. Git Commit Message
+
+제안: `PDFolio repository at unit 3.3_add answer confirmation and selection lock`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다.
+
 ## 0.3.2 / Unit 3.2 작업 기록 — 2026-09-08
 
 **확정 Question과 CBT Mask가 준비된 한 페이지에서만 4지/5지를 설정하고 답 하나를 선택하게 했다. 선택은 메모리 전용이며 답 확인·잠금·공개·정답 추출·채점은 구현하지 않았다.**

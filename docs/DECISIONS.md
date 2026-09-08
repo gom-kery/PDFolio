@@ -1,12 +1,12 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.3.1`
-- 갱신일: 2026-09-03
-- 상태: Unit 3.1 해설·정답 Mask Layer 구현·검증 완료. 앱은 버전 0.3.1이며 OPEN-09와 Unit 1.0은 미해결.
+- 문서 버전: `0.3.3`
+- 갱신일: 2026-09-08
+- 상태: Unit 3.3 답 확인 상태 전이 구현·검증 완료. 앱은 버전 0.3.3이며 OPEN-09와 Unit 1.0은 미해결.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
-이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보, Unit 2.5에서 개발자용 화면 좌표 대조, Unit 2.6에서 첫 MVP 분석 프로파일의 일치·미지원·보류를 검증했다. Unit 2.7은 이 기능들의 계약을 바꾸지 않고 Phase 3 전 Viewer Shell을 정리했으며 Unit 2.7.1·2.7.2는 Canvas 공백과 레이아웃 이동을 차례로 안정화했다. Unit 3.0은 분석 프로파일과 CBT 준비를 분리한 채 Question/Region/Answer/Attempt의 소유·상태 계약과 Unit 4.1 수동 영역 확정의 선행 배치를 결정했고, Unit 4.1은 그 page-single 수동 확정 관문을 구현했다. Unit 3.1은 이 확정 레코드만 실제 불투명 Mask로 전환하고 준비 전 전체 덮개를 적용했다.
+이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보, Unit 2.5에서 개발자용 화면 좌표 대조, Unit 2.6에서 첫 MVP 분석 프로파일의 일치·미지원·보류를 검증했다. Unit 2.7은 이 기능들의 계약을 바꾸지 않고 Phase 3 전 Viewer Shell을 정리했으며 Unit 2.7.1·2.7.2는 Canvas 공백과 레이아웃 이동을 차례로 안정화했다. Unit 3.0은 분석 프로파일과 CBT 준비를 분리한 채 Question/Region/Answer/Attempt의 소유·상태 계약과 Unit 4.1 수동 영역 확정의 선행 배치를 결정했고, Unit 4.1은 그 page-single 수동 확정 관문을 구현했다. Unit 3.1은 이 확정 레코드만 실제 불투명 Mask로 전환하고 준비 전 전체 덮개를 적용했다. Unit 3.2는 준비된 Question의 4/5지 단일 선택을, Unit 3.3은 미선택 확인 차단과 선택 확정·잠금을 더했다.
 
 ## 1. 요구사항 분석
 
@@ -506,6 +506,15 @@
 - 수명과 무효화: 선택 상태는 `questionId`·`documentRevision`별 세션 메모리에만 둔다. 확대·높이 맞춤의 재렌더에는 유지하지만 수동 영역 재편집을 시작하면 관련 선택을 폐기한다. 파일 교체·새로고침·종료에서는 전체 선택을 폐기하며 원본 PDF·파일 시스템·저장소에는 쓰지 않는다.
 - 제외 범위: Attempt 생성·답 확인·잠금·중복 확인 방지(Unit 3.3), Mask 공개(Unit 3.4), 정답 추출(Unit 3.5), 채점(Unit 3.6), 자동 보기 수 추론, 다문제·다페이지·영구 저장은 추가하지 않았다.
 - 검증: 형식, Node 114/114, Vite 28 modules, Debug Overlay 1과 일반 개발·빌드 Electron 2 경로가 통과했다. 확정 뒤 4지 표시, 3번 선택, 5지 전환 시 초기화, 5번 재선택, 재렌더 유지, 수동 재편집 시 폐기, Debug·파일 교체 시 숨김을 자동화했다. 이전 패키지 실행 파일을 사용 중이라 새 패키지 생성과 패키지 Electron 검증은 완료로 기록하지 않는다.
+
+### ADR-037 — Unit 3.3 답 확인 전이와 선택 잠금
+
+- 상태: **채택 — Unit 3.3 구현 및 개발·빌드 Electron 검증 완료**, 2026-09-08. 앱 버전은 0.3.3이며 실행 중인 이전 패키지 때문에 Windows x64/ASAR 재패키지·패키지 경로 검증은 대기 중이다.
+- 입력·차단: Unit 3.2와 같은 `ready` Question/revision 선택 레코드만 확인할 수 있다. 선택 전에는 버튼을 비활성화하고 store도 `CHOICE_NOT_SELECTED`로 거절해 UI 외 호출로 우회할 수 없다.
+- 전이·잠금: 선택하면 `unselected → selected`, 확인하면 `selected → locked`로 전이한다. 잠긴 뒤에는 보기 수·선택 변경을 `CHOICE_LOCKED`로, 중복 확인을 `CHOICE_ALREADY_CONFIRMED`로 거절한다. UI도 관련 radio와 확인 버튼을 비활성화한다.
+- 보안·수명: 잠금은 동일 Question/revision의 세션 메모리 상태일 뿐 Attempt 생성이나 영구 기록이 아니다. 수동 영역 재편집, 파일 교체, 새로고침과 종료에서 폐기한다.
+- 제외 범위: Mask 공개(Unit 3.4), 정답 추출(Unit 3.5), 정답 비교·채점(Unit 3.6), 공개 후 재방문 상태, 다문제·다페이지·영구 저장은 추가하지 않았다. 확정 문구도 해설과 정답이 아직 공개되지 않았음을 명시한다.
+- 검증: 형식, Node 115/115, Vite 28 modules, Debug Overlay와 일반 개발·빌드 Electron 3/4 경로를 통과했다. 미선택 확인 차단, 4→5지 재선택, 확인 뒤 selection status 잠금·radio 비활성화·중복 차단, 수동 재편집 무효화와 Debug·파일 교체 숨김을 자동화했다. 실행 중인 이전 패키지가 3.2 화면을 유지해 패키지 경로는 19 controls를 보고 실패했으므로 새 패키지 생성과 패키지 Electron 검증은 완료로 기록하지 않는다.
 
 ## 5. 유보 항목과 해결 상태
 

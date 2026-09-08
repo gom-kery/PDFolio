@@ -8,6 +8,7 @@ function cloneSelection(selection) {
     documentRevision: selection.documentRevision,
     choiceCount: selection.choiceCount,
     selectedChoice: selection.selectedChoice,
+    selectionStatus: selection.selectionStatus,
   };
 }
 
@@ -27,8 +28,8 @@ function keyFor(questionId, documentRevision) {
 }
 
 /**
- * Keep Unit 3.2 answer choices in memory only. This intentionally owns no
- * confirmation, reveal, grading, PDF, or persistent-storage behavior.
+ * Keep Unit 3.3 answer choices and their one-way confirmation in memory only.
+ * This intentionally owns no reveal, grading, PDF, or persistent-storage behavior.
  */
 export function createChoiceSelectionStore() {
   const selections = new Map();
@@ -44,6 +45,7 @@ export function createChoiceSelectionStore() {
         documentRevision: question.documentRevision,
         choiceCount: question.choiceCount,
         selectedChoice: null,
+        selectionStatus: 'unselected',
       };
       selections.set(key, selection);
     }
@@ -59,9 +61,12 @@ export function createChoiceSelectionStore() {
     if (!selection) return { status: 'error', code: 'QUESTION_NOT_READY' };
     if (!SUPPORTED_CHOICE_COUNTS.includes(choiceCount))
       return { status: 'error', code: 'INVALID_CHOICE_COUNT' };
+    if (selection.selectionStatus === 'locked')
+      return { status: 'error', code: 'CHOICE_LOCKED' };
     if (selection.choiceCount !== choiceCount) {
       selection.choiceCount = choiceCount;
       selection.selectedChoice = null;
+      selection.selectionStatus = 'unselected';
     }
     return { status: 'ready', selection: cloneSelection(selection) };
   };
@@ -69,6 +74,8 @@ export function createChoiceSelectionStore() {
   const selectChoice = ({ questionId, documentRevision, choiceNumber }) => {
     const selection = selections.get(keyFor(questionId, documentRevision));
     if (!selection) return { status: 'error', code: 'QUESTION_NOT_READY' };
+    if (selection.selectionStatus === 'locked')
+      return { status: 'error', code: 'CHOICE_LOCKED' };
     if (
       !Number.isSafeInteger(choiceNumber) ||
       choiceNumber < 1 ||
@@ -76,7 +83,19 @@ export function createChoiceSelectionStore() {
     )
       return { status: 'error', code: 'INVALID_CHOICE_NUMBER' };
     selection.selectedChoice = choiceNumber;
+    selection.selectionStatus = 'selected';
     return { status: 'ready', selection: cloneSelection(selection) };
+  };
+
+  const confirmChoice = ({ questionId, documentRevision }) => {
+    const selection = selections.get(keyFor(questionId, documentRevision));
+    if (!selection) return { status: 'error', code: 'QUESTION_NOT_READY' };
+    if (selection.selectionStatus === 'locked')
+      return { status: 'error', code: 'CHOICE_ALREADY_CONFIRMED' };
+    if (selection.selectedChoice === null)
+      return { status: 'error', code: 'CHOICE_NOT_SELECTED' };
+    selection.selectionStatus = 'locked';
+    return { status: 'confirmed', selection: cloneSelection(selection) };
   };
 
   const clearQuestion = ({ questionId, documentRevision }) =>
@@ -86,6 +105,7 @@ export function createChoiceSelectionStore() {
     syncQuestion,
     configureChoiceCount,
     selectChoice,
+    confirmChoice,
     clearQuestion,
     resetDocument() {
       selections.clear();
