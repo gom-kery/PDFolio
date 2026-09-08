@@ -61,6 +61,12 @@ export function initializePdfViewer(document, adapter) {
   });
   const choiceSelection = initializeChoiceSelection(document, {
     disabled: debugOverlay.enabled,
+    onConfirmed(selection) {
+      return cbtMask.reveal(selection);
+    },
+    isRevealed(selection) {
+      return cbtMask.isRevealed(selection);
+    },
   });
   const manualRegionSetup = initializeManualRegionSetup(document, {
     disabled: debugOverlay.enabled,

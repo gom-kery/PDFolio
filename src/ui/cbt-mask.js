@@ -1,4 +1,5 @@
 import { getCbtMaskReadiness } from '../cbt/cbt-mask.js';
+import { createCbtRevealStore } from '../cbt/cbt-reveal.js';
 import {
   createViewportGeometry,
   projectPdfRectToViewport,
@@ -27,14 +28,16 @@ function createRegionElement(document, { kind, rect }) {
   return element;
 }
 
-/** Keep Unit 3.1 masks separate from the Unit 4.1 setup preview overlay. */
+/** Keep Unit 3.4 reveals separate from the Unit 4.1 setup preview overlay. */
 export function initializeCbtMask(document, { disabled = false } = {}) {
   const overlay = document.querySelector('#cbt-mask-overlay');
   const message = document.querySelector('#cbt-mask-message');
   const status = document.querySelector('#cbt-mask-status');
   const statusSection = document.querySelector('.cbt-mask-status-section');
   const canvas = document.querySelector('#pdf-canvas');
+  const revealStore = createCbtRevealStore();
   let renderedPage = null;
+  let activeMask = null;
 
   const setStatus = (state, text) => {
     status.dataset.state = state;
@@ -46,6 +49,7 @@ export function initializeCbtMask(document, { disabled = false } = {}) {
     overlay.hidden = true;
     delete overlay.dataset.state;
     delete overlay.dataset.pageNumber;
+    delete overlay.dataset.questionId;
   };
 
   const sizeOverlayToCanvas = () => {
@@ -110,7 +114,16 @@ export function initializeCbtMask(document, { disabled = false } = {}) {
     overlay.dataset.questionId = mask.questionId;
     setStatus(
       'ready',
-      '해설과 정답을 가렸습니다. 답 선택과 공개는 다음 단계에서 추가됩니다.',
+      '해설과 정답을 가렸습니다. 답을 확정하면 이 문제의 해설과 정답을 공개합니다.',
+    );
+  };
+
+  const showRevealed = () => {
+    hideOverlay();
+    canvas.removeAttribute('aria-hidden');
+    setStatus(
+      'revealed',
+      '이 문제의 해설과 정답을 공개했습니다. 정답 판정과 채점은 아직 하지 않습니다.',
     );
   };
 
@@ -118,11 +131,23 @@ export function initializeCbtMask(document, { disabled = false } = {}) {
     overlay.hidden = true;
     statusSection.hidden = true;
     status.hidden = true;
-    return Object.freeze({ reset() {}, blockUntilReady() {}, sync() {} });
+    return Object.freeze({
+      reset() {},
+      blockUntilReady() {},
+      sync() {},
+      reveal() {
+        return { status: 'error', code: 'CBT_MASK_DISABLED' };
+      },
+      isRevealed() {
+        return false;
+      },
+    });
   }
 
   const reset = () => {
     renderedPage = null;
+    activeMask = null;
+    revealStore.resetDocument();
     hideOverlay();
     status.hidden = true;
     statusSection.hidden = true;
@@ -145,6 +170,8 @@ export function initializeCbtMask(document, { disabled = false } = {}) {
       }
       statusSection.hidden = false;
       if (setupActive) {
+        if (activeMask) revealStore.clearQuestion(activeMask);
+        activeMask = null;
         hideOverlay();
         status.hidden = false;
         setStatus(
@@ -160,8 +187,23 @@ export function initializeCbtMask(document, { disabled = false } = {}) {
       });
       status.hidden = false;
       canvas.setAttribute('aria-hidden', 'true');
-      if (result.status === 'ready') showReady(result.mask);
-      else showBlocked(result.code);
+      if (result.status === 'ready') {
+        activeMask = result.mask;
+        if (revealStore.getReveal(result.mask)) showRevealed();
+        else showReady(result.mask);
+      } else {
+        activeMask = null;
+        showBlocked(result.code);
+      }
+    },
+    reveal(selection) {
+      const result = revealStore.reveal({ mask: activeMask, selection });
+      if (result.status === 'revealed' || result.status === 'already-revealed')
+        showRevealed();
+      return result;
+    },
+    isRevealed(selection) {
+      return Boolean(revealStore.getReveal(selection));
     },
   });
 }

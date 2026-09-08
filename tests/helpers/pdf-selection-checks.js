@@ -643,15 +643,29 @@ export async function checkPdfSelection(application, page, artifacts) {
       '5',
     );
     await page.locator('#zoom-out').click();
-    await page.waitForFunction(
-      () => document.querySelector('#pdf-canvas')?.dataset.scale !== undefined,
-    );
+    await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
     assert.equal(
       await page
         .locator('#choice-selection')
         .getAttribute('data-selected-choice'),
       '5',
     );
+    const cbtMasks = await readNormalizedCbtMasks();
+    assert.deepEqual(
+      cbtMasks.map(({ kind }) => kind),
+      ['answer', 'solution'],
+    );
+    assert.ok(
+      cbtMasks.every(({ background }) => background === 'rgb(31, 41, 39)'),
+    );
+    for (const [index, manual] of initialManualRegions.entries()) {
+      const mask = cbtMasks[index];
+      for (const key of ['x', 'y', 'width', 'height'])
+        assert.ok(
+          Math.abs(manual[key] - mask[key]) < 0.005,
+          `${manual.kind} ${key} changed from preview to CBT mask`,
+        );
+    }
     await page.locator('#confirm-choice').click();
     assert.equal(
       await page
@@ -670,7 +684,16 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     assert.match(
       await page.locator('#choice-selection-status').innerText(),
-      /아직 공개하지 않습니다/,
+      /해설과 정답을 공개했습니다/,
+    );
+    assert.equal(
+      await page.locator('#confirm-choice').innerText(),
+      '해설·정답 공개됨',
+    );
+    assert.equal(await page.locator('#cbt-mask-overlay').isHidden(), true);
+    assert.match(
+      await page.locator('#cbt-mask-status').innerText(),
+      /해설과 정답을 공개했습니다/,
     );
     const firstQuestionId = await manualSetup.getAttribute('data-question-id');
     assert.match(firstQuestionId, /^question-/);
@@ -678,25 +701,9 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(await page.locator('#manual-region-editor').isHidden(), true);
     assert.equal(
       await page.locator('#pdf-canvas').getAttribute('aria-hidden'),
-      'true',
+      null,
     );
     assert.equal(await page.locator('.textLayer, .text-layer').count(), 0);
-    const cbtMasks = await readNormalizedCbtMasks();
-    assert.deepEqual(
-      cbtMasks.map(({ kind }) => kind),
-      ['answer', 'solution'],
-    );
-    assert.ok(
-      cbtMasks.every(({ background }) => background === 'rgb(31, 41, 39)'),
-    );
-    for (const [index, manual] of initialManualRegions.entries()) {
-      const mask = cbtMasks[index];
-      for (const key of ['x', 'y', 'width', 'height'])
-        assert.ok(
-          Math.abs(manual[key] - mask[key]) < 0.005,
-          `${manual.kind} ${key} changed from preview to CBT mask`,
-        );
-    }
     await page.locator('#start-manual-region-setup').click();
     await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
     assert.equal(await page.locator('#choice-selection').isHidden(), true);
@@ -731,7 +738,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       'cbt-mask-blocks-unconfirmed-page',
       'cbt-mask-hides-confirmed-solution-and-answer',
       'cbt-mask-has-no-text-layer-bypass',
-      'choice-selection-four-five-single-choice-confirmation-and-edit-invalidation',
+      'choice-selection-confirmation-reveals-current-question-and-edit-invalidation',
     );
 
     await select({ canceled: false, filePaths: [files.keyword] }, 'selected');

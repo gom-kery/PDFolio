@@ -2,6 +2,58 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.4 / Unit 3.4 작업 기록 — 2026-09-08
+
+**잠긴 선택과 같은 Question/revision의 해설·정답 Mask만 공개하고, 그 공개 상태를 페이지 재방문 동안 세션 메모리에 유지하게 했다. 정답 값 추출·답 비교·채점은 수행하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 시작 HEAD는 `da0702f`의 Unit 3.3 커밋이었고 작업 트리는 깨끗했다.
+
+### Unit 3.4 — 1. 구현한 내용
+
+- `locked` 선택과 현재 Mask의 `questionId`·`documentRevision`이 일치할 때만 공개 레코드를 만든다. 선택 전·잠기지 않은 선택·다른 Question/revision은 공개하지 않는다.
+- 공개된 현재 Question의 해설·정답 Mask만 숨기며, 다른 페이지·Question에는 공개 상태를 전달하지 않는다. 같은 페이지를 떠났다가 돌아오면 동일 세션의 공개를 복원한다.
+- 수동 영역 재편집을 시작하면 선택과 공개를 함께 폐기한다. 파일 교체·새로고침·종료도 전체 세션 상태를 폐기한다. 공개 뒤에도 정답 값·맞음/틀림·채점 결과는 표시하지 않는다.
+
+### Unit 3.4 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 공개 상태 | `src/cbt/cbt-reveal.js` — Question/revision·페이지 범위의 세션 공개 레코드와 context 검증 |
+| Mask·선택 UI | `src/ui/cbt-mask.js`, `src/ui/choice-selection.js`, `src/ui/pdf-viewer.js`, `src/styles/shell.css`, `index.html` — 답 확인 뒤 공개, 재방문 복원, 상태 안내와 접근성 처리 |
+| 검사 | `tests/cbt-reveal.test.js`, `tests/helpers/pdf-selection-checks.js`, `package.json` — context 차단, 재방문·폐기, 일반/진단 화면 회귀 |
+| 버전·문서 | `package.json`, `package-lock.json`, `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 0.3.4 기록 |
+
+### Unit 3.4 — 3. 사용자가 직접 테스트할 방법
+
+1. 일반 앱에서 해설·정답 영역을 수동 확정하고 답 하나를 선택·확정합니다.
+2. `답 확인` 뒤 현재 페이지의 해설·정답 가림만 사라지고, `해설·정답 공개됨` 상태가 보이는지 확인합니다.
+3. 다른 페이지로 이동했다가 다시 돌아옵니다. 같은 Question의 해설·정답 공개가 유지되고 다른 페이지에는 공개가 전파되지 않아야 합니다.
+4. `확정 영역 수정`을 시작한 뒤 취소합니다. 공개가 사라지고 이전 두 영역 Mask와 4지 미선택 카드가 복원되어야 합니다.
+5. 정답 값, 맞음/틀림, 채점 결과는 표시되지 않아야 합니다. Debug Overlay에서는 Mask·답 선택·공개 UI가 모두 숨겨져야 합니다.
+
+### Unit 3.4 — 4. 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 116/116 통과 | 공개 context 검증, 재방문 상태, 세션 폐기와 기존 PDF/CBT 회귀 |
+| `npm run build` | 통과 | Vite 29 modules, 로컬 PDF.js 자산; 500 kB 초과 번들 안내만 기존과 동일 |
+| `npm run test:electron` | Debug·개발·빌드 3/4 통과 | 답 확인 뒤 Mask 공개, 상태 안내, 재편집 무효화와 진단 모드 차단 |
+| Windows x64/ASAR 재패키지·패키지 Electron | 대기 | 실행 중인 3.2 패키지가 19 controls를 반환하여 0.3.4의 22 controls 검사를 통과할 수 없음 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 3.4 — 5. 알려진 제한사항과 다음 Unit
+
+- 공개 상태는 같은 Question/revision의 세션 메모리일 뿐 Attempt 기록이나 정답 값이 아니다.
+- 다음 계획 Unit 3.5에서만 지정한 정답 영역의 답 값을 추출한다. 답 비교·채점은 Unit 3.6 전까지 추가하지 않는다.
+- 실행 중인 패키지 앱을 모두 닫은 뒤 `npm run package`, `npm run test:electron`, `npm run test:native`를 다시 실행해야 0.3.4 패키지 검증을 완료로 기록할 수 있다.
+
+### Unit 3.4 — 6. Git Commit Message
+
+제안: `PDFolio repository at unit 3.4_reveal solution and answer after confirmation`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다.
+
 ## 0.3.3 / Unit 3.3 작업 기록 — 2026-09-08
 
 **선택 전 답 확인을 차단하고, 선택 뒤 한 번만 답을 확정해 4/5지·답 선택·중복 확인을 잠갔다. 잠금은 세션 메모리 상태이며 해설·정답 공개·정답 추출·채점은 수행하지 않았다.**

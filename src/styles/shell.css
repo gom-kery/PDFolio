@@ -957,6 +957,10 @@
   color: var(--color-accent);
 }
 
+.cbt-mask-status[data-state='revealed'] {
+  color: var(--color-accent);
+}
+
 .cbt-mask-status[data-state='blocked'] {
   color: var(--color-warning);
 }
