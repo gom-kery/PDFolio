@@ -2,6 +2,60 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.2 / Unit 3.2 작업 기록 — 2026-09-08
+
+**확정 Question과 CBT Mask가 준비된 한 페이지에서만 4지/5지를 설정하고 답 하나를 선택하게 했다. 선택은 메모리 전용이며 답 확인·잠금·공개·정답 추출·채점은 구현하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 시작 HEAD는 `6c08de3`의 Unit 3.1 커밋이었고 작업 트리는 깨끗했다.
+
+### Unit 3.2 — 1. 구현한 내용
+
+- 동일 revision·페이지의 수동 확정 Question과 두 Mask Region이 준비된 경우에만 `답 선택` 카드를 표시한다. 확정 없음·다른 페이지·수동 편집 중·Debug Overlay에서는 숨긴다.
+- 기본 4지에서 4지 또는 5지로 바꾸고, 현재 보기 수 안에서 radio 하나만 선택한다. native radio를 사용해 키보드 Tab·방향키 상호작용과 선택 표시를 제공한다.
+- 보기 수가 바뀌면 이전 선택을 지운다. 확대·높이 맞춤의 재렌더에는 유지하며, 수동 영역 재편집 시작·파일 교체·새로고침·종료에는 선택을 폐기한다.
+
+### Unit 3.2 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 선택 상태 | `src/cbt/choice-selection.js` — Question/revision별 4/5지·단일 선택 메모리 상태와 입력 검증 |
+| 선택 화면 | `src/ui/choice-selection.js`, `index.html`, `src/styles/shell.css` — 준비 상태 연동 radio 카드와 선택 표시 |
+| Viewer 수명 | `src/ui/pdf-viewer.js` — Mask·수동 설정과 선택 UI의 동기화·문서 초기화 |
+| 검사 | `tests/choice-selection.test.js`, `tests/helpers/pdf-selection-checks.js`, `tests/electron.test.js`, `tests/debug-overlay.test.js`, `package.json` — 4/5지, 단일 선택, 무효화, 일반/진단 화면 회귀 |
+| 버전·문서 | `package.json`, `package-lock.json`, `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 0.3.2 기록 |
+
+### Unit 3.2 — 3. 사용자가 직접 테스트할 방법
+
+1. 일반 앱에서 해설·정답 영역을 수동 확정한다. 두 영역 Mask가 나타난 뒤에만 오른쪽 `답 선택` 카드가 나타나야 한다.
+2. 기본 4지에서 1~4번 중 하나를 선택하고, 키보드 Tab과 방향키로 다른 보기를 선택해 하나만 선택되는지 확인한다.
+3. `5지`로 바꾸면 이전 선택이 지워지고 1~5번이 나타나야 한다. 5번을 선택한 뒤 확대·축소해도 선택이 유지되어야 한다.
+4. `확정 영역 수정`을 시작하면 카드가 숨겨지고 선택이 폐기되어야 한다. 취소 뒤 카드가 복원되면 4지 미선택 상태여야 한다. 다른 PDF를 열어도 카드는 숨겨져야 한다.
+5. 답 확인·잠금·공개·정답 추출·채점 버튼이 없어야 하며 `npm run dev:debug`에서는 답 선택 카드도 없어야 한다.
+
+### Unit 3.2 — 4. 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 114/114 통과 | 4/5지 경계, 단일 선택, 초기화·revision 격리와 기존 PDF/CBT 회귀 |
+| `npm run build` | 통과 | Vite 28 modules, 로컬 PDF.js 자산; 500 kB 초과 번들 안내만 기존과 동일하게 표시 |
+| `npm run test:electron` | Debug·개발·빌드 3/4 통과 | 확정 뒤 선택, 4→5지 초기화, 재렌더 유지, 재편집·파일 교체·진단 모드 차단 |
+| Windows x64/ASAR 재패키지·패키지 Electron | 대기 | 실행 중인 이전 패키지 파일이 `release`를 잠가 새 패키지 폴더를 보관·교체하지 못함 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 3.2 — 5. 알려진 제한사항과 다음 Unit
+
+- 선택은 화면 메모리에만 있으며 Attempt 레코드·답 확인·잠금·공개·채점 결과가 아니다.
+- 수동 확정 Question의 기본값은 4지이고, 현재 5지 설정은 선택 세션의 유효 보기 수다. 자동 보기 수 인식은 하지 않는다.
+- 다음 계획 Unit 3.3에서만 미선택 확인 차단과 선택 잠금을 추가한다. 해설·정답 공개와 채점은 각각 Unit 3.4와 3.6까지 추가하지 않는다.
+- 새 패키지 앱을 모두 닫은 뒤 `npm run package`, `npm run test:electron`, `npm run test:native`를 다시 실행해야 0.3.2의 패키지 검증을 완료로 기록할 수 있다.
+
+### Unit 3.2 — 6. Git Commit Message
+
+제안: `feat(cbt): add four-five choice selection`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다.
+
 ## 0.3.1 / Unit 3.1 작업 기록 — 2026-09-08
 
 **Unit 4.1에서 사용자가 확정한 한 페이지·한 문제의 해설·정답 Region만 실제 CBT 가림으로 전환했다. 확정·렌더·투영이 모두 준비되기 전에는 PDF 전체를 덮고, 수동 설정 화면에서만 원문을 보인다. 답 선택·공개·정답 추출·채점은 구현하지 않았다.**

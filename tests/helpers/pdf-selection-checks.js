@@ -608,6 +608,48 @@ export async function checkPdfSelection(application, page, artifacts) {
     await page.locator('#confirm-manual-regions').click();
     await page.waitForSelector('#manual-region-setup[data-state="confirmed"]');
     await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
+    await page.waitForSelector('#choice-selection:not([hidden])');
+    assert.equal(
+      await page.locator('#choice-selection').getAttribute('data-choice-count'),
+      '4',
+    );
+    assert.equal(await page.locator('input[name="answer-choice"]').count(), 4);
+    await page.locator('input[name="answer-choice"][value="3"]').check();
+    assert.equal(
+      await page
+        .locator('#choice-selection')
+        .getAttribute('data-selected-choice'),
+      '3',
+    );
+    await page.locator('input[name="choice-count"][value="5"]').check();
+    assert.equal(
+      await page.locator('#choice-selection').getAttribute('data-choice-count'),
+      '5',
+    );
+    assert.equal(
+      await page
+        .locator('#choice-selection')
+        .getAttribute('data-selected-choice'),
+      '',
+    );
+    assert.equal(await page.locator('input[name="answer-choice"]').count(), 5);
+    await page.locator('input[name="answer-choice"][value="5"]').check();
+    assert.equal(
+      await page
+        .locator('#choice-selection')
+        .getAttribute('data-selected-choice'),
+      '5',
+    );
+    await page.locator('#zoom-out').click();
+    await page.waitForFunction(
+      () => document.querySelector('#pdf-canvas')?.dataset.scale !== undefined,
+    );
+    assert.equal(
+      await page
+        .locator('#choice-selection')
+        .getAttribute('data-selected-choice'),
+      '5',
+    );
     const firstQuestionId = await manualSetup.getAttribute('data-question-id');
     assert.match(firstQuestionId, /^question-/);
     assert.equal(await page.locator('#manual-region-overlay').isHidden(), true);
@@ -635,6 +677,7 @@ export async function checkPdfSelection(application, page, artifacts) {
     }
     await page.locator('#start-manual-region-setup').click();
     await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+    assert.equal(await page.locator('#choice-selection').isHidden(), true);
     assert.equal(await manualSetup.getAttribute('data-question-id'), null);
     await page.locator('#cancel-manual-regions').click();
     assert.equal(
@@ -644,6 +687,17 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.match(
       await page.locator('#manual-region-status').innerText(),
       /이전 확정 상태는 유지합니다/,
+    );
+    await page.waitForSelector('#choice-selection:not([hidden])');
+    assert.equal(
+      await page.locator('#choice-selection').getAttribute('data-choice-count'),
+      '4',
+    );
+    assert.equal(
+      await page
+        .locator('#choice-selection')
+        .getAttribute('data-selected-choice'),
+      '',
     );
     assert.equal(await hash(), originalHash);
     cases.push(
@@ -655,6 +709,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       'cbt-mask-blocks-unconfirmed-page',
       'cbt-mask-hides-confirmed-solution-and-answer',
       'cbt-mask-has-no-text-layer-bypass',
+      'choice-selection-four-five-single-choice-and-edit-invalidation',
     );
 
     await select({ canceled: false, filePaths: [files.keyword] }, 'selected');
@@ -669,6 +724,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       /확정된 수동 영역이 없습니다/,
     );
     await page.waitForSelector('#cbt-mask-overlay[data-state="blocked"]');
+    assert.equal(await page.locator('#choice-selection').isHidden(), true);
     assert.equal(
       await page.locator('#pdf-canvas').getAttribute('aria-hidden'),
       'true',

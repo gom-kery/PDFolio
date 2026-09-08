@@ -54,6 +54,7 @@ test(
       assert.equal(await page.locator('#pdf-debug-panel').isHidden(), true);
       assert.equal(await page.locator('#pdf-debug-overlay').isHidden(), true);
       assert.equal(await page.locator('#manual-region-setup').isHidden(), true);
+      assert.equal(await page.locator('#choice-selection').isHidden(), true);
       assert.equal(
         await page.locator('#manual-region-overlay').isHidden(),
         true,

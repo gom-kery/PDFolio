@@ -7,6 +7,7 @@ import { classifyPageSupportProfile } from '../analysis/page-support-profile.js'
 import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
 import { initializeManualRegionSetup } from './manual-region-setup.js';
 import { initializeCbtMask } from './cbt-mask.js';
+import { initializeChoiceSelection } from './choice-selection.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -58,9 +59,12 @@ export function initializePdfViewer(document, adapter) {
   const cbtMask = initializeCbtMask(document, {
     disabled: debugOverlay.enabled,
   });
+  const choiceSelection = initializeChoiceSelection(document, {
+    disabled: debugOverlay.enabled,
+  });
   const manualRegionSetup = initializeManualRegionSetup(document, {
     disabled: debugOverlay.enabled,
-    onStateChange: () => syncCbtMask(),
+    onStateChange: () => syncCbtUi(),
   });
   let requestId = 0;
   let currentPage = 0;
@@ -74,14 +78,16 @@ export function initializePdfViewer(document, adapter) {
   let analysisRequestId = 0;
   let lastRenderedPage = null;
 
-  const syncCbtMask = () => {
-    cbtMask.sync({
+  const syncCbtUi = () => {
+    const state = {
       rendered: lastRenderedPage,
       confirmation: manualRegionSetup.getConfirmation(
         lastRenderedPage?.pageNumber,
       ),
       setupActive: manualRegionSetup.isSetupActive?.() ?? false,
-    });
+    };
+    cbtMask.sync(state);
+    choiceSelection.sync(state);
   };
 
   const createRenderCanvas = () => document.createElement('canvas');
@@ -493,7 +499,7 @@ export function initializePdfViewer(document, adapter) {
     showViewer('ready', '');
     debugOverlay.setViewport(rendered);
     manualRegionSetup.setViewport(rendered);
-    syncCbtMask();
+    syncCbtUi();
     if (resetScroll) {
       pageScroll.scrollTop = 0;
       pageScroll.scrollLeft = 0;
@@ -647,6 +653,7 @@ export function initializePdfViewer(document, adapter) {
     async open(result) {
       const ownRequestId = ++requestId;
       cbtMask.reset();
+      choiceSelection.resetDocument();
       lastRenderedPage = null;
       manualRegionSetup.resetDocument();
       currentPage = 0;
@@ -710,6 +717,7 @@ export function initializePdfViewer(document, adapter) {
       debugOverlay.dispose();
       manualRegionSetup.dispose();
       cbtMask.reset();
+      choiceSelection.resetDocument();
     },
   };
 }

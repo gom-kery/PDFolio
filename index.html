@@ -344,6 +344,33 @@
               </div>
             </div>
           </section>
+          <section
+            id="choice-selection"
+            class="choice-selection"
+            aria-labelledby="choice-selection-title"
+            hidden
+          >
+            <h2 id="choice-selection-title">답 선택</h2>
+            <p
+              id="choice-selection-status"
+              class="choice-selection-status"
+              role="status"
+              aria-atomic="true"
+            ></p>
+            <fieldset id="choice-count-controls" class="choice-count-controls">
+              <legend>보기 수</legend>
+              <label
+                ><input type="radio" name="choice-count" value="4" /> 4지</label
+              >
+              <label
+                ><input type="radio" name="choice-count" value="5" /> 5지</label
+              >
+            </fieldset>
+            <fieldset class="choice-option-controls">
+              <legend>선택한 답</legend>
+              <div id="choice-options" class="choice-options"></div>
+            </fieldset>
+          </section>
         </div>
       </main>
 
@@ -356,7 +383,7 @@
           data-state="idle"
           hidden
         ></p>
-        <p>Unit 3.1 · 해설·정답 가림</p>
+        <p>Unit 3.2 · 객관식 답 선택</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>

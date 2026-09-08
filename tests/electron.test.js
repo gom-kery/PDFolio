@@ -194,7 +194,7 @@ for (const mode of ['dev', 'built', 'packaged']) {
           evidence.renderer.bridgeFrozen && evidence.renderer.infoFrozen,
           true,
         );
-        assert.equal(evidence.renderer.controls, 19);
+        assert.equal(evidence.renderer.controls, 21);
         assert.equal(evidence.renderer.debugPanelPresent, false);
         assert.ok(
           evidence.shell.outerScrollHeight <=
