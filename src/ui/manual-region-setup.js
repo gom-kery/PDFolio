@@ -64,7 +64,7 @@ function messageForCode(code) {
 /** Manage the Unit 4.1 setup-only Region overlay without enabling CBT masks. */
 export function initializeManualRegionSetup(
   document,
-  { disabled = false } = {},
+  { disabled = false, onStateChange = () => {} } = {},
 ) {
   const section = document.querySelector('#manual-region-setup');
   const status = document.querySelector('#manual-region-status');
@@ -88,6 +88,12 @@ export function initializeManualRegionSetup(
   let activeKind = 'solution';
   let pointerDrag = null;
   let draftCanceledByNavigation = false;
+
+  const notifyStateChange = () =>
+    onStateChange({
+      pageNumber: renderedPage?.pageNumber ?? null,
+      setupActive: Boolean(store.getDraft()),
+    });
 
   if (disabled) {
     section.hidden = true;
@@ -272,6 +278,7 @@ export function initializeManualRegionSetup(
     );
     renderOverlay();
     overlay.focus({ preventScroll: true });
+    notifyStateChange();
   };
 
   const selectKind = (kind) => {
@@ -340,6 +347,7 @@ export function initializeManualRegionSetup(
         `${KIND_LABELS[activeKind]} 영역을 지정했습니다. 나머지 영역도 지정해주세요.`,
       );
     renderOverlay();
+    notifyStateChange();
   };
 
   startButton.addEventListener('click', startEditing);
@@ -356,6 +364,7 @@ export function initializeManualRegionSetup(
     };
     overlay.setPointerCapture?.(event.pointerId);
     renderOverlay();
+    notifyStateChange();
   });
   overlay.addEventListener('pointermove', (event) => {
     if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
@@ -409,6 +418,7 @@ export function initializeManualRegionSetup(
     section.dataset.questionId = result.confirmation.question.questionId;
     closeEditor();
     refreshPageStatus();
+    notifyStateChange();
   });
   cancelButton.addEventListener('click', () => {
     const hadConfirmation = Boolean(
@@ -421,6 +431,7 @@ export function initializeManualRegionSetup(
         ? '영역 편집을 취소했습니다. 이전 확정 상태는 유지합니다.'
         : '영역 편집을 취소했습니다. 저장된 영역은 없습니다.',
     );
+    notifyStateChange();
   });
 
   const resetDocument = () => {
@@ -432,6 +443,7 @@ export function initializeManualRegionSetup(
     delete section.dataset.questionId;
     closeEditor();
     section.hidden = true;
+    notifyStateChange();
   };
 
   return Object.freeze({
@@ -455,6 +467,7 @@ export function initializeManualRegionSetup(
             'idle',
             '페이지 이동을 시작해 완료하지 않은 영역 편집을 취소했습니다.',
           );
+        notifyStateChange();
       }
     },
     setViewport(rendered) {
@@ -498,10 +511,14 @@ export function initializeManualRegionSetup(
             : '',
         );
       }
+      notifyStateChange();
     },
     getConfirmation(pageNumber) {
       if (store.getDraft()?.pageNumber === pageNumber) return null;
       return store.getConfirmation(pageNumber);
+    },
+    isSetupActive() {
+      return Boolean(store.getDraft());
     },
     dispose() {
       resetDocument();

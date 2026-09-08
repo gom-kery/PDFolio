@@ -2,6 +2,90 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.1 / Unit 3.1 작업 기록 — 2026-09-08
+
+**Unit 4.1에서 사용자가 확정한 한 페이지·한 문제의 해설·정답 Region만 실제 CBT 가림으로 전환했다. 확정·렌더·투영이 모두 준비되기 전에는 PDF 전체를 덮고, 수동 설정 화면에서만 원문을 보인다. 답 선택·공개·정답 추출·채점은 구현하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 시작 HEAD는 `20764bb`의 Unit 4.1 커밋이었고 작업 트리는 깨끗했다.
+
+### Unit 3.1 — 1. 구현한 내용
+
+- `Question.setupStatus: confirmed`와 두 개의 수동 Region이 같은 document revision·페이지·소유 관계·PDF user space 범위·비겹침 조건을 모두 만족할 때만 Mask 입력으로 허용했다.
+- 확정이 없거나 편집 중, 다른 파일·페이지·revision, 잘못된 사각형, 렌더 준비 중이면 Canvas 전체를 불투명하게 덮는다. 설정 버튼을 누른 경우에만 전체 덮개를 숨겨 원문에서 범위를 지정할 수 있다.
+- 확정 뒤에는 해설과 정답 사각형을 각각 불투명하게 덮고, 확대·축소·높이 맞춤·고유 회전의 새 viewport와 Canvas CSS 크기에 맞춰 다시 투영한다.
+- 파일 교체·페이지 변경·수동 재편집에서는 이전 확정을 현재 Mask 입력으로 쓰지 않는다. 취소하면 이전 확정의 두 영역 가림을 복원한다.
+- 현 Viewer는 Text Layer를 생성하지 않으며, CBT 가림·전체 덮개 상태에서는 Canvas를 접근성 트리에서 숨겨 원문 텍스트 우회 경로를 만들지 않는다. 설정 화면에서는 이 제한을 풀되 원문 노출 가능성을 안내한다.
+- Debug Overlay 실행에서는 기존처럼 수동 설정과 CBT 가림을 모두 숨긴다.
+
+### Unit 3.1 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| Mask 준비 판정 | `src/cbt/cbt-mask.js` — 확정 Region의 revision·페이지·소유·geometry 검증과 `ready/blocked` 결과 |
+| Mask 화면 | `src/ui/cbt-mask.js`, `index.html`, `src/styles/shell.css` — 전체 덮개, 두 영역 불투명 Mask, 상태 안내 |
+| Viewer·설정 연결 | `src/ui/pdf-viewer.js`, `src/ui/manual-region-setup.js` — 렌더/페이지/확정/편집 상태에서 Mask 동기화 |
+| 검사 | `tests/cbt-mask.test.js`, `tests/helpers/pdf-selection-checks.js`, `package.json` — 준비 차단과 실제 Electron 화면 흐름 |
+| 버전·문서 | `package.json`, `package-lock.json`, `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 0.3.1·완료 기록 |
+
+`dist/`, `release/`, `work/`는 생성·검증 산출물이며 Git 대상이 아니다. 이전 0.3.0 패키지는 `work/unit-3.1-before-package/release/`에 보관했다.
+
+### Unit 3.1 — 3. 실행 방법
+
+```powershell
+npm run dev
+```
+
+빌드 결과는 `npm run build` 뒤 `npm start`, Windows 패키지는 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`로 실행한다.
+
+### Unit 3.1 — 4. 사용자가 직접 테스트할 방법
+
+1. 한 페이지에 문제·해설·정답이 함께 있는 PDF를 열어 PDF 전체 가림과 `CBT 가림`의 준비 안내를 확인한다.
+2. `영역 설정 시작`을 눌러 원문이 보이는 설정 화면에서 해설·정답을 각각 지정하고 미리보기 뒤 확정한다.
+3. 설정 화면이 닫힌 뒤 지정한 두 영역만 불투명하게 가려졌는지 확인한다.
+4. 확대·축소와 `높이 맞춤`, 페이지 이동과 다른 PDF 열기를 수행해 확정이 없는 페이지는 전체 가림인지 확인한다.
+5. `확정 영역 수정`을 열었다가 취소해 이전 두 영역 가림이 복원되는지 확인한다. 답 선택·확인·공개·채점 UI가 나타나면 안 된다.
+
+### Unit 3.1 — 5. 정상 동작 기준과 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 111/111 통과 | 확정 입력 검증, full cover 차단, 기존 PDF·분석·수동 영역 회귀 |
+| `npm run build` / `npm run package` | 통과 | Vite 26 modules, Electron 44.0.0 Windows x64/ASAR, 앱 0.3.1 |
+| `npm run test:electron` | 4/4 통과 | Debug 1, 일반 개발·빌드·패키지 3; 전체 가림·설정 중 원문·확정 Mask·배율·파일 교체·Text Layer 부재 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창·한글 PDF·취소·원본 불변 |
+| `npm run test:shutdown` | 개발 8/9, 패키지 9/9 / 전체 무오류 보류 | 개발 즉시 종료 한 번에서 기존 OPEN-09 GPU 진단 재현. 18회 모두 창 종료·종료 코드 0·포트 해제 정상 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 3.1 — 6. 예상되는 Edge Case
+
+- 문서 revision·페이지·Region 소유 관계가 하나라도 맞지 않으면 가림 사각형을 추측하지 않고 전체 덮개를 유지한다.
+- 재편집 중에는 이전 확정을 가리지 않는다. 설정 화면을 취소하면 이전 확정만 다시 사용한다.
+- 새 Canvas를 표시하기 전·파일 교체 중에는 이전 Region을 새 PDF에 투영하지 않는다.
+- 빈·이미지·수식 중심 PDF도 사용자가 수동 확정할 수 있으나, 확정하기 전에는 전체 가림이다.
+
+### Unit 3.1 — 7. 알려진 제한사항
+
+- 한 페이지·한 문제의 해설 사각형 하나와 정답 사각형 하나만 지원한다.
+- Canvas 원문은 스크린 리더로 읽을 수 없으며, Text Layer도 제공하지 않는다. 이는 공개 전 누출을 줄이지만 완전한 접근성 지원은 아니다.
+- 이 기능은 DRM·화면 캡처 방지·개발자 도구 방지가 아니다. 사용자가 보유한 원본 PDF를 화면에서 가리는 학습 보조 기능이다.
+
+### Unit 3.1 — 8. Technical Debt
+
+- Unit 3.2에서 4/5지 설정·선택 UI와 키보드 상호작용을 별도 구현해야 한다.
+- 실제 200% Windows 배율·스크린 리더·터치 환경과 다양한 PDF에서 Mask 정렬·접근성 한계를 추가 검증해야 한다.
+- Unit 1.0의 재배포 가능한 대표 PDF 행렬과 OPEN-09 빠른 종료 GPU 진단은 여전히 미해결이다. Unit 3.1 종료 반복에서도 개발 즉시 종료 한 번에 재현됐지만, 18회 모두 창 종료·종료 코드 0·포트 해제는 정상이었다.
+
+### Unit 3.1 — 9. 다음 Unit 진행 전 수정이 필요한 사항
+
+Mask 준비·차단·투영 경계는 완료했다. 다음 계획 Unit 3.2는 확정 Question의 `choiceCount`를 4 또는 5로 설정하고 하나의 답만 선택하는 UI를 추가한다. 해설·정답 공개와 채점은 각각 Unit 3.4와 3.6 이전에 구현하지 않는다.
+
+### Unit 3.1 — 10. Git Commit Message
+
+제안: `feat(cbt): add safe manual region mask layer`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다. 사용자가 현재 diff와 검사 결과를 확인한 뒤 사용할 메시지다.
+
 ## 0.3.0 / Unit 4.1 작업 기록 — 2026-09-03
 
 **Unit 3.1의 선행 관문인 한 페이지·한 문제용 수동 해설·정답 영역 설정을 구현했다. 사용자가 원문에서 두 사각형을 직접 지정하고 불투명 미리보기 뒤 확정한 Question/Region만 현재 세션에 유지한다. 이 설정 Overlay는 아직 CBT Mask가 아니며 정답 추출·선택·공개·채점은 추가하지 않았다.**

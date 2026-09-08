@@ -458,6 +458,35 @@ export async function checkPdfSelection(application, page, artifacts) {
     });
     const cases = [];
 
+    const readNormalizedCbtMasks = async () =>
+      page.locator('#cbt-mask-overlay').evaluate((overlay) => {
+        const bounds = overlay.getBoundingClientRect();
+        return Array.from(overlay.querySelectorAll('.cbt-mask-region'))
+          .map((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              kind: element.dataset.kind,
+              x: (rect.left - bounds.left) / bounds.width,
+              y: (rect.top - bounds.top) / bounds.height,
+              width: rect.width / bounds.width,
+              height: rect.height / bounds.height,
+              background: getComputedStyle(element).backgroundColor,
+            };
+          })
+          .sort((left, right) => left.kind.localeCompare(right.kind));
+      });
+
+    await page.waitForSelector('#cbt-mask-overlay[data-state="blocked"]');
+    assert.equal(await page.locator('#cbt-mask-overlay').isVisible(), true);
+    assert.equal(
+      await page.locator('#pdf-canvas').getAttribute('aria-hidden'),
+      'true',
+    );
+    assert.match(
+      await page.locator('#cbt-mask-status').innerText(),
+      /CBT 가림을 준비하지 않았습니다/,
+    );
+
     const drawManualRegion = async (kind, start, end) => {
       await page.locator(`#select-${kind}-region`).click();
       const overlay = page.locator('#manual-region-overlay');
@@ -501,6 +530,11 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     await page.locator('#start-manual-region-setup').click();
     await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+    assert.equal(await page.locator('#cbt-mask-overlay').isHidden(), true);
+    assert.equal(
+      await page.locator('#pdf-canvas').getAttribute('aria-hidden'),
+      null,
+    );
     assert.match(
       await page.locator('#manual-region-status').innerText(),
       /아직 CBT가 아닙니다/,
@@ -573,10 +607,32 @@ export async function checkPdfSelection(application, page, artifacts) {
     }
     await page.locator('#confirm-manual-regions').click();
     await page.waitForSelector('#manual-region-setup[data-state="confirmed"]');
+    await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
     const firstQuestionId = await manualSetup.getAttribute('data-question-id');
     assert.match(firstQuestionId, /^question-/);
     assert.equal(await page.locator('#manual-region-overlay').isHidden(), true);
     assert.equal(await page.locator('#manual-region-editor').isHidden(), true);
+    assert.equal(
+      await page.locator('#pdf-canvas').getAttribute('aria-hidden'),
+      'true',
+    );
+    assert.equal(await page.locator('.textLayer, .text-layer').count(), 0);
+    const cbtMasks = await readNormalizedCbtMasks();
+    assert.deepEqual(
+      cbtMasks.map(({ kind }) => kind),
+      ['answer', 'solution'],
+    );
+    assert.ok(
+      cbtMasks.every(({ background }) => background === 'rgb(31, 41, 39)'),
+    );
+    for (const [index, manual] of initialManualRegions.entries()) {
+      const mask = cbtMasks[index];
+      for (const key of ['x', 'y', 'width', 'height'])
+        assert.ok(
+          Math.abs(manual[key] - mask[key]) < 0.005,
+          `${manual.kind} ${key} changed from preview to CBT mask`,
+        );
+    }
     await page.locator('#start-manual-region-setup').click();
     await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
     assert.equal(await manualSetup.getAttribute('data-question-id'), null);
@@ -596,6 +652,9 @@ export async function checkPdfSelection(application, page, artifacts) {
       'manual-region-fit-height-projection',
       'manual-region-cancel-preserves-confirmation',
       'manual-region-no-original-file-change',
+      'cbt-mask-blocks-unconfirmed-page',
+      'cbt-mask-hides-confirmed-solution-and-answer',
+      'cbt-mask-has-no-text-layer-bypass',
     );
 
     await select({ canceled: false, filePaths: [files.keyword] }, 'selected');
@@ -608,6 +667,11 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.match(
       await page.locator('#manual-region-status').innerText(),
       /확정된 수동 영역이 없습니다/,
+    );
+    await page.waitForSelector('#cbt-mask-overlay[data-state="blocked"]');
+    assert.equal(
+      await page.locator('#pdf-canvas').getAttribute('aria-hidden'),
+      'true',
     );
     cases.push('manual-region-file-replacement-clears-session');
     await page.waitForSelector('#keyword-analysis-status[data-state="found"]', {

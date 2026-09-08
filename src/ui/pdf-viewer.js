@@ -6,6 +6,7 @@ import { inferPageAnswerRegions } from '../analysis/page-answer-regions.js';
 import { classifyPageSupportProfile } from '../analysis/page-support-profile.js';
 import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
 import { initializeManualRegionSetup } from './manual-region-setup.js';
+import { initializeCbtMask } from './cbt-mask.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -54,8 +55,12 @@ export function initializePdfViewer(document, adapter) {
   const fitHeightButton = document.querySelector('#fit-height');
   const zoomLevel = document.querySelector('#zoom-level');
   const debugOverlay = initializePdfDebugOverlay(document);
+  const cbtMask = initializeCbtMask(document, {
+    disabled: debugOverlay.enabled,
+  });
   const manualRegionSetup = initializeManualRegionSetup(document, {
     disabled: debugOverlay.enabled,
+    onStateChange: () => syncCbtMask(),
   });
   let requestId = 0;
   let currentPage = 0;
@@ -67,6 +72,17 @@ export function initializePdfViewer(document, adapter) {
   let scaleMode = 'fixed';
   let resizeTimer = null;
   let analysisRequestId = 0;
+  let lastRenderedPage = null;
+
+  const syncCbtMask = () => {
+    cbtMask.sync({
+      rendered: lastRenderedPage,
+      confirmation: manualRegionSetup.getConfirmation(
+        lastRenderedPage?.pageNumber,
+      ),
+      setupActive: manualRegionSetup.isSetupActive?.() ?? false,
+    });
+  };
 
   const createRenderCanvas = () => document.createElement('canvas');
 
@@ -455,6 +471,7 @@ export function initializePdfViewer(document, adapter) {
     requestedPage = rendered.pageNumber;
     totalPages = rendered.pageCount;
     currentScale = rendered.scale;
+    lastRenderedPage = rendered;
     currentPageBaseHeight = rendered.height / rendered.scale;
     requestedScale = scaleMode === 'fixed' ? rendered.scale : requestedScale;
     pageCount.textContent = `${currentPage} / ${totalPages}`;
@@ -476,6 +493,7 @@ export function initializePdfViewer(document, adapter) {
     showViewer('ready', '');
     debugOverlay.setViewport(rendered);
     manualRegionSetup.setViewport(rendered);
+    syncCbtMask();
     if (resetScroll) {
       pageScroll.scrollTop = 0;
       pageScroll.scrollLeft = 0;
@@ -515,6 +533,7 @@ export function initializePdfViewer(document, adapter) {
     }
 
     requestedPage = pageNumber;
+    cbtMask.blockUntilReady();
     if (pageNumber !== currentPage) {
       manualRegionSetup.prepareForPageChange(pageNumber);
       resetTextAnalysis('페이지를 표시한 뒤 텍스트를 확인합니다.');
@@ -627,6 +646,8 @@ export function initializePdfViewer(document, adapter) {
   return {
     async open(result) {
       const ownRequestId = ++requestId;
+      cbtMask.reset();
+      lastRenderedPage = null;
       manualRegionSetup.resetDocument();
       currentPage = 0;
       requestedPage = 0;
@@ -688,6 +709,7 @@ export function initializePdfViewer(document, adapter) {
       await adapter.dispose();
       debugOverlay.dispose();
       manualRegionSetup.dispose();
+      cbtMask.reset();
     },
   };
 }

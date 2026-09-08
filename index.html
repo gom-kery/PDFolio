@@ -91,6 +91,14 @@
                     aria-describedby="manual-region-instruction"
                     hidden
                   ></div>
+                  <div
+                    id="cbt-mask-overlay"
+                    class="cbt-mask-overlay"
+                    aria-live="polite"
+                    hidden
+                  >
+                    <p id="cbt-mask-message" class="cbt-mask-message"></p>
+                  </div>
                 </div>
               </div>
               <button
@@ -202,6 +210,20 @@
                   </dd>
                 </div>
               </dl>
+            </section>
+            <section
+              class="cbt-mask-status-section"
+              aria-labelledby="cbt-mask-status-title"
+              hidden
+            >
+              <h3 id="cbt-mask-status-title">CBT 가림</h3>
+              <p
+                id="cbt-mask-status"
+                class="cbt-mask-status"
+                role="status"
+                aria-atomic="true"
+                data-state="idle"
+              ></p>
             </section>
             <details class="scope-note">
               <summary>지원 프로파일 판정 단계</summary>
@@ -334,7 +356,7 @@
           data-state="idle"
           hidden
         ></p>
-        <p>Unit 4.1 · 수동 영역 확정</p>
+        <p>Unit 3.1 · 해설·정답 가림</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>
