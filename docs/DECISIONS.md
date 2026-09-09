@@ -563,6 +563,17 @@
 - MVP 범위: 이 완료는 한 페이지·한 문제의 첫 MVP에 한한다. 사용자가 정의한 여러 문제가 있는 페이지까지의 넓은 MVP 완료 기준은 Phase 4의 4.0 구조 검토, 4.2 다문제 분리, 4.3 페이지 연결, 4.4 문제 탐색, 4.5 통합 검증을 모두 마친 시점이다.
 - 제외 범위: 다문제·다단·다페이지 Question 구현, 문제별 Mask/선택/채점, OCR/AI, 저장·통계와 OPEN-09의 수정은 추가하지 않았다.
 
+### ADR-043 — Unit 4.0 다문제·다페이지 확장 관계 계약
+
+- 상태: **채택 — Unit 4.0 문서 구조 검토 완료**, 2026-09-09. 앱 코드·UI·패키지·SemVer는 0.3.6으로 유지한다.
+- 문제: 현재 v1은 Region이 정확히 하나의 page-single Question에 속하며, 페이지 탐색만 제공한다. 이를 그대로 여러 문제·여러 페이지에 적용하면 하나의 해설·정답 공개가 다른 문제의 답을 드러내거나, 자동 후보가 확인된 수동 영역을 덮어쓸 수 있다.
+- 관계 모델: 후속 Question v2는 `pageRefs[]`의 `pageNumber`와 `role: prompt/choice/explanation/answer`를 순서 있게 보유한다. Region v2의 기하 정보는 페이지별 PDF user space 사각형으로 유지하되 Question 소유 필드를 제거하고, 별도 `QuestionRegionBinding`이 Question·Region·role·visibility·source·confirmation을 연결한다. 다페이지 영역은 여러 Region으로 나타내며 하나의 초대형 사각형으로 합치지 않는다.
+- 공유 정책: `solution`·`answer` Binding은 반드시 하나의 Question만 소유하는 `question-only`다. 둘 이상의 Question과 연결해야 하거나 답 포함 여부를 입증하지 못하면 자동 공유·공개하지 않고 보류한다. 여러 Question이 공유할 수 있는 것은 정답을 포함하지 않는 `shared-context` 지문·공통 설명뿐이다. 현재 Question의 공개는 그 Question의 `question-only` Region으로 한정한다.
+- 수동 보정 우선순위: 자동 분리기는 draft 후보만 만들 수 있으며, 확정된 수동 Region·Binding을 수정·삭제·재할당하지 않는다. 자동/수동 또는 후보 간 겹침·소유 충돌은 보류로 기록하고 사용자의 명시적 병합·분할·해제 전에는 CBT 준비를 허용하지 않는다.
+- 순서·무효화: 문제 순서는 Question ID·인쇄 번호·페이지 번호에서 추론하지 않고, 별도 확정 `QuestionOrder` 관계가 생긴 뒤에만 제공한다. documentRevision 변경은 모든 확장 관계를, 수동 Binding 변경은 해당 Question의 Answer·Attempt·Grade·Mask를, 공유 문맥 변경은 연결된 모든 Question의 준비 상태를 무효화한다. Unit 4.4 전에는 페이지 탐색을 유지한다.
+- 검증: PROJECT_BIBLE의 v1 계약, ROADMAP의 4.0~4.5 순서, 기존 ADR-033/034의 page-single·수동 확정 경계와 정적으로 대조했다. 문서 전용 Unit이므로 런타임·패키지·Electron 검증은 해당 없고, 코드 변경이 없음을 Git 상태와 diff로 확인한다.
+- 제외 범위: 실제 다문제/다단 후보 생성·자동 분리(Unit 4.2), 다페이지 연결(Unit 4.3), 문제 탐색(Unit 4.4), 다문제 통합 검증(Unit 4.5), 저장·OCR/AI와 OPEN-09 수정은 추가하지 않는다.
+
 ## 5. 유보 항목과 해결 상태
 
 | ID | 항목 | 결정 시점 | 지금의 처리 |

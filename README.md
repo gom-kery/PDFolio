@@ -1,8 +1,8 @@
 # Local PDF CBT
 
-**Unit 3.7 단일 문제 첫 MVP 통합 검증**을 완료했습니다. A형 4지 정답·B형 5지 오답·정답 불명 `채점 불가` 흐름과 Windows 패키지를 검증했습니다. 페이지·배율 제어는 문서 작업 공간 상단에 있고, `화면 맞춤`은 PDF를 가용 너비와 높이 안에 함께 맞춥니다.
+**Unit 4.0 문제 분리 전 구조 검토**를 완료했습니다. 기존 한 페이지·한 문제 첫 MVP 앱은 바꾸지 않았으며, 다문제·다페이지 확장의 Question/Region 관계, 공유 영역과 수동 보정 우선순위를 문서로 확정했습니다.
 
-앱 버전은 0.3.6입니다. Unit 1.0은 미착수이며 OPEN-09 GPU 종료 진단은 별도 미해결입니다. 한 페이지에 여러 문제가 있는 PDF까지 포함한 넓은 MVP 완료 기준은 Phase 4 완료이며, 다음 계획 Unit은 4.0 문제 분리 전 구조 검토입니다. [Project Bible](docs/PROJECT_BIBLE.md), [Roadmap](docs/ROADMAP.md), [Decisions](docs/DECISIONS.md), [Changelog](docs/CHANGELOG.md)를 확인하세요.
+앱 버전은 0.3.6입니다. Unit 1.0은 미착수이며 OPEN-09 GPU 종료 진단은 별도 미해결입니다. 한 페이지에 여러 문제가 있는 PDF까지 포함한 넓은 MVP 완료 기준은 Phase 4 완료이며, 다음 계획 Unit은 4.2 한 페이지 여러 문제·다단 자동 분리입니다. [Project Bible](docs/PROJECT_BIBLE.md), [Roadmap](docs/ROADMAP.md), [Decisions](docs/DECISIONS.md), [Changelog](docs/CHANGELOG.md)를 확인하세요.
 
 ## 실행 환경
 
