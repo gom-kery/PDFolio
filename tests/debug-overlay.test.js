@@ -68,7 +68,12 @@ test(
         });
       }, files.region);
       await page.locator('#select-pdf').click();
-      await page.waitForSelector('#region-analysis-status[data-state="found"]');
+      await page.waitForSelector(
+        '#region-analysis-status[data-state="found"]',
+        {
+          state: 'attached',
+        },
+      );
       await page.waitForSelector('#pdf-debug-overlay[data-state="ready"]');
       assert.equal(await page.locator('#pdf-debug-panel').isVisible(), true);
 

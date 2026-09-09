@@ -121,7 +121,7 @@ test(
         if (action === 'select') {
           await page.waitForSelector(
             '#text-analysis-status[data-state="text-usable"]',
-            { timeout: 10_000 },
+            { timeout: 10_000, state: 'attached' },
           );
           assert.equal(
             await page.locator('#text-analysis-status').innerText(),
@@ -129,15 +129,15 @@ test(
           );
           await page.waitForSelector(
             '#keyword-analysis-status[data-state="none"]',
-            { timeout: 10_000 },
+            { timeout: 10_000, state: 'attached' },
           );
           await page.waitForSelector(
             '#region-analysis-status[data-state="none"]',
-            { timeout: 10_000 },
+            { timeout: 10_000, state: 'attached' },
           );
           await page.waitForSelector(
             '#support-profile-status[data-state="not-supported"]',
-            { timeout: 10_000 },
+            { timeout: 10_000, state: 'attached' },
           );
         }
         evidence.nativeActions.push({ action, result: 'passed' });

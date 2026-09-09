@@ -34,8 +34,56 @@
         >
           <header class="workspace-header">
             <h2 id="workspace-title">문서 작업 공간</h2>
+            <p
+              id="current-question-grade-badge"
+              class="current-question-grade-badge"
+              role="status"
+              aria-atomic="true"
+              hidden
+            ></p>
             <span id="document-state" class="workspace-caption">문서 없음</span>
           </header>
+          <nav
+            id="pdf-page-navigation"
+            class="pdf-page-navigation"
+            aria-label="PDF 페이지 및 배율"
+            hidden
+          >
+            <div class="page-controls" aria-label="페이지 이동">
+              <form id="page-number-form" class="page-number-form" novalidate>
+                <label for="page-number">페이지</label>
+                <input
+                  id="page-number"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  autocomplete="off"
+                />
+                <span aria-hidden="true">/</span>
+                <output id="page-total" for="page-number">—</output>
+              </form>
+              <div class="page-button-row">
+                <button id="first-page" type="button">처음</button>
+                <button id="previous-page" type="button">이전</button>
+                <button id="next-page" type="button">다음</button>
+                <button id="last-page" type="button">마지막</button>
+              </div>
+            </div>
+            <div class="zoom-controls" aria-label="PDF 배율">
+              <button id="zoom-out" type="button" aria-label="축소">−</button>
+              <output id="zoom-level" aria-label="현재 배율">100%</output>
+              <button id="zoom-in" type="button" aria-label="확대">+</button>
+              <button
+                id="fit-height"
+                type="button"
+                aria-label="화면 맞춤"
+                aria-pressed="false"
+              >
+                화면 맞춤
+              </button>
+            </div>
+          </nav>
           <p
             id="selection-status"
             class="selection-status"
@@ -155,11 +203,8 @@
                 </div>
               </dl>
             </details>
-            <section
-              class="analysis-status-section"
-              aria-labelledby="analysis-status-title"
-            >
-              <h3 id="analysis-status-title">현재 페이지 분석</h3>
+            <details class="analysis-status-section">
+              <summary id="analysis-status-title">현재 페이지 분석</summary>
               <dl class="status-list analysis-status-list">
                 <div class="status-item">
                   <dt>텍스트 분석</dt>
@@ -210,7 +255,7 @@
                   </dd>
                 </div>
               </dl>
-            </section>
+            </details>
             <section
               class="cbt-mask-status-section"
               aria-labelledby="cbt-mask-status-title"
@@ -264,42 +309,6 @@
             </details>
           </aside>
 
-          <nav
-            id="pdf-page-navigation"
-            class="pdf-page-navigation"
-            aria-label="PDF 페이지 및 배율"
-            hidden
-          >
-            <div class="page-controls" aria-label="페이지 이동">
-              <form id="page-number-form" class="page-number-form" novalidate>
-                <label for="page-number">페이지</label>
-                <input
-                  id="page-number"
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputmode="numeric"
-                  autocomplete="off"
-                />
-                <span aria-hidden="true">/</span>
-                <output id="page-total" for="page-number">—</output>
-              </form>
-              <div class="page-button-row">
-                <button id="first-page" type="button">처음</button>
-                <button id="previous-page" type="button">이전</button>
-                <button id="next-page" type="button">다음</button>
-                <button id="last-page" type="button">마지막</button>
-              </div>
-            </div>
-            <div class="zoom-controls" aria-label="PDF 배율">
-              <button id="zoom-out" type="button" aria-label="축소">−</button>
-              <output id="zoom-level" aria-label="현재 배율">100%</output>
-              <button id="zoom-in" type="button" aria-label="확대">+</button>
-              <button id="fit-height" type="button" aria-pressed="false">
-                높이 맞춤
-              </button>
-            </div>
-          </nav>
           <section
             id="manual-region-setup"
             class="manual-region-setup"

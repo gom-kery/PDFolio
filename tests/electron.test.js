@@ -151,6 +151,9 @@ for (const mode of ['dev', 'built', 'packaged']) {
           const sidebar = document.querySelector('.viewer-sidebar');
           const footer = document.querySelector('.app-footer');
           const details = document.querySelector('#document-information');
+          const analysisDetails = document.querySelector(
+            '.analysis-status-section',
+          );
           const analysisStatuses = [
             '#text-analysis-status',
             '#keyword-analysis-status',
@@ -169,11 +172,11 @@ for (const mode of ['dev', 'built', 'packaged']) {
               footer.getBoundingClientRect().bottom <= innerHeight + 1,
             detailsOpen: details.open,
             detailsSummary: details.querySelector('summary').innerText,
-            analysisOutsideDetails: analysisStatuses.every(
-              (status) => !details.contains(status),
-            ),
-            analysisVisible: analysisStatuses.every(
-              (status) => status.getClientRects().length > 0,
+            analysisDetailsOpen: analysisDetails.open,
+            analysisDetailsSummary:
+              analysisDetails.querySelector('summary').innerText,
+            analysisContained: analysisStatuses.every((status) =>
+              analysisDetails.contains(status),
             ),
           };
         });
@@ -208,8 +211,9 @@ for (const mode of ['dev', 'built', 'packaged']) {
         assert.equal(evidence.shell.footerVisible, true);
         assert.equal(evidence.shell.detailsOpen, false);
         assert.match(evidence.shell.detailsSummary, /문서 정보/);
-        assert.equal(evidence.shell.analysisOutsideDetails, true);
-        assert.equal(evidence.shell.analysisVisible, true);
+        assert.equal(evidence.shell.analysisDetailsOpen, false);
+        assert.match(evidence.shell.analysisDetailsSummary, /현재 페이지 분석/);
+        assert.equal(evidence.shell.analysisContained, true);
         assert.equal(
           await page.locator('#pdf-page-navigation').isHidden(),
           true,

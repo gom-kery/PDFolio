@@ -148,6 +148,27 @@
   font-weight: 600;
 }
 
+.current-question-grade-badge {
+  margin-left: auto;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.current-question-grade-badge[data-state='correct'] {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.current-question-grade-badge[data-state='incorrect'],
+.current-question-grade-badge[data-state='ungradable'] {
+  color: var(--color-warning);
+  background: #fff4df;
+}
+
 .workspace-caption {
   color: var(--color-muted);
   font-size: 0.75rem;
@@ -231,12 +252,12 @@
 
 .pdf-page-navigation {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
 }
 
@@ -246,20 +267,21 @@
 
 .page-controls {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .page-button-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .zoom-controls {
-  display: grid;
-  grid-template-columns: auto minmax(3.5rem, 1fr) auto;
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
@@ -271,7 +293,7 @@
 }
 
 #fit-height {
-  grid-column: 1 / -1;
+  white-space: nowrap;
 }
 
 #fit-height[aria-pressed='true'] {
@@ -934,6 +956,37 @@
 
 .analysis-status-section {
   margin-top: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.analysis-status-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.75rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.analysis-status-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.analysis-status-section summary::after {
+  content: '+';
+  color: var(--color-accent);
+  font-size: 1rem;
+}
+
+.analysis-status-section[open] summary::after {
+  content: '−';
+}
+
+.analysis-status-section summary:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
 }
 
 .cbt-mask-status-section {
@@ -991,13 +1044,9 @@
   color: var(--color-warning);
 }
 
-.analysis-status-section h3 {
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
 .analysis-status-list {
-  margin-top: 0.625rem;
+  margin: 0;
+  padding: 0 0 1rem;
 }
 
 .analysis-status-list .status-item dd {
@@ -1138,11 +1187,6 @@
     padding: 1rem;
   }
 
-  .pdf-page-navigation {
-    order: -1;
-    padding: 1rem;
-  }
-
   .status-panel {
     padding: 1.25rem;
   }
@@ -1189,6 +1233,11 @@
 
   .zoom-controls {
     width: 100%;
+  }
+
+  .page-controls,
+  .page-button-row {
+    justify-content: center;
   }
 }
 

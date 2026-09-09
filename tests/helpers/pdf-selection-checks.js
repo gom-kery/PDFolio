@@ -310,17 +310,19 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.ok(performance.firstPageMs < performanceSanityLimitMs);
     await page.waitForSelector(
       '#text-analysis-status[data-state="text-usable"]',
-      { timeout: 10_000 },
+      { timeout: 10_000, state: 'attached' },
     );
     await page.waitForSelector('#keyword-analysis-status[data-state="none"]', {
       timeout: 10_000,
+      state: 'attached',
     });
     await page.waitForSelector('#region-analysis-status[data-state="none"]', {
       timeout: 10_000,
+      state: 'attached',
     });
     await page.waitForSelector(
       '#support-profile-status[data-state="not-supported"]',
-      { timeout: 10_000 },
+      { timeout: 10_000, state: 'attached' },
     );
     assert.equal(
       await page.locator('#selected-file-name').textContent(),
@@ -332,7 +334,16 @@ export async function checkPdfSelection(application, page, artifacts) {
       await documentInformation.evaluate((details) => details.open),
       false,
     );
-    assert.equal(await page.locator('#text-analysis-status').isVisible(), true);
+    const analysisDetails = page.locator('.analysis-status-section');
+    const analysisSummary = analysisDetails.locator('summary');
+    assert.equal(
+      await analysisDetails.evaluate((details) => details.open),
+      false,
+    );
+    assert.equal(
+      await page.locator('#text-analysis-status').isVisible(),
+      false,
+    );
     await documentInformationSummary.focus();
     await page.keyboard.press('Enter');
     assert.equal(
@@ -350,6 +361,12 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(
       await documentInformation.evaluate((details) => details.open),
       false,
+    );
+    await analysisSummary.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(
+      await analysisDetails.evaluate((details) => details.open),
+      true,
     );
     assert.equal(
       await page.locator('#support-profile-status').isVisible(),
@@ -707,6 +724,13 @@ export async function checkPdfSelection(application, page, artifacts) {
       await page.locator('#grade-status').innerText(),
       /정답 값을 하나로 확정하지 못해 채점할 수 없습니다/,
     );
+    await page.waitForSelector(
+      '#current-question-grade-badge[data-state="ungradable"]',
+    );
+    assert.equal(
+      await page.locator('#current-question-grade-badge').innerText(),
+      '채점 불가 · 정답 값 미확정',
+    );
     const firstQuestionId = await manualSetup.getAttribute('data-question-id');
     assert.match(firstQuestionId, /^question-/);
     assert.equal(await page.locator('#manual-region-overlay').isHidden(), true);
@@ -719,6 +743,10 @@ export async function checkPdfSelection(application, page, artifacts) {
     await page.locator('#start-manual-region-setup').click();
     await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
     assert.equal(await page.locator('#choice-selection').isHidden(), true);
+    assert.equal(
+      await page.locator('#current-question-grade-badge').isHidden(),
+      true,
+    );
     assert.equal(await manualSetup.getAttribute('data-question-id'), null);
     await page.locator('#cancel-manual-regions').click();
     assert.equal(
@@ -750,7 +778,8 @@ export async function checkPdfSelection(application, page, artifacts) {
       'cbt-mask-blocks-unconfirmed-page',
       'cbt-mask-hides-confirmed-solution-and-answer',
       'cbt-mask-has-no-text-layer-bypass',
-      'choice-selection-confirmation-reveals-current-question-and-edit-invalidation',
+      'choice-selection-confirmation-reveals-current-question-and-edit-' +
+        'invalidation',
       'answer-extraction-keeps-unknown-result-separate-from-ungradable-grade',
       'grade-result-is-created-only-after-confirmed-reveal',
     );
@@ -775,13 +804,15 @@ export async function checkPdfSelection(application, page, artifacts) {
     cases.push('manual-region-file-replacement-clears-session');
     await page.waitForSelector('#keyword-analysis-status[data-state="found"]', {
       timeout: 10_000,
+      state: 'attached',
     });
     await page.waitForSelector('#region-analysis-status[data-state="found"]', {
       timeout: 10_000,
+      state: 'attached',
     });
     await page.waitForSelector(
       '#support-profile-status[data-state="not-supported"]',
-      { timeout: 10_000 },
+      { timeout: 10_000, state: 'attached' },
     );
     assert.equal(
       await page.locator('#keyword-analysis-status').innerText(),
@@ -804,13 +835,15 @@ export async function checkPdfSelection(application, page, artifacts) {
     await select({ canceled: false, filePaths: [files.region] }, 'selected');
     await page.waitForSelector('#keyword-analysis-status[data-state="found"]', {
       timeout: 10_000,
+      state: 'attached',
     });
     await page.waitForSelector('#region-analysis-status[data-state="found"]', {
       timeout: 10_000,
+      state: 'attached',
     });
     await page.waitForSelector(
       '#support-profile-status[data-state="profile-match"]',
-      { timeout: 10_000 },
+      { timeout: 10_000, state: 'attached' },
     );
     assert.equal(
       await page.locator('#keyword-analysis-status').innerText(),
@@ -859,7 +892,7 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     await page.waitForSelector(
       '#support-profile-status[data-state="profile-match"]',
-      { timeout: 10_000 },
+      { timeout: 10_000, state: 'attached' },
     );
     assert.equal(
       await page.locator('#region-analysis-status').innerText(),
@@ -938,17 +971,22 @@ export async function checkPdfSelection(application, page, artifacts) {
       const statusPanel = document.querySelector('.status-panel');
       const sideNext = document.querySelector('#side-next-page');
       return {
+        workspaceLeft: workspace.getBoundingClientRect().left,
         workspaceRight: workspace.getBoundingClientRect().right,
+        workspaceTop: workspace.getBoundingClientRect().top,
         stageBottom: stage.getBoundingClientRect().bottom,
+        stageTop: stage.getBoundingClientRect().top,
+        navigationRight: navigation.getBoundingClientRect().right,
         navigationLeft: navigation.getBoundingClientRect().left,
         navigationTop: navigation.getBoundingClientRect().top,
         statusBottom: statusPanel.getBoundingClientRect().bottom,
         sideNextDisplay: getComputedStyle(sideNext).display,
       };
     });
-    assert.ok(layout.navigationLeft >= layout.workspaceRight);
-    assert.ok(layout.navigationTop >= layout.statusBottom);
-    assert.ok(layout.navigationTop < layout.stageBottom);
+    assert.ok(layout.navigationLeft >= layout.workspaceLeft);
+    assert.ok(layout.navigationRight <= layout.workspaceRight);
+    assert.ok(layout.navigationTop >= layout.workspaceTop);
+    assert.ok(layout.navigationTop < layout.stageTop);
     assert.notEqual(layout.sideNextDisplay, 'none');
     assert.equal(await page.locator('#side-previous-page').isDisabled(), true);
     assert.equal(await page.locator('#side-next-page').isDisabled(), false);
@@ -1003,7 +1041,12 @@ export async function checkPdfSelection(application, page, artifacts) {
       return (
         fit.getAttribute('aria-pressed') === 'true' &&
         canvas.dataset.scale !== '0.5' &&
-        height <= available + 1
+        height <= available + 1 &&
+        canvas.getBoundingClientRect().width <=
+          scroll.clientWidth -
+            Number.parseFloat(styles.paddingLeft) -
+            Number.parseFloat(styles.paddingRight) +
+            1
       );
     });
     performance.fitHeightMs = Date.now() - fitHeightStartedAt;
@@ -1019,7 +1062,11 @@ export async function checkPdfSelection(application, page, artifacts) {
       return {
         available,
         height: canvas.getBoundingClientRect().height,
-        fillRatio: canvas.getBoundingClientRect().height / available,
+        width: canvas.getBoundingClientRect().width,
+        availableWidth:
+          scroll.clientWidth -
+          Number.parseFloat(styles.paddingLeft) -
+          Number.parseFloat(styles.paddingRight),
         scale: canvas.dataset.scale,
       };
     });
@@ -1027,8 +1074,11 @@ export async function checkPdfSelection(application, page, artifacts) {
       defaultFit.height <= defaultFit.available + 1,
       JSON.stringify(defaultFit),
     );
-    assert.ok(defaultFit.fillRatio >= 0.85, JSON.stringify(defaultFit));
-    await assertCanvasBecameIdle('fit-height activation');
+    assert.ok(
+      defaultFit.width <= defaultFit.availableWidth + 1,
+      JSON.stringify(defaultFit),
+    );
+    await assertCanvasBecameIdle('screen-fit activation');
     await startCanvasFrameProbe();
     await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(640, 480),
@@ -1043,9 +1093,9 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     assertCanvasStayedPainted(
       await stopCanvasFrameProbe(),
-      'fit-height window resize',
+      'screen-fit window resize',
     );
-    await assertCanvasBecameIdle('fit-height window resize');
+    await assertCanvasBecameIdle('screen-fit window resize');
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -1078,14 +1128,14 @@ export async function checkPdfSelection(application, page, artifacts) {
       defaultFit.scale,
     );
     cases.push(
-      'right-side-controls',
-      'narrow-controls-before-status',
+      'workspace-toolbar-controls',
+      'narrow-toolbar-before-status',
       'side-navigation',
       'zoom-bounds',
-      'fit-height-resize',
+      'screen-fit-resize',
       'canvas-double-buffer',
       'viewer-geometry-stability',
-      'fit-height-quiescence',
+      'screen-fit-quiescence',
       'page-text-usable',
       'page-text-insufficient',
       'page-text-not-in-dom',
