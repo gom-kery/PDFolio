@@ -2,6 +2,60 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.5 / Unit 3.5 작업 기록 — 2026-09-09
+
+**사용자가 확정한 정답 영역과 같은 문서 revision·페이지의 좌표 텍스트에서만 단일 1~5 값을 추출했다. 값 없음·복수·범위 초과·보기 수 불일치를 구분하고, 답 확인 전 값은 숨겼다. 답 비교와 채점은 추가하지 않았다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 시작 HEAD는 `8459ad2`의 Unit 3.4 커밋이었고 작업 트리는 깨끗했다.
+
+### Unit 3.5 — 1. 구현한 내용
+
+- 확정된 `answer` Region, 현재 Question, PageTextSource, 좌표가 같은 `documentRevision`·페이지여야만 추출한다. 수동 확정 정보나 페이지 분석 정보가 없거나 오래되면 추출하지 않는다.
+- 겹치는 TextItem만 대상으로 `①`~`⑤`, `정답/답/Answer` 라벨 뒤의 숫자, 라벨이 없는 단독 숫자를 정규화했다. 4/5지 보기 수보다 큰 값은 `unknown`, 여러 후보는 `ambiguous`로 남긴다.
+- 추출 결과는 `known / unknown / ambiguous`와 사유 코드·개수만 제공한다. 원문 텍스트와 좌표는 결과나 화면 속성에 저장·노출하지 않는다.
+- 답 확인 전에는 단일 값을 찾아도 값 대신 확인 완료 안내만 보인다. 답 확인 뒤에만 추출 값이 표시되며, 맞음/틀림이나 채점 결과는 표시하지 않는다.
+- 보기 수를 4지와 5지 사이에서 바꾸면 현재 정답 값이 새 보기 수와 맞는지 다시 판정한다. 진단 화면에서는 정답 추출 UI를 표시하지 않는다.
+
+### Unit 3.5 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 정답 추출 | `src/cbt/answer-extraction.js` — 수동 정답 영역의 범위 제한, 정규화, 보류 상태와 사유 코드 |
+| 화면 연결 | `src/ui/answer-extraction-status.js`, `src/ui/pdf-viewer.js`, `src/ui/choice-selection.js`, `index.html` — 분석 결과의 안전한 상태 표시와 보기 수 재판정 |
+| 검사 | `tests/answer-extraction.test.js`, `tests/helpers/pdf-selection-checks.js`, `package.json` — 단일·복수·범위·revision·Electron 화면 회귀 |
+| 버전·문서 | `package.json`, `package-lock.json`, `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 0.3.5 및 Unit 3.6.5 계획 기록 |
+
+### Unit 3.5 — 3. 사용자가 직접 테스트할 방법
+
+1. `npm run dev`로 일반 앱을 열고, 정답 영역 안에 `정답: ④`처럼 텍스트 정답이 있는 한 페이지·한 문제 PDF를 엽니다.
+2. 해설과 정답 영역을 확정합니다. 답 확인 전 `정답 추출`에 값 확인 안내만 보이고 `4번`은 보이지 않아야 합니다.
+3. 답을 하나 고르고 `답 확인`을 누릅니다. 해설·정답이 공개된 뒤 `정답 영역에서 4번 값을 추출했습니다. 채점은 아직 하지 않습니다.`가 보여야 합니다.
+4. 정답 영역에 값이 없거나 둘 이상, 6번 이상, 현재 보기 수보다 큰 값만 들어 있는 PDF에서는 `unknown` 또는 `ambiguous` 안내가 보이고 맞음/틀림·채점 결과는 나타나면 안 됩니다.
+5. 4지와 5지를 전환해 보기 수보다 큰 정답 값이 보류되는지 확인합니다. `npm run dev:debug`에서는 정답 추출 카드가 숨겨져야 합니다.
+
+### Unit 3.5 — 4. 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 119/119 통과 | 단일·복수·범위·보기 수·원문 비노출·revision 불일치와 기존 회귀 |
+| `npm run build` | 통과 | Vite 31 modules, 로컬 PDF.js 자산; 500 kB 초과 번들 안내만 기존과 동일 |
+| `npm run test:electron` | Debug·개발·빌드 3/4 통과 | 정답 추출 상태와 기존 CBT 흐름. 실행 중인 이전 패키지는 19 controls를 반환해 현재 22 controls 검사와 불일치 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 3.5 — 5. 알려진 제한사항과 다음 Unit
+
+- 스캔 이미지·수식 이미지처럼 PDF 텍스트 레이어에 없는 정답은 추출하지 않는다. 넓게 확정한 영역 안의 여러 숫자는 억지로 하나를 선택하지 않고 보류한다.
+- 추출 값은 세션 메모리 전용이며 Attempt 기록, 답 비교, 맞음/틀림, 점수 계산은 Unit 3.6 전까지 추가하지 않는다.
+- 요청한 Viewer 작업 공간·사이드바 아코디언·`화면 맞춤` 개편은 구현하지 않았고 Unit 3.6.5 계획으로 PROJECT_BIBLE과 ROADMAP에만 기록했다.
+- 실행 중인 이전 패키지를 닫은 뒤 `npm run package`, `npm run test:electron`, `npm run test:native`를 다시 실행해야 새 0.3.5 패키지 검증을 완료로 기록할 수 있다.
+
+### Unit 3.5 — 6. Git Commit Message
+
+제안: `PDFolio repository at unit 3.5_extract answer value from manual region`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다.
+
 ## 0.3.4 / Unit 3.4 작업 기록 — 2026-09-08
 
 **잠긴 선택과 같은 Question/revision의 해설·정답 Mask만 공개하고, 그 공개 상태를 페이지 재방문 동안 세션 메모리에 유지하게 했다. 정답 값 추출·답 비교·채점은 수행하지 않았다.**

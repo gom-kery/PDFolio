@@ -8,6 +8,7 @@ import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
 import { initializeManualRegionSetup } from './manual-region-setup.js';
 import { initializeCbtMask } from './cbt-mask.js';
 import { initializeChoiceSelection } from './choice-selection.js';
+import { initializeAnswerExtractionStatus } from './answer-extraction-status.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -59,13 +60,21 @@ export function initializePdfViewer(document, adapter) {
   const cbtMask = initializeCbtMask(document, {
     disabled: debugOverlay.enabled,
   });
+  const answerExtraction = initializeAnswerExtractionStatus(document, {
+    disabled: debugOverlay.enabled,
+  });
   const choiceSelection = initializeChoiceSelection(document, {
     disabled: debugOverlay.enabled,
     onConfirmed(selection) {
-      return cbtMask.reveal(selection);
+      const result = cbtMask.reveal(selection);
+      syncCbtUi();
+      return result;
     },
     isRevealed(selection) {
       return cbtMask.isRevealed(selection);
+    },
+    onChanged() {
+      syncCbtUi();
     },
   });
   const manualRegionSetup = initializeManualRegionSetup(document, {
@@ -83,6 +92,7 @@ export function initializePdfViewer(document, adapter) {
   let resizeTimer = null;
   let analysisRequestId = 0;
   let lastRenderedPage = null;
+  let currentPageAnalysis = null;
 
   const syncCbtUi = () => {
     const state = {
@@ -94,6 +104,27 @@ export function initializePdfViewer(document, adapter) {
     };
     cbtMask.sync(state);
     choiceSelection.sync(state);
+    const activeSelection = choiceSelection.getActiveSelection?.();
+    answerExtraction.sync({
+      confirmation: state.confirmation
+        ? {
+            ...state.confirmation,
+            question: {
+              ...state.confirmation.question,
+              choiceCount:
+                activeSelection?.choiceCount ??
+                state.confirmation.question.choiceCount,
+            },
+          }
+        : null,
+      analysis:
+        currentPageAnalysis?.pageNumber === lastRenderedPage?.pageNumber
+          ? currentPageAnalysis
+          : null,
+      revealed: Boolean(
+        state.confirmation && cbtMask.isRevealed(state.confirmation.question),
+      ),
+    });
   };
 
   const createRenderCanvas = () => document.createElement('canvas');
@@ -174,6 +205,8 @@ export function initializePdfViewer(document, adapter) {
 
   const resetTextAnalysis = (message) => {
     analysisRequestId++;
+    currentPageAnalysis = null;
+    syncCbtUi();
     debugOverlay.reset(message);
     showTextAnalysisStatus('idle', message);
     showKeywordAnalysisStatus(
@@ -269,6 +302,12 @@ export function initializePdfViewer(document, adapter) {
         );
         return;
       }
+      currentPageAnalysis = {
+        pageNumber,
+        source: extraction.source,
+        coordinates: coordinateResult.coordinates,
+      };
+      syncCbtUi();
       showTextAnalysisStatus(
         'text-usable',
         '현재 페이지의 텍스트와 위치를 분석할 수 있습니다.',
@@ -660,7 +699,9 @@ export function initializePdfViewer(document, adapter) {
       const ownRequestId = ++requestId;
       cbtMask.reset();
       choiceSelection.resetDocument();
+      answerExtraction.reset();
       lastRenderedPage = null;
+      currentPageAnalysis = null;
       manualRegionSetup.resetDocument();
       currentPage = 0;
       requestedPage = 0;
@@ -724,6 +765,7 @@ export function initializePdfViewer(document, adapter) {
       manualRegionSetup.dispose();
       cbtMask.reset();
       choiceSelection.resetDocument();
+      answerExtraction.reset();
     },
   };
 }

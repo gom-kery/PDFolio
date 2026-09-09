@@ -1,12 +1,12 @@
 # Local PDF CBT — 요구사항 검토와 기술 결정
 
 - 작성일: 2026-08-31
-- 문서 버전: `0.3.4`
-- 갱신일: 2026-09-08
-- 상태: Unit 3.4 해설·정답 공개 구현·검증 완료. 앱은 버전 0.3.4이며 OPEN-09와 Unit 1.0은 미해결.
+- 문서 버전: `0.3.5`
+- 갱신일: 2026-09-09
+- 상태: Unit 3.5 정답 추출 구현·검증 완료. 앱은 버전 0.3.5이며 OPEN-09와 Unit 1.0은 미해결.
 - 기준 문서: [PROJECT_BIBLE](PROJECT_BIBLE.md), 일정: [ROADMAP](ROADMAP.md)
 
-이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보, Unit 2.5에서 개발자용 화면 좌표 대조, Unit 2.6에서 첫 MVP 분석 프로파일의 일치·미지원·보류를 검증했다. Unit 2.7은 이 기능들의 계약을 바꾸지 않고 Phase 3 전 Viewer Shell을 정리했으며 Unit 2.7.1·2.7.2는 Canvas 공백과 레이아웃 이동을 차례로 안정화했다. Unit 3.0은 분석 프로파일과 CBT 준비를 분리한 채 Question/Region/Answer/Attempt의 소유·상태 계약과 Unit 4.1 수동 영역 확정의 선행 배치를 결정했고, Unit 4.1은 그 page-single 수동 확정 관문을 구현했다. Unit 3.1은 이 확정 레코드만 실제 불투명 Mask로 전환하고 준비 전 전체 덮개를 적용했다. Unit 3.2는 준비된 Question의 4/5지 단일 선택을, Unit 3.3은 미선택 확인 차단과 선택 확정·잠금을, Unit 3.4는 같은 Question의 해설·정답 공개를 더했다.
+이 문서는 최초 요청의 Step 1~4 결과와 이후 기술 결정의 이유를 담는다. **문서/API 확인과 실제 PDF 실험은 다르다.** Unit 1.6까지 Windows x64 원문 Viewer를 검증하고 Unit 2.0에서 분석 구조를 확정했으며 Unit 2.1에서 Text Content 추출·품질 분류, Unit 2.2에서 PDF user space bbox와 viewport 좌표 변환, Unit 2.3에서 문맥 기반 제목 키워드 후보, Unit 2.4에서 해설·정답 영역 후보, Unit 2.5에서 개발자용 화면 좌표 대조, Unit 2.6에서 첫 MVP 분석 프로파일의 일치·미지원·보류를 검증했다. Unit 2.7은 이 기능들의 계약을 바꾸지 않고 Phase 3 전 Viewer Shell을 정리했으며 Unit 2.7.1·2.7.2는 Canvas 공백과 레이아웃 이동을 차례로 안정화했다. Unit 3.0은 분석 프로파일과 CBT 준비를 분리한 채 Question/Region/Answer/Attempt의 소유·상태 계약과 Unit 4.1 수동 영역 확정의 선행 배치를 결정했고, Unit 4.1은 그 page-single 수동 확정 관문을 구현했다. Unit 3.1은 이 확정 레코드만 실제 불투명 Mask로 전환하고 준비 전 전체 덮개를 적용했다. Unit 3.2는 준비된 Question의 4/5지 단일 선택을, Unit 3.3은 미선택 확인 차단과 선택 확정·잠금을, Unit 3.4는 같은 Question의 해설·정답 공개를, Unit 3.5는 확정 정답 영역에서 단일 1~5 값을 추출하고 보류 상태를 구분하는 것을 더했다.
 
 ## 1. 요구사항 분석
 
@@ -524,6 +524,16 @@
 - 수명·접근성: 공개는 Question/revision·pageNumber만 가진 세션 메모리 레코드로 저장해 재방문 때 같은 공개를 복원한다. 공개 후 Canvas는 접근성 트리에서 다시 숨기지 않지만 Text Layer는 생성하지 않는다. 수동 영역 재편집을 시작하거나 파일 교체·새로고침·종료하면 공개와 선택을 폐기한다.
 - 제외 범위: 정답 문자열·값 추출(Unit 3.5), 선택 답과의 비교·맞음/틀림/채점 불가(Unit 3.6), Attempt 기록, 다문제·다페이지 공개 연결, 영구 저장은 추가하지 않았다.
 - 검증: 형식, Node 116/116, Vite 29 modules, Debug Overlay와 일반 개발·빌드 Electron 3/4 경로를 통과했다. 잠긴 선택만 공개, 선택 context 불일치 차단, 재방문용 공개 레코드, 공개 뒤 Overlay 숨김·상태 안내, 수동 재편집·파일 교체 무효화와 Debug 차단을 자동화했다. 실행 중인 이전 패키지가 3.2 화면을 유지해 패키지 경로는 19 controls를 보고 실패했으므로 새 패키지 생성과 패키지 Electron 검증은 완료로 기록하지 않는다.
+
+### ADR-039 — Unit 3.5 확정 정답 영역의 단일 값 추출
+
+- 상태: **채택 — Unit 3.5 구현·검증 완료**, 2026-09-09. 앱 버전은 0.3.5이다.
+- 입력 경계: 확정된 page-single Question과 소유된 `answer` Region, 같은 `documentRevision`·`pageNumber`의 PageTextSource v1과 PDF user space TextItem bbox가 모두 일치할 때만 추출한다. 확정 전·재편집·다른 페이지/revision·좌표 결과 없음은 값을 추측하지 않고 대기 또는 보류로 취급한다.
+- 정규화: 겹치는 TextItem만 sourceIndex 순서로 결합한 뒤 ①~⑨, `정답/답/Answer` 라벨 뒤의 숫자, 라벨이 없는 단독 숫자만 후보로 인정한다. 1~5 범위의 후보 하나가 현재 4/5지 보기 수 안에 들어올 때만 `known`이다. 복수는 `ambiguous`, 없음·범위 초과·보기 수 불일치는 `unknown`으로 남긴다.
+- 공개 경계: 추출 결과는 세션 메모리에서만 계산하고 PDF 원문·좌표·후보 문자열을 UI, dataset, 로그에 보내지 않는다. `known` 값은 해당 Question의 답 확인 전에 표시하지 않고, 공개 후에만 정답 추출 상태를 알린다. 이 Unit은 선택 답과의 비교, 맞음/틀림, Attempt 기록을 수행하지 않는다.
+- 수명: 파일 교체·새로고침·종료, 수동 영역 재편집, 다른 페이지의 후발 텍스트 결과에서 값을 버린다. 보기 수를 4/5지로 바꾸면 현재 선택 세션의 보기 수를 사용해 추출 상태를 다시 판정한다.
+- 검증: Prettier, Node 119/119, Vite 31 modules와 Debug·개발·빌드 Electron 3/4 경로를 통과했다. 새 정답 추출의 단일·복수·범위·보기 수·revision·원문 비노출과 수동 확정 뒤의 보류 상태를 자동화했다. 실행 중인 이전 패키지는 19 controls를 반환해 현재 22 controls와 맞지 않아 새 0.3.5 패키지 경로는 대기한다.
+- 제외 범위: OCR, 수식·이미지의 인식, 보기 수 자동 추론, 복수정답 정책, 자동 채점(Unit 3.6), 화면 배치 재편(Unit 3.6.5), 영구 저장은 추가하지 않았다.
 
 ## 5. 유보 항목과 해결 상태
 

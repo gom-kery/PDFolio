@@ -21,7 +21,12 @@ function createChoiceOption(document, number, selected) {
 /** Render the Unit 3.4 single-choice confirmation and reveal handoff. */
 export function initializeChoiceSelection(
   document,
-  { disabled = false, onConfirmed = () => {}, isRevealed = () => false } = {},
+  {
+    disabled = false,
+    onConfirmed = () => {},
+    onChanged = () => {},
+    isRevealed = () => false,
+  } = {},
 ) {
   const section = document.querySelector('#choice-selection');
   const status = document.querySelector('#choice-selection-status');
@@ -109,6 +114,7 @@ export function initializeChoiceSelection(
         result.selection,
         '보기 수를 변경해 이전 선택을 지웠습니다. 답을 다시 선택하세요.',
       );
+    if (result.status === 'ready') onChanged(result.selection);
   });
 
   options.addEventListener('change', (event) => {
@@ -157,6 +163,9 @@ export function initializeChoiceSelection(
       activeQuestion = null;
       store.resetDocument();
       hide();
+    },
+    getActiveSelection() {
+      return activeQuestion ? store.getSelection(activeQuestion) : null;
     },
   });
 }

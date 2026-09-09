@@ -1,10 +1,10 @@
 # Local PDF CBT — Project Bible
 
-- 문서 버전: `0.3.4`
+- 문서 버전: `0.3.5`
 - 작성일: 2026-08-31
-- 갱신일: 2026-09-08
-- 상태: Unit 3.4 해설·정답 공개 구현·검증 완료. 앱은 버전 0.3.4이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: Unit 2.7.2 원문 Viewer Shell과 Phase 2 분석 계약, Unit 3.0의 상태·소유 관계 계약, Unit 4.1의 한 페이지·한 문제용 수동 Question/Region 확정, Unit 3.1의 안전한 CBT Mask, Unit 3.2의 4/5지 단일 선택, Unit 3.3의 답 선택 확정·잠금, Unit 3.4의 Question별 해설·정답 공개. 정답 추출·채점 UI는 아직 구현하지 않았으며 다음 계획 Unit은 3.5이다.
+- 갱신일: 2026-09-09
+- 상태: Unit 3.5 정답 추출 구현·검증 완료. 앱은 버전 0.3.5이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: Unit 2.7.2 원문 Viewer Shell과 Phase 2 분석 계약, Unit 3.0의 상태·소유 관계 계약, Unit 4.1의 한 페이지·한 문제용 수동 Question/Region 확정, Unit 3.1의 안전한 CBT Mask, Unit 3.2의 4/5지 단일 선택, Unit 3.3의 답 선택 확정·잠금, Unit 3.4의 Question별 해설·정답 공개, Unit 3.5의 확정 정답 영역 내 단일 1~5 값 추출과 보류 상태. 답 비교·채점 UI는 아직 구현하지 않았으며 다음 계획 Unit은 3.6이다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
 - 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 4.1 선행 MVP에 한하며 Mask·정답 추출·CBT UI 구현 승인을 뜻하지 않는다.
 
@@ -14,9 +14,9 @@
 
 사용자가 소유한 문제·보기·해설·정답 PDF를 로컬에서 열어, 답과 해설을 가린 상태로 객관식 문제를 풀게 한다. 답 선택 → 답 확인 → 해당 문제의 해설 공개 → 가능한 경우 채점이 기본 흐름이다. **원본 PDF는 읽기 전용**이며 가림은 화면에서만 수행한다.
 
-사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. Unit 2.6은 기존 근거를 새로 추측하지 않고 첫 MVP 분석 프로파일의 `profile-match / not-supported / hold`만 판정한다. `profile-match`도 이미지·수식과 닫힌 마지막 경계, 안전한 Mask, Question 소유 관계가 확인되지 않아 `canStartCbt: false`를 유지한다. 일반 UI에는 원문·좌표 대신 판정 요약만 표시한다. Unit 2.7은 분석 규칙을 바꾸지 않고 Viewer Shell을 정리하고, 2.7.1은 임시 Canvas로 검은 공백 전환을 막는다. Unit 2.7.2는 로딩 안내를 레이아웃과 분리하고 실제 목표 배율이 달라질 때만 높이 맞춤 자동 렌더를 실행해 페이지 이동·창 크기 변경의 덜컥거림을 막는다. Unit 4.1은 자동 후보 대신 사용자 확인 수동 Region을 추가했고 Unit 3.1은 그 확정 Region만 안전한 실제 Mask로 전환했다. Unit 3.2는 4/5지 단일 선택을, Unit 3.3은 선택 뒤의 확인·잠금과 중복 확인 차단을, Unit 3.4는 현재 Question의 해설·정답 공개를 더했다. 앱과 package.json은 0.3.4이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
+사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. Unit 2.6은 기존 근거를 새로 추측하지 않고 첫 MVP 분석 프로파일의 `profile-match / not-supported / hold`만 판정한다. `profile-match`도 이미지·수식과 닫힌 마지막 경계, 안전한 Mask, Question 소유 관계가 확인되지 않아 `canStartCbt: false`를 유지한다. 일반 UI에는 원문·좌표 대신 판정 요약만 표시한다. Unit 2.7은 분석 규칙을 바꾸지 않고 Viewer Shell을 정리하고, 2.7.1은 임시 Canvas로 검은 공백 전환을 막는다. Unit 2.7.2는 로딩 안내를 레이아웃과 분리하고 실제 목표 배율이 달라질 때만 높이 맞춤 자동 렌더를 실행해 페이지 이동·창 크기 변경의 덜컥거림을 막는다. Unit 4.1은 자동 후보 대신 사용자 확인 수동 Region을 추가했고 Unit 3.1은 그 확정 Region만 안전한 실제 Mask로 전환했다. Unit 3.2는 4/5지 단일 선택을, Unit 3.3은 선택 뒤의 확인·잠금과 중복 확인 차단을, Unit 3.4는 현재 Question의 해설·정답 공개를 더했다. Unit 3.5는 확정된 `answer` Region과 같은 revision·페이지의 TextItem bbox가 겹치는 텍스트만 이용해 단일 1~5 값을 추출한다. 앱과 package.json은 0.3.5이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
 
-Unit 3.0은 Phase 2의 모든 `canStartCbt: false`를 그대로 받아들였고 Unit 4.1의 첫 MVP 수동 해설·정답 영역 확정을 Unit 3.1보다 먼저 배치했다. Unit 4.1은 사용자가 원문에서 한 페이지의 한 문제에 속한 해설·정답 사각형을 각각 드래그하고, 불투명 가림 미리보기를 확인한 뒤에만 Question/Region을 `confirmed`로 만든다. 확정은 현재 문서 세션 메모리에만 유지하고 파일 교체·새로고침·종료 때 폐기한다. Unit 3.1은 이 확정 레코드만 받아 실제 CBT Mask를 만들고, Unit 3.2·3.3은 준비된 Question의 답 선택과 한 번만 가능한 확정·잠금을 더한다. Unit 3.4는 잠긴 선택이 같은 Question/revision에 속할 때만 두 Mask를 공개한다. 설정·편집·미확정·stale·준비 중 상태에서는 전체 덮개를 유지하고 설정 화면에서만 원문을 보인다. 앱과 package.json은 0.3.4이다.
+Unit 3.0은 Phase 2의 모든 `canStartCbt: false`를 그대로 받아들였고 Unit 4.1의 첫 MVP 수동 해설·정답 영역 확정을 Unit 3.1보다 먼저 배치했다. Unit 4.1은 사용자가 원문에서 한 페이지의 한 문제에 속한 해설·정답 사각형을 각각 드래그하고, 불투명 가림 미리보기를 확인한 뒤에만 Question/Region을 `confirmed`로 만든다. 확정은 현재 문서 세션 메모리에만 유지하고 파일 교체·새로고침·종료 때 폐기한다. Unit 3.1은 이 확정 레코드만 받아 실제 CBT Mask를 만들고, Unit 3.2·3.3은 준비된 Question의 답 선택과 한 번만 가능한 확정·잠금을 더한다. Unit 3.4는 잠긴 선택이 같은 Question/revision에 속할 때만 두 Mask를 공개한다. 설정·편집·미확정·stale·준비 중 상태에서는 전체 덮개를 유지하고 설정 화면에서만 원문을 보인다. 앱과 package.json은 0.3.5이다.
 
 ### 첫 MVP 범위 — Unit 3.0 채택
 
@@ -36,6 +36,10 @@ Unit 3.0은 Phase 2의 모든 `canStartCbt: false`를 그대로 받아들였고 
 | 제외 | 자동 문제 분리, 여러 문제/열, 페이지 간 연결, 복수·다페이지 수동 영역, 영구 저장, OCR, AI |
 
 이는 범용 PDF 지원 약속을 제한하는 채택 범위다. 해당 제한 없이 임의 PDF를 첫 MVP에서 지원하려면 문제 분리와 수동 보정 확장 일정을 다시 검토해야 한다. 검증되지 않은 파일을 지원 형식으로 단정하지 않는다.
+
+### Unit 3.6.5 계획 — Viewer 작업 공간과 화면 맞춤
+
+사용자가 요청한 Unit 3.6.5는 Unit 3.6 자동 채점 뒤, Unit 3.7 통합 검증 전에 진행한다. 페이지 이동과 배율 제어는 오른쪽 사이드바에서 제거하고 문서 작업 공간의 상단 도구모음으로 옮긴다. 문서 정보와 현재 페이지 분석은 접기/펼치기로 나누되, CBT 가림·추출 오류·채점 결과 같은 짧은 핵심 상태는 닫힌 상태에서도 확인할 수 있어야 한다. 현재 `높이 맞춤`은 `화면 맞춤`으로 바꾸고, 가용 너비와 높이 모두를 넘지 않는 최대 배율(`contain`)을 50~200% 범위에서 계산한다. 임시 Canvas 완료 후 교체, Mask 투영, 공개·선택·추출·채점 세션 상태 불변 계약은 유지한다. 1120×760과 640×480, 50/200% 경계, 페이지 이동·창 크기 변경의 빈 Canvas/덜컥거림 회귀, 키보드 포커스, 상태 누출 없음을 통합 검증한다. 이 계획은 현재 Unit 3.5에서 구현하지 않는다.
 
 ## 2. Local First 원칙
 
@@ -401,10 +405,10 @@ MVP 데이터는 필요한 Unit에서만 도입하는 메모리 레코드다. Un
 | PageAnalysis | 문서·페이지·분석 버전, 텍스트 상태, 지원 상태, 근거·실패 사유 |
 | Question v1 | `contractVersion: 1`, 세션 독립 `questionId`, `documentId`, `documentRevision`, `sourceKind: manual-page-single-v1`, 길이 1의 `pageRefs[]`, 해설·정답 두 `regionIds[]`, `choiceCount: 4 또는 5`, `setupStatus: draft/confirmed/invalid` |
 | Region v1 | `contractVersion: 1`, `regionId`, `questionId`, `documentRevision`, `pageNumber`, `kind: answer/solution`, `coordinateSpace: pdf-user-space`, 첫 MVP의 유효한 축 정렬 사각형 하나, `source: manual`, `confirmation: draft/confirmed` |
-| Answer v1 | `contractVersion: 1`, `questionId`, `documentRevision`, 같은 Question의 `answerRegionId`, `value: 1..5 또는 null`, `status: pending/known/unknown/ambiguous`, 추출 근거. 가림 적합성과 독립 |
+| Answer v1 | `contractVersion: 1`, `questionId`, `documentRevision`, 같은 Question의 `answerRegionId`, `value: 1..5 또는 null`, `status: known/unknown/ambiguous`, `reasonCodes`, 텍스트 항목·후보 개수. 근거 원문·좌표는 포함하지 않으며 가림 적합성과 독립 |
 | Attempt v1 | `contractVersion: 1`, 세션 독립 `attemptId`, `questionId`, `documentRevision`, `selectedChoice: 1..5 또는 null`, `selectionStatus: unselected/selected/locked`, `revealStatus: masked/revealed`, `gradeStatus: ungraded/correct/incorrect/ungradable` |
 
-정답은 해당 질문의 정답 영역에서만 추출한다. `①`~`⑤`, 숫자 1~5와 허용 구분 표기를 정규화하되 모든 숫자를 답으로 읽지 않는다. 복수 후보·범위 밖 번호·보기 수 불일치·복수 정답은 `unknown/ambiguous`로 남기고 채점하지 않는다.
+정답은 해당 질문의 확정 정답 영역과 같은 document revision·페이지의 TextItem bbox가 겹치는 텍스트에서만 추출한다. `①`~`⑤`, `정답: 1`, `답 2`, 영어 `Answer: 3`, 라벨이 없는 단독 1~5 값을 정규화하되 모든 숫자를 답으로 읽지 않는다. 복수 후보·없음·1~5 범위 밖·현재 보기 수 불일치는 `unknown/ambiguous`로 남기고 채점하지 않는다. `known` 값도 답 확인 전에 노출하지 않는다.
 
 페이지 번호를 questionId로 취급하지 않는다. 첫 MVP에서는 Question 하나의 pageRefs 길이가 1이고 Region 종류별 사각형이 하나지만 이후 계약 버전에서 여러 페이지/영역으로 확장할 수 있다. Region은 페이지 viewBox 안의 유한한 양수 크기여야 하고 두 종류가 서로 겹치면 확정하지 않는다. Answer의 `known`은 허용 표기에서 정확히 하나가 추출되고 `choiceCount` 범위 안일 때뿐이다. Attempt는 질문마다 현재 세션에 하나만 두며 재시도 이력은 만들지 않는다.
 

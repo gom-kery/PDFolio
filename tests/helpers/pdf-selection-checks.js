@@ -609,6 +609,13 @@ export async function checkPdfSelection(application, page, artifacts) {
     await page.waitForSelector('#manual-region-setup[data-state="confirmed"]');
     await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
     await page.waitForSelector('#choice-selection:not([hidden])');
+    await page.waitForSelector(
+      '#answer-extraction-status[data-state="unknown"]',
+    );
+    assert.match(
+      await page.locator('#answer-extraction-status').innerText(),
+      /지원되는 단일 정답 값을 찾지 못했습니다/,
+    );
     assert.equal(await page.locator('#confirm-choice').isDisabled(), true);
     assert.equal(
       await page.locator('#choice-selection').getAttribute('data-choice-count'),
@@ -739,6 +746,7 @@ export async function checkPdfSelection(application, page, artifacts) {
       'cbt-mask-hides-confirmed-solution-and-answer',
       'cbt-mask-has-no-text-layer-bypass',
       'choice-selection-confirmation-reveals-current-question-and-edit-invalidation',
+      'answer-extraction-keeps-unknown-result-separate-from-reveal-and-grading',
     );
 
     await select({ canceled: false, filePaths: [files.keyword] }, 'selected');
