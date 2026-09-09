@@ -158,6 +158,7 @@ for (const mode of ['dev', 'built', 'packaged']) {
             '#text-analysis-status',
             '#keyword-analysis-status',
             '#region-analysis-status',
+            '#question-candidate-analysis-status',
             '#support-profile-status',
           ].map((selector) => document.querySelector(selector));
           return {

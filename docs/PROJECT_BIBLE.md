@@ -3,8 +3,8 @@
 - 문서 버전: `0.3.6`
 - 작성일: 2026-08-31
 - 갱신일: 2026-09-09
-- 상태: Unit 4.0 문제 분리 전 구조 검토 완료. 앱 버전은 0.3.6이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: Unit 2.7.2 원문 Viewer Shell과 Phase 2 분석 계약, Unit 3.0의 상태·소유 관계 계약, Unit 4.1의 한 페이지·한 문제용 수동 Question/Region 확정, Unit 3.1의 안전한 CBT Mask, Unit 3.2의 4/5지 단일 선택, Unit 3.3의 답 선택 확정·잠금, Unit 3.4의 Question별 해설·정답 공개, Unit 3.5의 확정 정답 영역 내 단일 1~5 값 추출과 보류 상태, Unit 3.6의 맞음·틀림·채점 불가 결과, Unit 3.6.5의 작업 공간 도구모음·화면 맞춤·현재 문제 결과 배지, Unit 3.7의 A/B 4·5지 통합·패키지 검증, Unit 4.0의 다문제·다페이지 확장 계약. 여러 문제가 있는 페이지까지 포함한 넓은 MVP 완료 기준은 Phase 4 완료다. 다음 계획 Unit은 4.2이다.
+- 상태: Unit 4.2 한 페이지 다문제 초안 후보 분석 완료. 앱 버전은 0.3.6이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: Unit 2.7.2 원문 Viewer Shell과 Phase 2 분석 계약, Unit 3.0의 상태·소유 관계 계약, Unit 4.1의 한 페이지·한 문제용 수동 Question/Region 확정, Unit 3.1의 안전한 CBT Mask, Unit 3.2의 4/5지 단일 선택, Unit 3.3의 답 선택 확정·잠금, Unit 3.4의 Question별 해설·정답 공개, Unit 3.5의 확정 정답 영역 내 단일 1~5 값 추출과 보류 상태, Unit 3.6의 맞음·틀림·채점 불가 결과, Unit 3.6.5의 작업 공간 도구모음·화면 맞춤·현재 문제 결과 배지, Unit 3.7의 A/B 4·5지 통합·패키지 검증, Unit 4.0의 다문제·다페이지 확장 계약, Unit 4.2의 한 페이지 다문제·다단 초안 후보 분석. 여러 문제가 있는 페이지까지 포함한 넓은 MVP 완료 기준은 Phase 4 완료다. 다음 계획 Unit은 4.3이다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
 - 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 4.1 선행 MVP에 한하며 Mask·정답 추출·CBT UI 구현 승인을 뜻하지 않는다.
 
@@ -14,7 +14,7 @@
 
 사용자가 소유한 문제·보기·해설·정답 PDF를 로컬에서 열어, 답과 해설을 가린 상태로 객관식 문제를 풀게 한다. 답 선택 → 답 확인 → 해당 문제의 해설 공개 → 가능한 경우 채점이 기본 흐름이다. **원본 PDF는 읽기 전용**이며 가림은 화면에서만 수행한다.
 
-사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. Unit 2.6은 기존 근거를 새로 추측하지 않고 첫 MVP 분석 프로파일의 `profile-match / not-supported / hold`만 판정한다. `profile-match`도 이미지·수식과 닫힌 마지막 경계, 안전한 Mask, Question 소유 관계가 확인되지 않아 `canStartCbt: false`를 유지한다. 일반 UI에는 원문·좌표 대신 판정 요약만 표시한다. Unit 2.7은 분석 규칙을 바꾸지 않고 Viewer Shell을 정리하고, 2.7.1은 임시 Canvas로 검은 공백 전환을 막는다. Unit 2.7.2는 로딩 안내를 레이아웃과 분리하고 실제 목표 배율이 달라질 때만 높이 맞춤 자동 렌더를 실행해 페이지 이동·창 크기 변경의 덜컥거림을 막는다. Unit 4.1은 자동 후보 대신 사용자 확인 수동 Region을 추가했고 Unit 3.1은 그 확정 Region만 안전한 실제 Mask로 전환했다. Unit 3.2는 4/5지 단일 선택을, Unit 3.3은 선택 뒤의 확인·잠금과 중복 확인 차단을, Unit 3.4는 현재 Question별 해설·정답 공개를 더했다. Unit 3.5는 확정된 `answer` Region과 같은 revision·페이지의 TextItem bbox가 겹치는 텍스트만 이용해 단일 1~5 값을 추출하고 Unit 3.6은 잠긴 선택과 비교해 맞음·틀림·채점 불가를 세션에 기록한다. Unit 3.7은 A형 4지와 B형 5지의 전체 흐름, `채점 불가`, 미지원 입력, 파일 교체·배율·탐색·오프라인 패키지를 고정 합성 PDF로 통합 검증했다. 앱과 package.json은 0.3.6이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
+사용자가 Unit 2.2 완료 뒤 **Unit 2.3 제목 키워드 탐색과 Unit 2.4 해설·정답 영역 추정을 순서대로 명시적으로 요청**했다. Unit 2.3은 원래 Text Item 순서와 `hasEOL`로 제목 문맥 후보를 찾고, Unit 2.4는 같은 페이지의 검증된 PDF user space bbox와 후보를 결합해 시작·끝 경계와 `해설→정답`/`정답→해설` 순서의 영역 후보를 만든다. 중복 제목, 읽기 순서 충돌, 다단 가능성, 회전·세로쓰기에는 영역을 만들지 않고 보류한다. 마지막 영역과 이미지·수식 포함 여부는 입증할 수 없으므로 명시적인 제한 사유를 유지한다. Unit 2.5는 명시적인 개발 실행 옵션에서만 Text Item, 키워드 근거와 영역 후보 좌표를 같은 Canvas 위에 표시해 sourceIndex·bbox·확대·높이 맞춤·창 크기·고유 회전을 대조한다. Unit 2.6은 기존 근거를 새로 추측하지 않고 첫 MVP 분석 프로파일의 `profile-match / not-supported / hold`만 판정한다. `profile-match`도 이미지·수식과 닫힌 마지막 경계, 안전한 Mask, Question 소유 관계가 확인되지 않아 `canStartCbt: false`를 유지한다. 일반 UI에는 원문·좌표 대신 판정 요약만 표시한다. Unit 2.7은 분석 규칙을 바꾸지 않고 Viewer Shell을 정리하고, 2.7.1은 임시 Canvas로 검은 공백 전환을 막는다. Unit 2.7.2는 로딩 안내를 레이아웃과 분리하고 실제 목표 배율이 달라질 때만 높이 맞춤 자동 렌더를 실행해 페이지 이동·창 크기 변경의 덜컥거림을 막는다. Unit 4.1은 자동 후보 대신 사용자 확인 수동 Region을 추가했고 Unit 3.1은 그 확정 Region만 안전한 실제 Mask로 전환했다. Unit 3.2는 4/5지 단일 선택을, Unit 3.3은 선택 뒤의 확인·잠금과 중복 확인 차단을, Unit 3.4는 현재 Question별 해설·정답 공개를 더했다. Unit 3.5는 확정된 `answer` Region과 같은 revision·페이지의 TextItem bbox가 겹치는 텍스트만 이용해 단일 1~5 값을 추출하고 Unit 3.6은 잠긴 선택과 비교해 맞음·틀림·채점 불가를 세션에 기록한다. Unit 3.7은 A형 4지와 B형 5지의 전체 흐름, `채점 불가`, 미지원 입력, 파일 교체·배율·탐색·오프라인 패키지를 고정 합성 PDF로 통합 검증했다. Unit 4.2는 같은 페이지의 비회전·가로쓰기·텍스트 사용 가능 근거에서 인쇄 문제 번호, 열, 4/5지와 정답 제목을 초안 후보로만 묶었다. 후보는 기존 CBT·수동 확정과 분리되며, 모호하거나 겹치는 근거는 보류한다. 앱과 package.json은 0.3.6이며 Unit 1.0 미착수와 OPEN-09는 그대로 남는다.
 
 Unit 3.0은 Phase 2의 모든 `canStartCbt: false`를 그대로 받아들였고 Unit 4.1의 첫 MVP 수동 해설·정답 영역 확정을 Unit 3.1보다 먼저 배치했다. Unit 4.1은 사용자가 원문에서 한 페이지의 한 문제에 속한 해설·정답 사각형을 각각 드래그하고, 불투명 가림 미리보기를 확인한 뒤에만 Question/Region을 `confirmed`로 만든다. 확정은 현재 문서 세션 메모리에만 유지하고 파일 교체·새로고침·종료 때 폐기한다. Unit 3.1은 이 확정 레코드만 받아 실제 CBT Mask를 만들고, Unit 3.2·3.3은 준비된 Question의 답 선택과 한 번만 가능한 확정·잠금을 더한다. Unit 3.4는 잠긴 선택이 같은 Question/revision에 속할 때만 두 Mask를 공개한다. Unit 3.5는 같은 맥락의 단일 정답 값만 추출하고, Unit 3.6은 공개된 잠긴 선택을 그 값과 한 번만 비교한다. 설정·편집·미확정·stale·준비 중 상태에서는 전체 덮개를 유지하고 설정 화면에서만 원문을 보인다. 앱과 package.json은 0.3.6이다.
 
@@ -47,7 +47,13 @@ A형은 `해설→정답` 순서의 4지 문제를 4번 선택해 정답으로, 
 
 ### Unit 4.0 완료 — 문제 분리 전 구조 검토
 
-현재 `Question/Region/Answer/Attempt v1`은 한 페이지·한 문제의 실행 계약으로 유지한다. 다문제·다페이지 구현은 이 계약을 억지로 확장하지 않고, Question과 Region의 소유 관계를 분리하는 후속 v2 관계 계약을 사용한다. 자동 분리 후보는 언제나 초안이며 확정된 수동 보정을 덮어쓰지 않는다. 여러 Question이 함께 참조하는 지문·공통 설명은 표시 문맥으로만 공유할 수 있고, 해설·정답처럼 공개 시 답을 누출할 수 있는 Region은 여러 Question에 공유하지 않는다. 그 경계가 불명확하면 해당 Question을 CBT 준비 상태로 만들지 않는다. 기존 앱 코드·UI·패키지와 페이지 단위 탐색은 바꾸지 않았으며, 다음 Unit 4.2에서 한 페이지 여러 문제·다단 후보와 수동 결과 보존을 구현한다.
+현재 `Question/Region/Answer/Attempt v1`은 한 페이지·한 문제의 실행 계약으로 유지한다. 다문제·다페이지 구현은 이 계약을 억지로 확장하지 않고, Question과 Region의 소유 관계를 분리하는 후속 v2 관계 계약을 사용한다. 자동 분리 후보는 언제나 초안이며 확정된 수동 보정을 덮어쓰지 않는다. 여러 Question이 함께 참조하는 지문·공통 설명은 표시 문맥으로만 공유할 수 있고, 해설·정답처럼 공개 시 답을 누출할 수 있는 Region은 여러 Question에 공유하지 않는다. 그 경계가 불명확하면 해당 Question을 CBT 준비 상태로 만들지 않는다. Unit 4.2는 이 원칙에 따라 후보 분석만 구현했으며, 다음 Unit 4.3 전까지 페이지 단위 탐색과 기존 CBT를 유지한다.
+
+### Unit 4.2 완료 — 한 페이지 다문제·다단 초안 후보 분석
+
+`PageQuestionCandidates v1`은 같은 revision·pageNumber의 `text-usable` 평가, PDF user space 좌표, 제목 키워드 후보를 검증한 뒤 비회전·가로쓰기 한 페이지에서만 작동한다. 두 개 이상의 `01.` 또는 `Question 01.` 형식 시작을 열별로 묶고, 각 범위의 연속된 4지/5지와 정답 제목을 연결해 `draft` 또는 `hold` 후보를 만든다. 중복 인쇄 번호, 보기 수 누락, 정답 제목 누락·복수, 후보 bounds 겹침, 열·읽기 순서 모호성은 자동 승격하지 않고 보류한다. 결과에는 불투명 후보 키, 번호·열·보기 수, source index·논리 줄 범위·bounds·공개 사유만 포함하며 문제·보기·정답 원문이나 정답 값은 넣지 않는다. 일반 UI는 후보 개수·보류만 표시한다.
+
+후보는 `Question`, `Region`, `QuestionRegionBinding`, Mask, 선택, 공개, 채점과 연결되지 않는다. 따라서 후보가 있어도 CBT는 자동 시작되지 않고 기존 수동 확정·세션 상태를 읽거나 수정하지 않는다. 다페이지 연결, 후보 확인·병합 UI, 문제 단위 탐색과 다문제별 가림·선택·채점은 후속 Unit 책임이다.
 
 ## 2. Local First 원칙
 
@@ -418,8 +424,9 @@ MVP 데이터는 필요한 Unit에서만 도입하는 메모리 레코드다. Un
 | Answer v1 | `contractVersion: 1`, `questionId`, `documentRevision`, 같은 Question의 `answerRegionId`, `value: 1..5 또는 null`, `status: known/unknown/ambiguous`, `reasonCodes`, 텍스트 항목·후보 개수. 근거 원문·좌표는 포함하지 않으며 가림 적합성과 독립 |
 | Attempt v1 | `contractVersion: 1`, 세션 독립 `attemptId`, `questionId`, `documentRevision`, `selectedChoice: 1..5 또는 null`, `selectionStatus: unselected/selected/locked`, `revealStatus: masked/revealed`, `gradeStatus: ungraded/correct/incorrect/ungradable` |
 | Grade v1 | `contractVersion: 1`, `questionId`, `documentRevision`, 잠긴 `selectedChoice`, 공개 뒤의 `answerValue 또는 null`, `answerStatus`, `gradeStatus: correct/incorrect/ungradable`, `reasonCodes`. 한 Question/revision에 한 번만 생성 |
+| PageQuestionCandidates v1 | 같은 revision/page의 `text-usable` 평가·좌표·키워드 후보를 입력으로 하는 한 페이지 분석 결과. 후보는 `candidateKey`, 인쇄 번호, 열, 4/5지 수, 정답 제목 source index, 논리 줄 범위·bounds, `draft/hold`와 reason code만 가진다. Question ID·원문·정답 값·Mask 승인·CBT 상태는 포함하지 않는다. |
 
-Unit 4.0은 아래의 **후속 확장 계약**을 채택했다. 이는 실행 중인 v1 레코드를 변경하거나 저장소를 추가하는 명세가 아니다. Unit 4.2/4.3이 실제 구현할 때 별도 계약 버전과 검증을 추가한다.
+Unit 4.0은 아래의 **후속 확장 계약**을 채택했다. 이는 실행 중인 v1 레코드를 변경하거나 저장소를 추가하는 명세다. Unit 4.2는 이를 바꾸지 않는 `PageQuestionCandidates v1` 초안 분석만 구현했고, Unit 4.3 이후 실제 관계 구현은 별도 계약 버전과 검증을 추가한다.
 
 | 확장 개념 | 후속 계약과 안전 규칙 |
 | --- | --- |

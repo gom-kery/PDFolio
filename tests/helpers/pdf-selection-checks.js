@@ -25,6 +25,7 @@ export async function checkPdfSelection(application, page, artifacts) {
   const keywordHash = await hash(files.keyword);
   const regionHash = await hash(files.region);
   const regionReverseHash = await hash(files.regionReverse);
+  const multiQuestionHash = await hash(files.multiQuestion);
   const startCanvasFrameProbe = async () =>
     page.evaluate(() => {
       const canvas = document.querySelector('#pdf-canvas');
@@ -321,6 +322,10 @@ export async function checkPdfSelection(application, page, artifacts) {
       state: 'attached',
     });
     await page.waitForSelector(
+      '#question-candidate-analysis-status[data-state="none"]',
+      { timeout: 10_000, state: 'attached' },
+    );
+    await page.waitForSelector(
       '#support-profile-status[data-state="not-supported"]',
       { timeout: 10_000, state: 'attached' },
     );
@@ -421,6 +426,12 @@ export async function checkPdfSelection(application, page, artifacts) {
           .textContent,
         regionAnalysisState: document.querySelector('#region-analysis-status')
           .dataset.state,
+        questionCandidateAnalysis: document.querySelector(
+          '#question-candidate-analysis-status',
+        ).textContent,
+        questionCandidateAnalysisState: document.querySelector(
+          '#question-candidate-analysis-status',
+        ).dataset.state,
         supportProfile: document.querySelector('#support-profile-status')
           .textContent,
         supportProfileState: document.querySelector('#support-profile-status')
@@ -447,6 +458,11 @@ export async function checkPdfSelection(application, page, artifacts) {
     assert.equal(
       renderedPage.keywordAnalysis,
       '현재 페이지에서 제목 키워드 후보를 찾지 못했습니다.',
+    );
+    assert.equal(renderedPage.questionCandidateAnalysisState, 'none');
+    assert.equal(
+      renderedPage.questionCandidateAnalysis,
+      '현재 페이지는 다문제 자동 분리 대상이 아닙니다.',
     );
     assert.equal(renderedPage.regionAnalysisState, 'none');
     assert.equal(
@@ -987,6 +1003,31 @@ export async function checkPdfSelection(application, page, artifacts) {
     cases.push(
       'support-profile-answer-then-solution',
       'support-profile-reverse-file-unchanged',
+    );
+
+    await select(
+      { canceled: false, filePaths: [files.multiQuestion] },
+      'selected',
+    );
+    await page.waitForSelector(
+      '#question-candidate-analysis-status[data-state="found"]',
+      { timeout: 10_000, state: 'attached' },
+    );
+    assert.equal(
+      await page.locator('#question-candidate-analysis-status').innerText(),
+      '현재 페이지에서 다문제 후보 2개를 찾았습니다. 자동 후보는 CBT에 적용하지 않습니다.',
+    );
+    assert.equal(
+      await page
+        .locator('#manual-region-setup')
+        .getAttribute('data-question-id'),
+      null,
+    );
+    assert.equal(await hash(files.multiQuestion), multiQuestionHash);
+    cases.push(
+      'multi-question-draft-candidates',
+      'multi-question-does-not-create-cbt',
+      'multi-question-file-unchanged',
     );
 
     await select({ canceled: false, filePaths: [files.multipage] }, 'selected');

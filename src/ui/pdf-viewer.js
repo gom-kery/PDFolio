@@ -3,6 +3,7 @@ import { assessPageText } from '../analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../analysis/page-text-coordinates.js';
 import { findPageKeywordCandidates } from '../analysis/page-keyword-candidates.js';
 import { inferPageAnswerRegions } from '../analysis/page-answer-regions.js';
+import { inferPageQuestionCandidates } from '../analysis/page-question-candidates.js';
 import { classifyPageSupportProfile } from '../analysis/page-support-profile.js';
 import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
 import { initializeManualRegionSetup } from './manual-region-setup.js';
@@ -50,6 +51,9 @@ export function initializePdfViewer(document, adapter) {
   );
   const regionAnalysisStatus = document.querySelector(
     '#region-analysis-status',
+  );
+  const questionCandidateAnalysisStatus = document.querySelector(
+    '#question-candidate-analysis-status',
   );
   const supportProfileStatus = document.querySelector(
     '#support-profile-status',
@@ -188,6 +192,19 @@ export function initializePdfViewer(document, adapter) {
     else delete regionAnalysisStatus.dataset.reasonCodes;
   };
 
+  const showQuestionCandidateAnalysisStatus = (
+    state,
+    message,
+    reasonCodes = [],
+  ) => {
+    questionCandidateAnalysisStatus.dataset.state = state;
+    questionCandidateAnalysisStatus.textContent = message;
+    if (reasonCodes.length > 0)
+      questionCandidateAnalysisStatus.dataset.reasonCodes =
+        reasonCodes.join(' ');
+    else delete questionCandidateAnalysisStatus.dataset.reasonCodes;
+  };
+
   const showSupportProfileStatus = (state, message, reasonCodes = []) => {
     supportProfileStatus.dataset.state = state;
     supportProfileStatus.textContent = message;
@@ -227,6 +244,40 @@ export function initializePdfViewer(document, adapter) {
     }
   };
 
+  const applyQuestionCandidateResult = (candidateResult) => {
+    if (candidateResult.status !== 'question-candidates-ready') {
+      showQuestionCandidateAnalysisStatus(
+        'unknown',
+        '현재 페이지의 문제 후보 근거를 확인할 수 없습니다.',
+        [candidateResult.code],
+      );
+      return;
+    }
+    const { outcome, draftCount, holdCount, reasonCodes } =
+      candidateResult.result;
+    if (outcome === 'candidate-questions') {
+      showQuestionCandidateAnalysisStatus(
+        'found',
+        `현재 페이지에서 다문제 후보 ${draftCount.toLocaleString('ko-KR')}개를 찾았습니다. 자동 후보는 CBT에 적용하지 않습니다.`,
+        reasonCodes,
+      );
+    } else if (outcome === 'no-candidates') {
+      showQuestionCandidateAnalysisStatus(
+        'none',
+        '현재 페이지는 다문제 자동 분리 대상이 아닙니다.',
+        reasonCodes,
+      );
+    } else {
+      showQuestionCandidateAnalysisStatus(
+        'uncertain',
+        holdCount > 0
+          ? `현재 페이지의 문제 후보 ${holdCount.toLocaleString('ko-KR')}개를 보류했습니다. 자동 후보는 CBT에 적용하지 않습니다.`
+          : '현재 페이지의 문제 후보를 안전하게 분리하지 못했습니다.',
+        reasonCodes,
+      );
+    }
+  };
+
   const resetTextAnalysis = (message) => {
     analysisRequestId++;
     currentPageAnalysis = null;
@@ -240,6 +291,10 @@ export function initializePdfViewer(document, adapter) {
     showRegionAnalysisStatus(
       'idle',
       'PDF를 열면 현재 페이지의 해설·정답 영역 후보를 확인합니다.',
+    );
+    showQuestionCandidateAnalysisStatus(
+      'idle',
+      'PDF를 열면 현재 페이지의 다문제 후보를 확인합니다.',
     );
     showSupportProfileStatus(
       'idle',
@@ -260,6 +315,10 @@ export function initializePdfViewer(document, adapter) {
     showRegionAnalysisStatus(
       'analyzing',
       `${pageNumber.toLocaleString('ko-KR')}페이지의 영역 경계를 확인하고 있습니다.`,
+    );
+    showQuestionCandidateAnalysisStatus(
+      'analyzing',
+      `${pageNumber.toLocaleString('ko-KR')}페이지의 다문제 후보를 확인하고 있습니다.`,
     );
     showSupportProfileStatus(
       'analyzing',
@@ -293,6 +352,10 @@ export function initializePdfViewer(document, adapter) {
         'skipped',
         '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
       );
+      showQuestionCandidateAnalysisStatus(
+        'skipped',
+        '텍스트 분석이 보류되어 문제 후보를 계산하지 않았습니다.',
+      );
       showSupportProfileStatus(
         'unknown',
         '현재 페이지의 지원 프로파일 근거를 확인할 수 없습니다.',
@@ -318,6 +381,10 @@ export function initializePdfViewer(document, adapter) {
         showRegionAnalysisStatus(
           'skipped',
           '텍스트 위치를 확인할 수 없어 영역 결과를 보류했습니다.',
+        );
+        showQuestionCandidateAnalysisStatus(
+          'skipped',
+          '텍스트 위치를 확인할 수 없어 문제 후보를 보류했습니다.',
         );
         showSupportProfileStatus(
           'unknown',
@@ -352,6 +419,10 @@ export function initializePdfViewer(document, adapter) {
           'skipped',
           '제목 키워드를 확인할 수 없어 영역 결과를 보류했습니다.',
         );
+        showQuestionCandidateAnalysisStatus(
+          'skipped',
+          '제목 키워드를 확인할 수 없어 문제 후보를 보류했습니다.',
+        );
         showSupportProfileStatus(
           'unknown',
           '현재 페이지의 지원 프로파일 근거를 확인할 수 없습니다.',
@@ -364,6 +435,14 @@ export function initializePdfViewer(document, adapter) {
         count > 0
           ? `현재 페이지에서 제목 키워드 후보 ${count.toLocaleString('ko-KR')}개를 찾았습니다.`
           : '현재 페이지에서 제목 키워드 후보를 찾지 못했습니다.',
+      );
+      applyQuestionCandidateResult(
+        inferPageQuestionCandidates({
+          source: extraction.source,
+          assessment,
+          coordinates: coordinateResult.coordinates,
+          keywordCandidates: keywordResult.result,
+        }),
       );
       const regionResult = inferPageAnswerRegions({
         source: extraction.source,
@@ -439,6 +518,10 @@ export function initializePdfViewer(document, adapter) {
         'skipped',
         '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
       );
+      showQuestionCandidateAnalysisStatus(
+        'skipped',
+        '텍스트 분석이 보류되어 문제 후보를 계산하지 않았습니다.',
+      );
       applySupportProfileResult(classifyPageSupportProfile({ assessment }));
       return;
     }
@@ -462,6 +545,10 @@ export function initializePdfViewer(document, adapter) {
     showRegionAnalysisStatus(
       'skipped',
       '텍스트 분석이 보류되어 영역을 계산하지 않았습니다.',
+    );
+    showQuestionCandidateAnalysisStatus(
+      'skipped',
+      '텍스트 분석이 보류되어 문제 후보를 계산하지 않았습니다.',
     );
     applySupportProfileResult(classifyPageSupportProfile({ assessment }));
   };

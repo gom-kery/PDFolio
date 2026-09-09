@@ -161,6 +161,39 @@ export function regionReversePdf() {
   ]);
 }
 
+/** Two text-only questions on one page for draft-only Unit 4.2 separation checks. */
+export function multiQuestionPdf() {
+  const content = [
+    'BT',
+    '/F1 12 Tf',
+    '1 0 0 1 25 360 Tm',
+    '(Question 01.) Tj',
+    '0 -24 Td',
+    '(Choose the first correct option.) Tj',
+    '0 -24 Td',
+    '(Choice 1. alpha Choice 2. beta Choice 3. gamma Choice 4. delta) Tj',
+    '0 -24 Td',
+    '(Answer: 4) Tj',
+    '0 -44 Td',
+    '(Question 02.) Tj',
+    '0 -24 Td',
+    '(Choose the second correct option.) Tj',
+    '0 -24 Td',
+    '(Choice 1. alpha Choice 2. beta Choice 3. gamma Choice 4. delta Choice 5. epsilon) Tj',
+    '0 -24 Td',
+    '(Answer: 5) Tj',
+    'ET',
+    '',
+  ].join('\n');
+  return serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [4 0 R] /Count 1 >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 400] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+  ]);
+}
+
 /** A fixed page-single MVP question with an extractable 4/5 choice answer. */
 export function mvpQuestionPdf({
   choiceCount,
@@ -224,6 +257,7 @@ export async function createPdfFixtures(directory) {
     keyword: path.join(directory, '키워드 후보.pdf'),
     region: path.join(directory, '영역 후보.pdf'),
     regionReverse: path.join(directory, '역순 영역 후보.pdf'),
+    multiQuestion: path.join(directory, '다문제 후보.pdf'),
     mvpFour: path.join(directory, 'MVP A형 4지.pdf'),
     mvpFive: path.join(directory, 'MVP B형 5지.pdf'),
     renamed: path.join(directory, '이름만 PDF.pdf'),
@@ -246,6 +280,7 @@ export async function createPdfFixtures(directory) {
     ['keyword', keywordPdf()],
     ['region', regionPdf()],
     ['regionReverse', regionReversePdf()],
+    ['multiQuestion', multiQuestionPdf()],
     ['mvpFour', mvpQuestionPdf({ choiceCount: 4, answerValue: 4 })],
     [
       'mvpFive',

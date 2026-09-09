@@ -14,6 +14,7 @@ import { assessPageText } from '../src/analysis/page-text-assessment.js';
 import { createPageTextCoordinates } from '../src/analysis/page-text-coordinates.js';
 import { findPageKeywordCandidates } from '../src/analysis/page-keyword-candidates.js';
 import { inferPageAnswerRegions } from '../src/analysis/page-answer-regions.js';
+import { inferPageQuestionCandidates } from '../src/analysis/page-question-candidates.js';
 import { classifyPageSupportProfile } from '../src/analysis/page-support-profile.js';
 import { createPdfAdapterCore } from '../src/pdf/pdf-adapter-core.js';
 import {
@@ -23,6 +24,7 @@ import {
 import {
   coordinatePdf,
   keywordPdf,
+  multiQuestionPdf,
   regionPdf,
   regionReversePdf,
 } from './helpers/pdf-fixtures.js';
@@ -221,6 +223,55 @@ test('installed PDF.js finds only the contextual heading in the keyword fixture'
     'heading-with-delimiter',
   );
   assert.ok(!Object.hasOwn(keywordResult.result.candidates[0], 'lineText'));
+  assert.equal(
+    createHash('sha256').update(original).digest('hex'),
+    originalHash,
+  );
+  await adapter.dispose();
+});
+
+test('installed PDF.js creates two draft-only Question candidates without creating CBT state', async () => {
+  const original = multiQuestionPdf();
+  const originalHash = createHash('sha256').update(original).digest('hex');
+  const adapter = createPdfAdapterCore({
+    pdfjsApi: wrapPdfJsForTextExtraction({}),
+    assetBaseUrl: 'local-cbt://app/index.html',
+  });
+  const opened = await adapter.open({
+    data: new Uint8Array(original),
+    canvas: { style: {} },
+  });
+  assert.equal(opened.status, 'rendered');
+
+  const extraction = await adapter.extractPageText({ pageNumber: 1 });
+  const assessment = assessPageText(extraction);
+  const coordinates = createPageTextCoordinates(extraction.source);
+  const keywords = findPageKeywordCandidates({
+    source: extraction.source,
+    assessment,
+  });
+  const candidates = inferPageQuestionCandidates({
+    source: extraction.source,
+    assessment,
+    coordinates: coordinates.coordinates,
+    keywordCandidates: keywords.result,
+  });
+
+  assert.equal(assessment.quality, 'text-usable');
+  assert.equal(coordinates.status, 'coordinates-ready');
+  assert.equal(candidates.status, 'question-candidates-ready');
+  assert.equal(candidates.result.outcome, 'candidate-questions');
+  assert.equal(candidates.result.draftCount, 2);
+  assert.deepEqual(
+    candidates.result.candidates.map((candidate) => candidate.choiceCount),
+    [4, 5],
+  );
+  assert.ok(
+    candidates.result.candidates.every(
+      (candidate) => candidate.answerHeadingSourceIndexes !== null,
+    ),
+  );
+  assert.ok(!JSON.stringify(candidates.result).includes('Choose the first'));
   assert.equal(
     createHash('sha256').update(original).digest('hex'),
     originalHash,

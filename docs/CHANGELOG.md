@@ -2,6 +2,65 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.6 / Unit 4.2 작업 기록 — 2026-09-09
+
+**한 페이지 안의 여러 문제를 자동으로 CBT로 전환하지 않고, 텍스트·좌표 근거에서 초안 후보만 보수적으로 분석하도록 추가했다. 기존 한 페이지·한 문제 CBT와 수동 확정 상태는 변경하지 않았다.**
+
+### Unit 4.2 — 1. 구현한 내용
+
+- `PageQuestionCandidates v1`을 추가했다. 같은 revision/page의 텍스트 품질·PDF user space 좌표·정답 제목 후보를 검증한 뒤 비회전·가로쓰기 페이지의 인쇄 문제 번호와 열을 묶는다.
+- 후보 구간마다 정확히 4지 또는 5지 보기와 정답 제목 하나가 확인될 때만 `draft`를 만들었다. 중복 번호, 보기 수 누락, 정답 제목 누락·복수, bounds 겹침, 열·읽기 순서 모호성은 `hold` 또는 `uncertain`으로 보류한다.
+- 일반 `현재 페이지 분석`에 `문제 후보` 상태를 추가했다. 찾은 후보 수 또는 보류·비대상 상태만 보여 주며 문제·보기·정답 원문, 정답 값, 좌표는 화면에 표시하지 않는다.
+- 후보는 Question/Region/Binding, 수동 확정, Mask, 선택, 공개, 추출, 채점과 연결하지 않았다. 후보가 있어도 CBT는 자동 시작되지 않는다.
+- 실제 PDF.js 합성 입력과 Electron UI에서 단일 열·좌우 두 열 후보, 기존 단일 문제 비대상, 기존 CBT 미생성을 회귀했다. 이전 패키지는 `work/unit-4.2-previous-package/`에 보관하고 새 Windows x64 ASAR 패키지를 만들었다.
+
+### Unit 4.2 — 2. 수정된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 다문제 후보 분석 | `src/analysis/page-question-candidates.js` — 한 페이지 초안 후보·보류 규칙과 원문 비노출 계약 |
+| Viewer 상태 | `src/ui/pdf-viewer.js`, `index.html` — 후보 분석 실행과 일반 UI 요약 상태 |
+| 합성 입력·Node 검사 | `tests/page-question-candidates.test.js`, `tests/helpers/pdf-fixtures.js`, `tests/pdf-text-integration.test.js` — 단일/다단, 보류, 실제 PDF.js 추출 검사 |
+| Electron 검사 | `tests/electron.test.js`, `tests/helpers/pdf-selection-checks.js` — 후보 표시와 CBT 미생성 회귀 |
+| 테스트 등록 | `package.json` — 후보 분석 테스트를 기본 Node 검사에 포함 |
+| 문서 | `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 4.2 완료·경계·검증 기록 |
+
+### Unit 4.2 — 3. 직접 확인할 방법
+
+1. `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`를 실행합니다.
+2. 같은 페이지에 `01.`·`02.` 같은 문제 시작 두 개, 문제별 4지 또는 5지 보기, `정답:` 또는 `Answer:` 제목이 모두 있는 텍스트 PDF를 엽니다.
+3. 오른쪽 `현재 페이지 분석`을 열어 `문제 후보`가 `다문제 후보 n개를 찾았습니다. 자동 후보는 CBT에 적용하지 않습니다.`라고 표시하는지 확인합니다.
+4. `해설·정답 영역 설정`과 `답 선택`은 후보만으로 준비되지 않아야 합니다. 기존 수동 확정 Question이 없으면 가림·선택·공개·채점이 시작되지 않아야 합니다.
+5. 문제 하나뿐인 페이지에는 `다문제 자동 분리 대상이 아닙니다.`가, 중복 번호·보기 수 누락·정답 제목 복수·회전·세로쓰기에는 보류 안내가 표시되어야 합니다.
+
+### Unit 4.2 — 4. 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 130/130 통과 | 후보 분석·숫자 보기 줄 오인 방지·원문 비노출·기존 CBT 경계 |
+| `npm run build` | 통과 | Vite 34 modules, 기존 500 kB 초과 번들 안내만 표시 |
+| `npm run package` | 통과 | 새 Windows x64 ASAR 패키지 생성 |
+| `npm run test:electron` | 4/4 통과 | Debug·개발·빌드·패키지, 후보 표시·CBT 미생성·보안·오프라인 |
+| `npm run test:native` | 1/1 통과 | 실제 Windows 선택 창과 패키지 PDF 선택 |
+| `npm run test:shutdown` | 종료·포트 18/18 통과, 진단 무오류 16/18 | 개발 표시 직후 2회에 OPEN-09 GPU 진단 재현 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 4.2 — 5. 알려진 제한사항
+
+- 후보는 자동 제안일 뿐 다문제 CBT 실행 기능이 아니다. 문제별 가림·보기 선택·정답 추출·채점은 아직 한 페이지·한 문제 수동 확정 범위만 지원한다.
+- 이미지·수식·그래픽 내부의 문제 번호·보기·정답은 분석하지 않는다. 텍스트 읽기 순서가 회전·세로쓰기·열 충돌로 불명확하면 보류한다.
+- 한 페이지 후보를 다음 페이지의 해설·정답과 연결하지 않으며, 후보 확인·병합·분할 UI와 문제 단위 탐색도 없다.
+- Unit 1.0 대표 실물 PDF 행렬과 OPEN-09 GPU 종료 진단은 미해결이다.
+
+### Unit 4.2 — 6. 다음 Unit 진행 전 수정이 필요한 사항
+
+Unit 4.3은 `PageQuestionCandidates v1`을 자동 CBT 입력으로 승격하지 않은 채, ADR-043의 `pageRefs`·`QuestionRegionBinding` 계약에 맞는 페이지 간 연결의 명시적 실패·해제·수정 경계부터 구현해야 한다. 문제 탐색과 다문제별 Mask·선택·채점은 함께 추가하면 안 된다.
+
+### Unit 4.2 — 7. Git Commit Message
+
+제안: `PDFolio repository at unit 4.2_add multi-question draft candidate analysis`
+
 ## 0.3.6 / Unit 4.0 작업 기록 — 2026-09-09
 
 **다문제·다페이지 확장 전에 관계·공개·무효화 경계를 문서로 확정했다. 실행 중인 한 페이지·한 문제 MVP의 코드와 패키지는 바꾸지 않았다.**
