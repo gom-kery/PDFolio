@@ -11,8 +11,10 @@ export function initializeAnswerExtractionStatus(
 ) {
   const section = document.querySelector('.answer-extraction-status-section');
   const status = document.querySelector('#answer-extraction-status');
+  let activeAnswer = null;
 
   const hide = () => {
+    activeAnswer = null;
     section.hidden = true;
     delete status.dataset.state;
     delete status.dataset.reasonCodes;
@@ -21,7 +23,7 @@ export function initializeAnswerExtractionStatus(
 
   if (disabled) {
     hide();
-    return Object.freeze({ reset() {}, sync() {} });
+    return Object.freeze({ reset() {}, sync() {}, getActiveAnswer() {} });
   }
 
   return Object.freeze({
@@ -34,6 +36,7 @@ export function initializeAnswerExtractionStatus(
       }
       section.hidden = false;
       if (!analysis?.source || !analysis?.coordinates) {
+        activeAnswer = null;
         status.dataset.state = 'waiting';
         delete status.dataset.reasonCodes;
         status.textContent = '정답 영역의 텍스트를 확인하고 있습니다.';
@@ -46,16 +49,18 @@ export function initializeAnswerExtractionStatus(
         answerRegion,
       });
       if (result.status === 'error') {
+        activeAnswer = null;
         status.dataset.state = 'unknown';
         status.dataset.reasonCodes = result.code;
         status.textContent = '정답 영역의 값을 확인할 수 없습니다.';
         return;
       }
+      activeAnswer = result;
       status.dataset.state = result.status;
       status.dataset.reasonCodes = result.reasonCodes.join(' ');
       if (result.status === 'known') {
         status.textContent = revealed
-          ? `정답 영역에서 ${result.value}번 값을 추출했습니다. 채점은 아직 하지 않습니다.`
+          ? `정답 영역에서 ${result.value}번 값을 추출했습니다. 채점 결과를 확인하세요.`
           : '정답 값을 확인했습니다. 답 확인 전에는 값과 채점 결과를 표시하지 않습니다.';
       } else if (result.status === 'ambiguous') {
         status.textContent =
@@ -74,6 +79,11 @@ export function initializeAnswerExtractionStatus(
         status.textContent =
           '정답 영역에서 지원되는 단일 정답 값을 찾지 못했습니다.';
       }
+    },
+    getActiveAnswer() {
+      return activeAnswer
+        ? { ...activeAnswer, reasonCodes: [...activeAnswer.reasonCodes] }
+        : null;
     },
   });
 }

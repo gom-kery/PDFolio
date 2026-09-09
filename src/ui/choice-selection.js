@@ -18,7 +18,7 @@ function createChoiceOption(document, number, selected) {
   return label;
 }
 
-/** Render the Unit 3.4 single-choice confirmation and reveal handoff. */
+/** Render the Unit 3.6 single-choice confirmation, reveal and grading handoff. */
 export function initializeChoiceSelection(
   document,
   {
@@ -90,7 +90,7 @@ export function initializeChoiceSelection(
       selection,
       selection.selectionStatus === 'locked'
         ? isRevealed(selection)
-          ? `${selection.selectedChoice}번 선택을 확정했고 해설과 정답을 공개했습니다. 채점은 아직 하지 않습니다.`
+          ? `${selection.selectedChoice}번 선택을 확정했고 해설과 정답을 공개했습니다. 채점 결과를 확인하세요.`
           : `${selection.selectedChoice}번 선택을 확정했습니다. 해설과 정답을 아직 공개하지 않았습니다.`
         : selection.selectedChoice === null
           ? '보기 수를 고르고 답을 하나 선택하세요. 답 확인 전까지 선택을 바꿀 수 있습니다.'
@@ -138,7 +138,7 @@ export function initializeChoiceSelection(
       render(
         result.selection,
         isRevealed(result.selection)
-          ? `${result.selection.selectedChoice}번 선택을 확정했고 해설과 정답을 공개했습니다. 채점은 아직 하지 않습니다.`
+          ? `${result.selection.selectedChoice}번 선택을 확정했고 해설과 정답을 공개했습니다. 채점 결과를 확인하세요.`
           : `${result.selection.selectedChoice}번 선택을 확정했습니다. 해설과 정답을 아직 공개하지 않았습니다.`,
       );
     }

@@ -2,6 +2,61 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.6 / Unit 3.6 작업 기록 — 2026-09-09
+
+**공개된 잠긴 선택과 같은 Question/revision의 단일 `known` 정답만 비교해 맞음·오답을 기록했다. 정답 불명·충돌·분석 대기는 틀림으로 취급하지 않고 `채점 불가`로 기록했다.**
+
+작업 전에 현재 프로젝트 파일, PROJECT_BIBLE, ROADMAP, DECISIONS와 Git 상태를 확인했다. 시작 HEAD는 `36f2a85`의 Unit 3.5 커밋이었고 작업 트리는 깨끗했다.
+
+### Unit 3.6 — 1. 구현한 내용
+
+- 현재 문서 메모리의 Grade v1을 추가했다. 같은 `questionId`·`documentRevision`의 잠긴 선택과 공개 성공이 없으면 채점을 거절한다.
+- `known` 단일 값이 현재 4/5지 보기 수 안에 있을 때만 사용자 선택과 비교한다. 같으면 `correct`, 다르면 `incorrect`이며 정답 값과 선택 값을 공개 뒤에만 표시한다.
+- `unknown`, `ambiguous`, 분석 대기, 범위 불일치는 `ungradable`로 한 번 기록한다. 늦은 분석 결과가 이미 기록한 결과를 자동으로 변경하지 않는다.
+- 수동 영역 재편집, 파일 교체, 새로고침, 종료에서 채점 결과를 폐기한다. 중복 확인은 새 기록을 만들지 않는다.
+- 일반 화면에는 채점 결과를 표시하고, Debug 실행에서는 정답 추출·채점 결과 UI를 모두 숨긴다. Unit 3.6.5의 Viewer 배치 변경은 구현하지 않았다.
+
+### Unit 3.6 — 2. 수정/생성된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 채점 도메인 | `src/cbt/grading.js` — 공개·잠금·문서 맥락 검증, correct/incorrect/ungradable 세션 기록 |
+| 화면 연결 | `src/ui/grade-status.js`, `src/ui/pdf-viewer.js`, `src/ui/answer-extraction-status.js`, `src/ui/choice-selection.js`, `src/ui/cbt-mask.js`, `index.html`, `src/styles/shell.css` — 공개 뒤 결과 표시와 세션 무효화 |
+| 검사 | `tests/grading.test.js`, `tests/helpers/pdf-selection-checks.js`, `package.json` — 맞음·오답·채점 불가·중복·공개 전·오래된 맥락과 Electron 보류 결과 회귀 |
+| 버전·문서 | `package.json`, `package-lock.json`, `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 0.3.6 기록 |
+
+### Unit 3.6 — 3. 사용자가 직접 테스트할 방법
+
+1. `npm run dev`로 일반 앱을 열고, 정답 영역 안에 `정답: ④`처럼 텍스트 정답이 있는 한 페이지·한 문제 PDF를 엽니다.
+2. 해설·정답 영역을 확정합니다. 답 확인 전에는 정답 값과 `채점 결과`가 보이지 않아야 합니다.
+3. 4번을 선택하고 `답 확인`을 누릅니다. 해설·정답 공개 뒤 `정답입니다. 4번을 선택했습니다.`가 보여야 합니다.
+4. 새 PDF 또는 새 확정 세션에서 3번을 선택하고 답 확인합니다. `오답입니다. 3번을 선택했고 정답은 4번입니다.`가 보여야 합니다.
+5. 정답 영역에 값이 없거나 여러 값, 6번 이상, 현재 보기 수보다 큰 값만 있으면 해설·정답은 공개되지만 `채점할 수 없습니다.`가 보여야 합니다. 결과가 `오답`으로 표시되면 안 됩니다.
+6. 페이지를 떠났다가 다시 돌아오면 같은 Question의 결과가 유지되고, `확정 영역 수정` 시작·파일 교체·새로고침 뒤에는 결과가 사라져야 합니다. `npm run dev:debug`에서는 채점 결과 카드가 숨겨져야 합니다.
+
+### Unit 3.6 — 4. 실제 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 122/122 통과 | 맞음·오답·채점 불가·중복·공개 전·revision 불일치와 기존 회귀 |
+| `npm run build` | 통과 | Vite 33 modules, 로컬 PDF.js 자산; 500 kB 초과 번들 안내만 기존과 동일 |
+| `npm run test:electron` | Debug·개발·빌드 3/4 통과 | 정답 불명 페이지의 공개·채점 불가와 기존 흐름. 실행 중인 이전 패키지는 19 controls를 반환해 현재 22 controls 검사와 불일치 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 3.6 — 5. 알려진 제한사항과 다음 Unit
+
+- 스캔·수식 이미지처럼 텍스트 레이어에 없는 정답과 복수 정답은 자동 채점하지 않는다. `채점 불가`는 오답이나 점수 0을 뜻하지 않는다.
+- 결과는 현재 문서 세션의 한 Question/revision에 한 번만 남는다. 재시도·부분 점수·오답 저장·통계·영구 Attempt 이력은 추가하지 않았다.
+- 다음 계획 Unit은 3.6.5 Viewer 작업 공간·화면 맞춤이며, 현 사이드바 배치와 `높이 맞춤`은 이 Unit에서 바꾸지 않았다.
+- 실행 중인 이전 패키지를 닫은 뒤 `npm run package`, `npm run test:electron`, `npm run test:native`를 다시 실행해야 새 0.3.6 패키지 검증을 완료로 기록할 수 있다.
+
+### Unit 3.6 — 6. Git Commit Message
+
+제안: `PDFolio repository at unit 3.6_grade confirmed answer selection`
+
+이번 작업에서 Git 커밋이나 push는 실행하지 않았다.
+
 ## 0.3.5 / Unit 3.5 작업 기록 — 2026-09-09
 
 **사용자가 확정한 정답 영역과 같은 문서 revision·페이지의 좌표 텍스트에서만 단일 1~5 값을 추출했다. 값 없음·복수·범위 초과·보기 수 불일치를 구분하고, 답 확인 전 값은 숨겼다. 답 비교와 채점은 추가하지 않았다.**

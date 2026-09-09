@@ -9,6 +9,8 @@ import { initializeManualRegionSetup } from './manual-region-setup.js';
 import { initializeCbtMask } from './cbt-mask.js';
 import { initializeChoiceSelection } from './choice-selection.js';
 import { initializeAnswerExtractionStatus } from './answer-extraction-status.js';
+import { createGradeStore } from '../cbt/grading.js';
+import { initializeGradeStatus } from './grade-status.js';
 
 const VIEWER_FAILURE_MESSAGES = {
   PASSWORD_REQUIRED:
@@ -63,10 +65,24 @@ export function initializePdfViewer(document, adapter) {
   const answerExtraction = initializeAnswerExtractionStatus(document, {
     disabled: debugOverlay.enabled,
   });
+  const gradeStore = createGradeStore();
+  const gradeStatus = initializeGradeStatus(document, {
+    disabled: debugOverlay.enabled,
+  });
   const choiceSelection = initializeChoiceSelection(document, {
     disabled: debugOverlay.enabled,
     onConfirmed(selection) {
       const result = cbtMask.reveal(selection);
+      if (
+        result.status === 'revealed' ||
+        result.status === 'already-revealed'
+      ) {
+        gradeStore.grade({
+          selection,
+          answer: answerExtraction.getActiveAnswer(),
+          revealed: true,
+        });
+      }
       syncCbtUi();
       return result;
     },
@@ -105,18 +121,21 @@ export function initializePdfViewer(document, adapter) {
     cbtMask.sync(state);
     choiceSelection.sync(state);
     const activeSelection = choiceSelection.getActiveSelection?.();
+    if (state.setupActive && state.confirmation?.question)
+      gradeStore.clearQuestion(state.confirmation.question);
+    const answerConfirmation = state.confirmation
+      ? {
+          ...state.confirmation,
+          question: {
+            ...state.confirmation.question,
+            choiceCount:
+              activeSelection?.choiceCount ??
+              state.confirmation.question.choiceCount,
+          },
+        }
+      : null;
     answerExtraction.sync({
-      confirmation: state.confirmation
-        ? {
-            ...state.confirmation,
-            question: {
-              ...state.confirmation.question,
-              choiceCount:
-                activeSelection?.choiceCount ??
-                state.confirmation.question.choiceCount,
-            },
-          }
-        : null,
+      confirmation: answerConfirmation,
       analysis:
         currentPageAnalysis?.pageNumber === lastRenderedPage?.pageNumber
           ? currentPageAnalysis
@@ -124,6 +143,10 @@ export function initializePdfViewer(document, adapter) {
       revealed: Boolean(
         state.confirmation && cbtMask.isRevealed(state.confirmation.question),
       ),
+    });
+    gradeStatus.sync({
+      selection: activeSelection,
+      grade: activeSelection ? gradeStore.getGrade(activeSelection) : null,
     });
   };
 
@@ -700,6 +723,8 @@ export function initializePdfViewer(document, adapter) {
       cbtMask.reset();
       choiceSelection.resetDocument();
       answerExtraction.reset();
+      gradeStore.resetDocument();
+      gradeStatus.reset();
       lastRenderedPage = null;
       currentPageAnalysis = null;
       manualRegionSetup.resetDocument();
@@ -766,6 +791,8 @@ export function initializePdfViewer(document, adapter) {
       cbtMask.reset();
       choiceSelection.resetDocument();
       answerExtraction.reset();
+      gradeStore.resetDocument();
+      gradeStatus.reset();
     },
   };
 }

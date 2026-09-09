@@ -123,7 +123,7 @@ export function initializeCbtMask(document, { disabled = false } = {}) {
     canvas.removeAttribute('aria-hidden');
     setStatus(
       'revealed',
-      '이 문제의 해설과 정답을 공개했습니다. 정답 판정과 채점은 아직 하지 않습니다.',
+      '이 문제의 해설과 정답을 공개했습니다. 채점 결과를 확인하세요.',
     );
   };
 

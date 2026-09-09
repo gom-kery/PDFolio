@@ -702,6 +702,11 @@ export async function checkPdfSelection(application, page, artifacts) {
       await page.locator('#cbt-mask-status').innerText(),
       /해설과 정답을 공개했습니다/,
     );
+    await page.waitForSelector('#grade-status[data-state="ungradable"]');
+    assert.match(
+      await page.locator('#grade-status').innerText(),
+      /정답 값을 하나로 확정하지 못해 채점할 수 없습니다/,
+    );
     const firstQuestionId = await manualSetup.getAttribute('data-question-id');
     assert.match(firstQuestionId, /^question-/);
     assert.equal(await page.locator('#manual-region-overlay').isHidden(), true);
@@ -746,7 +751,8 @@ export async function checkPdfSelection(application, page, artifacts) {
       'cbt-mask-hides-confirmed-solution-and-answer',
       'cbt-mask-has-no-text-layer-bypass',
       'choice-selection-confirmation-reveals-current-question-and-edit-invalidation',
-      'answer-extraction-keeps-unknown-result-separate-from-reveal-and-grading',
+      'answer-extraction-keeps-unknown-result-separate-from-ungradable-grade',
+      'grade-result-is-created-only-after-confirmed-reveal',
     );
 
     await select({ canceled: false, filePaths: [files.keyword] }, 'selected');
