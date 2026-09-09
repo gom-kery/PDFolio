@@ -784,6 +784,86 @@ export async function checkPdfSelection(application, page, artifacts) {
       'grade-result-is-created-only-after-confirmed-reveal',
     );
 
+    const completeMvpQuestion = async ({
+      file,
+      choiceCount,
+      selectedChoice,
+      expectedGrade,
+      solutionRect,
+      answerRect,
+    }) => {
+      await select({ canceled: false, filePaths: [file] }, 'selected');
+      await page.waitForSelector('#cbt-mask-overlay[data-state="blocked"]');
+      await page.locator('#start-manual-region-setup').click();
+      await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+      await drawManualRegion('solution', solutionRect.start, solutionRect.end);
+      await drawManualRegion('answer', answerRect.start, answerRect.end);
+      await page.locator('#preview-manual-regions').click();
+      await page.waitForSelector('#manual-region-overlay[data-mode="preview"]');
+      await page.locator('#confirm-manual-regions').click();
+      await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
+      if (choiceCount === 5)
+        await page.locator('input[name="choice-count"][value="5"]').check();
+      await page.waitForSelector('#answer-extraction-status:not([hidden])');
+      assert.equal(
+        await page
+          .locator('#answer-extraction-status')
+          .getAttribute('data-state'),
+        'known',
+      );
+      assert.equal(
+        await page.locator('input[name="answer-choice"]').count(),
+        choiceCount,
+      );
+      await page
+        .locator(`input[name="answer-choice"][value="${selectedChoice}"]`)
+        .check();
+      await page.locator('#confirm-choice').click();
+      await page.waitForSelector(
+        `#grade-status[data-state="${expectedGrade}"]`,
+      );
+      assert.equal(await page.locator('#cbt-mask-overlay').isHidden(), true);
+      assert.equal(
+        await page
+          .locator('#current-question-grade-badge')
+          .getAttribute('data-state'),
+        expectedGrade,
+      );
+    };
+
+    await completeMvpQuestion({
+      file: files.mvpFour,
+      choiceCount: 4,
+      selectedChoice: 4,
+      expectedGrade: 'correct',
+      solutionRect: {
+        start: { x: 0.06, y: 0.24 },
+        end: { x: 0.94, y: 0.34 },
+      },
+      answerRect: {
+        start: { x: 0.06, y: 0.36 },
+        end: { x: 0.94, y: 0.46 },
+      },
+    });
+    await completeMvpQuestion({
+      file: files.mvpFive,
+      choiceCount: 5,
+      selectedChoice: 3,
+      expectedGrade: 'incorrect',
+      solutionRect: {
+        start: { x: 0.06, y: 0.36 },
+        end: { x: 0.94, y: 0.46 },
+      },
+      answerRect: {
+        start: { x: 0.06, y: 0.24 },
+        end: { x: 0.94, y: 0.34 },
+      },
+    });
+    cases.push(
+      'mvp-a-four-choice-solution-then-answer-correct',
+      'mvp-b-five-choice-answer-then-solution-incorrect',
+    );
+
     await select({ canceled: false, filePaths: [files.keyword] }, 'selected');
     assert.equal(
       await page

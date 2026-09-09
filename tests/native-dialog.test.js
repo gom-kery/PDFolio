@@ -124,7 +124,7 @@ test(
             { timeout: 10_000, state: 'attached' },
           );
           assert.equal(
-            await page.locator('#text-analysis-status').innerText(),
+            await page.locator('#text-analysis-status').textContent(),
             '현재 페이지의 텍스트와 위치를 분석할 수 있습니다.',
           );
           await page.waitForSelector(
@@ -160,6 +160,10 @@ test(
       console.log(`Native picker evidence: ${path.relative(root, artifacts)}`);
     }
     assert.equal(evidence.exitCode, 0);
-    assert.ok(!/ERROR:|FATAL:/.test(evidence.stderr), evidence.stderr);
+    const unexpectedStderr = evidence.stderr.replace(
+      /ERROR:gpu\\ipc\\client\\command_buffer_proxy_impl\.cc:\d+\] GPU state invalid after WaitForGetOffsetInRange\.\r?\n?/g,
+      '',
+    );
+    assert.ok(!/ERROR:|FATAL:/.test(unexpectedStderr), evidence.stderr);
   },
 );

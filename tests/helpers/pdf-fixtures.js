@@ -161,6 +161,48 @@ export function regionReversePdf() {
   ]);
 }
 
+/** A fixed page-single MVP question with an extractable 4/5 choice answer. */
+export function mvpQuestionPdf({
+  choiceCount,
+  answerValue,
+  answerFirst = false,
+}) {
+  const answerLines = answerFirst
+    ? [
+        `(Answer: ${answerValue}) Tj`,
+        '0 -28 Td',
+        '(Solution: apply the stated rule.) Tj',
+      ]
+    : [
+        '(Solution: apply the stated rule.) Tj',
+        '0 -28 Td',
+        `(Answer: ${answerValue}) Tj`,
+      ];
+  const choices = Array.from(
+    { length: choiceCount },
+    (_, index) => `${index + 1}. option ${index + 1}`,
+  ).join('   ');
+  const content = [
+    'BT',
+    '/F1 12 Tf',
+    '1 0 0 1 25 260 Tm',
+    '(Question. Choose one answer.) Tj',
+    '0 -28 Td',
+    `(${choices}) Tj`,
+    '0 -28 Td',
+    ...answerLines,
+    'ET',
+    '',
+  ].join('\n');
+  return serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [4 0 R] /Count 1 >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 360 300] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+  ]);
+}
+
 /** Create bounded input cases in the caller's test directory, never in user document folders. */
 export async function createPdfFixtures(directory) {
   await mkdir(directory, { recursive: true });
@@ -182,6 +224,8 @@ export async function createPdfFixtures(directory) {
     keyword: path.join(directory, '키워드 후보.pdf'),
     region: path.join(directory, '영역 후보.pdf'),
     regionReverse: path.join(directory, '역순 영역 후보.pdf'),
+    mvpFour: path.join(directory, 'MVP A형 4지.pdf'),
+    mvpFive: path.join(directory, 'MVP B형 5지.pdf'),
     renamed: path.join(directory, '이름만 PDF.pdf'),
     text: path.join(directory, '일반 문서.txt'),
     empty: path.join(directory, '빈 파일.pdf'),
@@ -202,6 +246,11 @@ export async function createPdfFixtures(directory) {
     ['keyword', keywordPdf()],
     ['region', regionPdf()],
     ['regionReverse', regionReversePdf()],
+    ['mvpFour', mvpQuestionPdf({ choiceCount: 4, answerValue: 4 })],
+    [
+      'mvpFive',
+      mvpQuestionPdf({ choiceCount: 5, answerValue: 5, answerFirst: true }),
+    ],
     ['renamed', 'NOT A PDF'],
     ['text', blankPdf()],
     ['empty', ''],
