@@ -584,6 +584,14 @@
 - 종료 진단: 개발/패키지 표시 직후·250ms·1.5초 뒤 종료를 각 3회 반복해 모든 18회 창 종료·종료 코드 0·포트 해제를 확인했다. 개발 표시 직후 2회에서 기존 OPEN-09 Chromium GPU 진단이 다시 기록되어 진단 무오류는 16/18이며, 이번 Unit에서 GPU 우회·수정은 하지 않는다.
 - 제외 범위: 다페이지 Question 연결(Unit 4.3), `QuestionOrder`와 문제 단위 탐색(Unit 4.4), 후보 확인·병합·분할 UI, 다문제별 수동 보정·Mask·선택·공개·추출·채점, OCR/AI·저장과 OPEN-09 수정은 추가하지 않았다.
 
+### ADR-045 — Unit 4.3 수동 페이지 간 연결의 분리 상태
+
+- 상태: **채택 — Unit 4.3 구현·검증 완료**, 2026-09-11. 앱·SemVer는 0.3.6을 유지한다.
+- 관계 모델: 기존 `manual-page-single-v1` Question/Region과 CBT 상태는 그대로 둔다. `QuestionPageLink v1`은 그 Question을 키로 한 세션 전용 보조 레코드이며 `pageRefs[{pageNumber, role: prompt/solution/answer}]`, 복수 `regionIds`, 새 Region 복사본과 `linkStatus: confirmed`를 가진다. 한 연결은 해설과 정답을 서로 다른 페이지에 둘 수 있다.
+- 소유·불변: 연결 Region의 `questionId`는 원본 문제 하나에만 속한다. 대상 페이지에서 확정한 사각형은 기하값만 읽어 새 ID로 복사하며, 대상 Question의 Region·Mask·선택·Answer·Grade를 공유·수정·공개하지 않는다. 따라서 다른 Question의 CBT 상태가 연결·수정·해제로 바뀌지 않는다.
+- 실패·수명: 문서 revision 불일치, 같은 페이지, 미확정 source/target, 유효하지 않은 사각형, 중복 또는 누락된 Region ID는 실패로 반환하고 기존 연결을 그대로 둔다. 수정은 원자적으로 새 Region ID 묶음을 교체하며 해제는 연결 레코드만 제거한다. 파일 교체·종료는 전체 연결을 지운다.
+- 범위: 연결 카드가 수동 확정 페이지를 지정·수정·해제하지만, 다페이지 Mask·공개·답 선택·정답 추출·채점과 `QuestionOrder` 탐색은 Unit 4.4 이상에서 별도 무효화·통합 검증 후 소비한다.
+
 ## 5. 유보 항목과 해결 상태
 
 | ID | 항목 | 결정 시점 | 지금의 처리 |

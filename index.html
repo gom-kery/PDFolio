@@ -392,6 +392,49 @@
             </div>
           </section>
           <section
+            id="question-page-links"
+            class="question-page-links"
+            aria-labelledby="question-page-links-title"
+            data-state="idle"
+            hidden
+          >
+            <h2 id="question-page-links-title">문제·해설 페이지 연결</h2>
+            <p
+              id="question-page-link-status"
+              class="question-page-link-status"
+              role="status"
+              aria-atomic="true"
+              data-state="idle"
+            >
+              문제 페이지와 다른 페이지의 확정 영역을 연결할 수 있습니다.
+            </p>
+            <label
+              class="question-page-link-source-label"
+              for="question-page-link-source"
+            >
+              문제 페이지
+              <input
+                id="question-page-link-source"
+                inputmode="numeric"
+                min="1"
+                type="number"
+              />
+            </label>
+            <p class="question-page-link-help">
+              문제 페이지와 현재 페이지 각각에서 해설·정답 영역을 확정한 뒤
+              연결하세요. 연결은 이 세션에만 유지되며 현재 CBT는 변경하지
+              않습니다.
+            </p>
+            <div class="question-page-link-actions">
+              <button id="connect-question-pages" type="button">
+                현재 페이지로 연결
+              </button>
+              <button id="unlink-question-pages" type="button" disabled>
+                연결 해제
+              </button>
+            </div>
+          </section>
+          <section
             id="choice-selection"
             class="choice-selection"
             aria-labelledby="choice-selection-title"
@@ -438,7 +481,7 @@
           data-state="idle"
           hidden
         ></p>
-        <p>Unit 3.6 · 자동 채점</p>
+        <p>Unit 4.3 · 문제·해설 페이지 연결</p>
       </footer>
     </div>
     <script type="module" src="/src/main.js"></script>

@@ -1085,6 +1085,66 @@ export async function checkPdfSelection(application, page, artifacts) {
     );
     cases.push('manual-region-page-change-cancels-draft');
 
+    await page.locator('#start-manual-region-setup').click();
+    await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+    await drawManualRegion(
+      'solution',
+      { x: 0.16, y: 0.12 },
+      { x: 0.72, y: 0.2 },
+    );
+    await drawManualRegion(
+      'answer',
+      { x: 0.16, y: 0.28 },
+      { x: 0.56, y: 0.36 },
+    );
+    await page.locator('#preview-manual-regions').click();
+    await page.locator('#confirm-manual-regions').click();
+    await page.waitForSelector('#manual-region-setup[data-state="confirmed"]');
+    await page.locator('#side-next-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="2"]');
+    await page.locator('#start-manual-region-setup').click();
+    await page.waitForSelector('#manual-region-overlay[data-mode="editing"]');
+    await drawManualRegion(
+      'solution',
+      { x: 0.16, y: 0.12 },
+      { x: 0.72, y: 0.2 },
+    );
+    await drawManualRegion(
+      'answer',
+      { x: 0.16, y: 0.28 },
+      { x: 0.56, y: 0.36 },
+    );
+    await page.locator('#preview-manual-regions').click();
+    await page.locator('#confirm-manual-regions').click();
+    await page.waitForSelector('#manual-region-setup[data-state="confirmed"]');
+    await page.locator('#question-page-link-source').fill('1');
+    await page.locator('#connect-question-pages').click();
+    await page.waitForSelector(
+      '#question-page-link-status[data-state="linked"]',
+    );
+    assert.match(
+      await page.locator('#question-page-link-status').innerText(),
+      /기존 CBT 상태는 바꾸지 않았습니다/,
+    );
+    await page.locator('#connect-question-pages').click();
+    assert.match(
+      await page.locator('#question-page-link-status').innerText(),
+      /수정했습니다/,
+    );
+    await page.locator('#unlink-question-pages').click();
+    await page.waitForSelector('#question-page-link-status[data-state="idle"]');
+    assert.match(
+      await page.locator('#question-page-link-status').innerText(),
+      /연결을 해제했습니다/,
+    );
+    await page.locator('#side-previous-page').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="1"]');
+    await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
+    cases.push(
+      'question-page-link-connect-modify-unlink',
+      'question-page-link-preserves-page-single-cbt',
+    );
+
     const layout = await page.evaluate(() => {
       const workspace = document.querySelector('.workspace');
       const stage = document.querySelector('.pdf-page-stage');

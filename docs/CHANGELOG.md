@@ -2,6 +2,55 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.6 / Unit 4.3 작업 기록 — 2026-09-11
+
+**문제 페이지와 해설·정답 페이지가 다른 경우를 위한 수동 연결을 추가했다. 기존 page-single Question과 CBT 상태는 변경하지 않아 다른 Question의 가림·선택·정답·채점에 영향을 주지 않는다.**
+
+### Unit 4.3 — 1. 구현한 내용
+
+- `QuestionPageLink v1` 세션 저장소를 추가했다. 원본 문제 페이지 `prompt`와 해설·정답의 다른 페이지를 역할 있는 `pageRefs`와 복수 `regionIds`로 연결한다. 해설과 정답은 서로 다른 페이지에도 둘 수 있다.
+- 연결 Region은 대상 페이지의 확정 사각형 기하만 새 ID로 복사하고, source Question 하나에만 소유시킨다. 기존 Question/Region, Mask, 선택, Answer, Grade는 수정하지 않는다.
+- 연결 카드에서 문제 페이지 번호와 현재 확정 페이지를 연결하고 같은 연결을 수정하거나 해제한다. 미확정 페이지, 같은 페이지, stale Question 및 잘못된 영역은 명시적으로 실패하며 기존 연결을 보존한다.
+- 파일 교체·종료 시 연결 상태는 세션 메모리와 함께 지워진다. 다페이지 Mask·공개·문제 탐색은 추가하지 않았다.
+
+### Unit 4.3 — 2. 수정된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 연결 상태 | `src/cbt/question-page-links.js`, `src/cbt/manual-region-setup.js` — 다중 페이지/Region 연결·수정·해제와 단일 Region 기하 검증 |
+| 연결 화면 | `src/ui/question-page-links.js`, `src/ui/pdf-viewer.js`, `index.html`, `src/styles/shell.css` — 수동 연결 카드와 문서/페이지 수명 연동 |
+| 회귀 검사 | `tests/question-page-links.test.js`, `package.json` — 다중 `pageRefs`, 원자 수정·해제·실패, 다른 Question 불변 검사 |
+| 문서 | `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 완료 범위·계약·테스트 방법 |
+
+### Unit 4.3 — 3. 직접 확인할 방법
+
+1. 서로 다른 두 페이지에서 각각 `해설·정답 영역 설정`을 완료합니다.
+2. 두 번째 페이지의 `문제·해설 페이지 연결`에서 첫 번째 문제의 페이지 번호를 입력하고 `현재 페이지로 연결`을 누릅니다.
+3. 연결 완료 문구를 확인한 뒤 다른 확정 페이지로 이동해 같은 문제 페이지 번호로 다시 연결합니다. 수정 문구가 보여야 합니다.
+4. `연결 해제` 뒤에는 원래 두 페이지의 가림·선택·정답·채점 상태가 그대로여야 합니다. 같은 페이지, 미확정 source/target에는 오류가 보이고 기존 연결이 유지되어야 합니다.
+
+### Unit 4.3 — 4. 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| 단위·기존 CBT 회귀 | 통과 | `question-page-links`, 수동 영역, Mask, 공개, 선택, 정답 추출, 채점 22/22 |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 133/133 통과 | 페이지 간 연결·수정·해제·실패 원자성, 다른 Question 불변과 기존 분석·CBT 경계 |
+| Vite 빌드·패키지 | 통과 | Vite 36 modules, 새 Windows x64 ASAR 패키지 생성. 기존 500 kB 초과 번들 안내만 표시 |
+| `npm run test:electron` | 4/4 통과 | Debug·개발·빌드·새 패키지에서 연결·수정·해제와 기존 page-single CBT 보존 |
+| `npm run test:native` | 1/1 통과 | 새 패키지의 실제 Windows 선택 창·취소·원본 불변 |
+| `npm run test:shutdown` | 종료·포트 정리 통과 | 개발·패키지 반복 중 기존 OPEN-09 GPU 진단 1회 기록; 창 종료·종료 코드·포트 해제는 정상 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+
+### Unit 4.3 — 5. 알려진 제한사항
+
+- 연결은 세션 전용이며 다페이지 Mask·공개·선택·추출·채점으로 아직 소비하지 않는다. 문제 단위 이동도 만들지 않았다.
+- 현재 연결 화면은 대상 페이지에서 이미 수동 확정한 사각형을 복사해 사용한다. 자동 후보의 승격·병합·분할과 다문제별 보정은 범위 밖이다.
+
+### Unit 4.3 — 6. Git Commit Message
+
+제안: `PDFolio repository at unit 4.3_add cross-page question links`
+
 ## 0.3.6 / Unit 4.2 작업 기록 — 2026-09-09
 
 **한 페이지 안의 여러 문제를 자동으로 CBT로 전환하지 않고, 텍스트·좌표 근거에서 초안 후보만 보수적으로 분석하도록 추가했다. 기존 한 페이지·한 문제 CBT와 수동 확정 상태는 변경하지 않았다.**

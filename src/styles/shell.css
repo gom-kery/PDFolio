@@ -708,6 +708,58 @@
   font-size: 0.8125rem;
 }
 
+.question-page-links {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+}
+
+.question-page-links[hidden] {
+  display: none;
+}
+
+.question-page-links h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.question-page-link-status,
+.question-page-link-help {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.question-page-link-status[data-state='linked'] {
+  color: var(--color-accent);
+}
+
+.question-page-link-status[data-state='error'] {
+  color: var(--color-warning);
+}
+
+.question-page-link-source-label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.question-page-link-source-label input {
+  width: 100%;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+}
+
+.question-page-link-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
 .choice-selection {
   padding: 1rem;
   border: 1px solid var(--color-border);

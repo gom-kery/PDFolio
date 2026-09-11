@@ -7,6 +7,7 @@ import { inferPageQuestionCandidates } from '../analysis/page-question-candidate
 import { classifyPageSupportProfile } from '../analysis/page-support-profile.js';
 import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
 import { initializeManualRegionSetup } from './manual-region-setup.js';
+import { initializeQuestionPageLinks } from './question-page-links.js';
 import { initializeCbtMask } from './cbt-mask.js';
 import { initializeChoiceSelection } from './choice-selection.js';
 import { initializeAnswerExtractionStatus } from './answer-extraction-status.js';
@@ -100,6 +101,12 @@ export function initializePdfViewer(document, adapter) {
   const manualRegionSetup = initializeManualRegionSetup(document, {
     disabled: debugOverlay.enabled,
     onStateChange: () => syncCbtUi(),
+  });
+  const questionPageLinks = initializeQuestionPageLinks(document, {
+    disabled: debugOverlay.enabled,
+    getConfirmation: (pageNumber) =>
+      manualRegionSetup.getConfirmation(pageNumber),
+    getRenderedPage: () => lastRenderedPage,
   });
   let requestId = 0;
   let currentPage = 0;
@@ -677,6 +684,7 @@ export function initializePdfViewer(document, adapter) {
     showViewer('ready', '');
     debugOverlay.setViewport(rendered);
     manualRegionSetup.setViewport(rendered);
+    questionPageLinks.refresh();
     syncCbtUi();
     if (resetScroll) {
       pageScroll.scrollTop = 0;
@@ -840,6 +848,7 @@ export function initializePdfViewer(document, adapter) {
       lastRenderedPage = null;
       currentPageAnalysis = null;
       manualRegionSetup.resetDocument();
+      questionPageLinks.resetDocument();
       currentPage = 0;
       requestedPage = 0;
       totalPages = 0;
@@ -873,6 +882,7 @@ export function initializePdfViewer(document, adapter) {
       }
       if (rendered.status === 'rendered') {
         manualRegionSetup.openDocument(rendered);
+        questionPageLinks.resetDocument();
         commitRenderCanvas(renderCanvas);
         applyRenderedPage(rendered, { resetScroll: true });
       } else {
@@ -901,6 +911,7 @@ export function initializePdfViewer(document, adapter) {
       await adapter.dispose();
       debugOverlay.dispose();
       manualRegionSetup.dispose();
+      questionPageLinks.resetDocument();
       cbtMask.reset();
       choiceSelection.resetDocument();
       answerExtraction.reset();

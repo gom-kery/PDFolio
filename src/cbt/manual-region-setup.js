@@ -122,6 +122,13 @@ function normalizeRect(rect, page) {
   return { status: 'ready', rect: normalized };
 }
 
+/** Validate one manual Region without imposing the page-single pair contract. */
+export function validateManualRegionRect({ page, rect } = {}) {
+  if (!isValidPage(page))
+    return { status: 'error', code: 'INVALID_PAGE_GEOMETRY' };
+  return normalizeRect(rect, page);
+}
+
 function overlaps(left, right) {
   const width =
     Math.min(left.x + left.width, right.x + right.width) -
