@@ -8,6 +8,7 @@ import { classifyPageSupportProfile } from '../analysis/page-support-profile.js'
 import { initializePdfDebugOverlay } from './pdf-debug-overlay.js';
 import { initializeManualRegionSetup } from './manual-region-setup.js';
 import { initializeQuestionPageLinks } from './question-page-links.js';
+import { initializeQuestionNavigation } from './question-navigation.js';
 import { initializeCbtMask } from './cbt-mask.js';
 import { initializeChoiceSelection } from './choice-selection.js';
 import { initializeAnswerExtractionStatus } from './answer-extraction-status.js';
@@ -108,6 +109,12 @@ export function initializePdfViewer(document, adapter) {
       manualRegionSetup.getConfirmation(pageNumber),
     getRenderedPage: () => lastRenderedPage,
   });
+  const questionNavigation = initializeQuestionNavigation(document, {
+    disabled: debugOverlay.enabled,
+    onNavigate(question) {
+      void goToPage(question.promptPageNumber);
+    },
+  });
   let requestId = 0;
   let currentPage = 0;
   let requestedPage = 0;
@@ -123,12 +130,25 @@ export function initializePdfViewer(document, adapter) {
   let currentPageAnalysis = null;
 
   const syncCbtUi = () => {
+    const setupActive = manualRegionSetup.isSetupActive?.() ?? false;
+    questionNavigation.sync({
+      revision: lastRenderedPage?.documentRevision,
+      confirmations: manualRegionSetup.getConfirmations(),
+      getLink: (question) => questionPageLinks.getLink(question),
+      pageNumber: lastRenderedPage?.pageNumber,
+      setupActive,
+    });
+    const activeQuestion = questionNavigation.getActiveQuestion();
+    const pageConfirmation = manualRegionSetup.getConfirmation(
+      lastRenderedPage?.pageNumber,
+    );
     const state = {
       rendered: lastRenderedPage,
-      confirmation: manualRegionSetup.getConfirmation(
-        lastRenderedPage?.pageNumber,
-      ),
-      setupActive: manualRegionSetup.isSetupActive?.() ?? false,
+      confirmation:
+        pageConfirmation?.question.questionId === activeQuestion?.questionId
+          ? pageConfirmation
+          : null,
+      setupActive,
     };
     cbtMask.sync(state);
     choiceSelection.sync(state);
@@ -849,6 +869,7 @@ export function initializePdfViewer(document, adapter) {
       currentPageAnalysis = null;
       manualRegionSetup.resetDocument();
       questionPageLinks.resetDocument();
+      questionNavigation.reset();
       currentPage = 0;
       requestedPage = 0;
       totalPages = 0;
@@ -912,6 +933,7 @@ export function initializePdfViewer(document, adapter) {
       debugOverlay.dispose();
       manualRegionSetup.dispose();
       questionPageLinks.resetDocument();
+      questionNavigation.reset();
       cbtMask.reset();
       choiceSelection.resetDocument();
       answerExtraction.reset();

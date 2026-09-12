@@ -365,6 +365,8 @@ export function createManualRegionSetupStore({
     getDraft: () => cloneDraft(draft),
     getConfirmation: (pageNumber) =>
       cloneConfirmation(confirmedByPage.get(pageNumber)),
+    getConfirmations: () =>
+      [...confirmedByPage.values()].map(cloneConfirmation),
     getDocumentContext: () => (documentContext ? { ...documentContext } : null),
   });
 }

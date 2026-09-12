@@ -2,9 +2,9 @@
 
 - 문서 버전: `0.3.6`
 - 작성일: 2026-08-31
-- 갱신일: 2026-09-09
-- 상태: Unit 4.2 한 페이지 다문제 초안 후보 분석 완료. 앱 버전은 0.3.6이며 OPEN-09와 Unit 1.0은 미해결
-- 현재 산출물: Unit 2.7.2 원문 Viewer Shell과 Phase 2 분석 계약, Unit 3.0의 상태·소유 관계 계약, Unit 4.1의 한 페이지·한 문제용 수동 Question/Region 확정, Unit 3.1의 안전한 CBT Mask, Unit 3.2의 4/5지 단일 선택, Unit 3.3의 답 선택 확정·잠금, Unit 3.4의 Question별 해설·정답 공개, Unit 3.5의 확정 정답 영역 내 단일 1~5 값 추출과 보류 상태, Unit 3.6의 맞음·틀림·채점 불가 결과, Unit 3.6.5의 작업 공간 도구모음·화면 맞춤·현재 문제 결과 배지, Unit 3.7의 A/B 4·5지 통합·패키지 검증, Unit 4.0의 다문제·다페이지 확장 계약, Unit 4.2의 한 페이지 다문제·다단 초안 후보 분석. 여러 문제가 있는 페이지까지 포함한 넓은 MVP 완료 기준은 Phase 4 완료다. 다음 계획 Unit은 4.3이다.
+- 갱신일: 2026-09-11
+- 상태: Unit 4.4 문제 단위 이전·다음 탐색 완료. 앱 버전은 0.3.6이며 OPEN-09와 Unit 1.0은 미해결
+- 현재 산출물: Unit 2.7.2 원문 Viewer Shell과 Phase 2 분석 계약, Unit 3.0의 상태·소유 관계 계약, Unit 4.1의 한 페이지·한 문제용 수동 Question/Region 확정, Unit 3.1의 안전한 CBT Mask, Unit 3.2의 4/5지 단일 선택, Unit 3.3의 답 선택 확정·잠금, Unit 3.4의 Question별 해설·정답 공개, Unit 3.5의 확정 정답 영역 내 단일 1~5 값 추출과 보류 상태, Unit 3.6의 맞음·틀림·채점 불가 결과, Unit 3.6.5의 작업 공간 도구모음·화면 맞춤·현재 문제 결과 배지, Unit 3.7의 A/B 4·5지 통합·패키지 검증, Unit 4.0의 다문제·다페이지 확장 계약, Unit 4.2의 한 페이지 다문제·다단 초안 후보 분석, Unit 4.3의 수동 페이지 간 연결, Unit 4.4의 별도 Question 탐색 상태. 여러 문제가 있는 페이지까지 포함한 넓은 MVP 완료 기준은 Phase 4 완료다. 다음 계획 Unit은 4.5다.
 - 적용 순서: 사용자의 명시적 지시 → 승인된 Project Bible → ROADMAP → DECISIONS → 구현.
 - 문서의 **제안**은 사용자 요구와 구별한다. 이번 개발 승인은 사용자가 명시한 Unit 4.1 선행 MVP에 한하며 Mask·정답 추출·CBT UI 구현 승인을 뜻하지 않는다.
 
@@ -47,13 +47,19 @@ A형은 `해설→정답` 순서의 4지 문제를 4번 선택해 정답으로, 
 
 ### Unit 4.0 완료 — 문제 분리 전 구조 검토
 
-현재 `Question/Region/Answer/Attempt v1`은 한 페이지·한 문제의 실행 계약으로 유지한다. 다문제·다페이지 구현은 이 계약을 억지로 확장하지 않고, Question과 Region의 소유 관계를 분리하는 후속 v2 관계 계약을 사용한다. 자동 분리 후보는 언제나 초안이며 확정된 수동 보정을 덮어쓰지 않는다. 여러 Question이 함께 참조하는 지문·공통 설명은 표시 문맥으로만 공유할 수 있고, 해설·정답처럼 공개 시 답을 누출할 수 있는 Region은 여러 Question에 공유하지 않는다. 그 경계가 불명확하면 해당 Question을 CBT 준비 상태로 만들지 않는다. Unit 4.2는 후보 분석만, Unit 4.3은 기존 CBT를 바꾸지 않는 수동 페이지 연결만 구현했으며, 다음 Unit 4.4 전까지 페이지 단위 탐색을 유지한다.
+현재 `Question/Region/Answer/Attempt v1`은 한 페이지·한 문제의 실행 계약으로 유지한다. 다문제·다페이지 구현은 이 계약을 억지로 확장하지 않고, Question과 Region의 소유 관계를 분리하는 후속 v2 관계 계약을 사용한다. 자동 분리 후보는 언제나 초안이며 확정된 수동 보정을 덮어쓰지 않는다. 여러 Question이 함께 참조하는 지문·공통 설명은 표시 문맥으로만 공유할 수 있고, 해설·정답처럼 공개 시 답을 누출할 수 있는 Region은 여러 Question에 공유하지 않는다. 그 경계가 불명확하면 해당 Question을 CBT 준비 상태로 만들지 않는다. Unit 4.2는 후보 분석만, Unit 4.3은 기존 CBT를 바꾸지 않는 수동 페이지 연결만, Unit 4.4는 그 연결을 재설계하지 않는 별도 탐색 상태만 구현했다.
 
 ### Unit 4.2 완료 — 한 페이지 다문제·다단 초안 후보 분석
 
 `PageQuestionCandidates v1`은 같은 revision·pageNumber의 `text-usable` 평가, PDF user space 좌표, 제목 키워드 후보를 검증한 뒤 비회전·가로쓰기 한 페이지에서만 작동한다. 두 개 이상의 `01.` 또는 `Question 01.` 형식 시작을 열별로 묶고, 각 범위의 연속된 4지/5지와 정답 제목을 연결해 `draft` 또는 `hold` 후보를 만든다. 중복 인쇄 번호, 보기 수 누락, 정답 제목 누락·복수, 후보 bounds 겹침, 열·읽기 순서 모호성은 자동 승격하지 않고 보류한다. 결과에는 불투명 후보 키, 번호·열·보기 수, source index·논리 줄 범위·bounds·공개 사유만 포함하며 문제·보기·정답 원문이나 정답 값은 넣지 않는다. 일반 UI는 후보 개수·보류만 표시한다.
 
 후보는 `Question`, `Region`, `QuestionRegionBinding`, Mask, 선택, 공개, 채점과 연결되지 않는다. 따라서 후보가 있어도 CBT는 자동 시작되지 않고 기존 수동 확정·세션 상태를 읽거나 수정하지 않는다. 다페이지 연결, 후보 확인·병합 UI, 문제 단위 탐색과 다문제별 가림·선택·채점은 후속 Unit 책임이다.
+
+### Unit 4.4 완료 — 문제 단위 이전·다음 탐색
+
+`QuestionOrder v1`은 별도 영구 데이터나 페이지 정렬이 아니라, 현재 문서 revision에서 사용자가 수동 영역을 확정한 삽입 순서를 그대로 복사한 세션 탐색 목록이다. 페이지 번호·인쇄 문제 번호·자동 후보 순서는 사용하지 않는다. `이전 문제`와 `다음 문제`는 이 목록의 인접 Question을 선택하고 그 Question의 `prompt` 시작 페이지로만 이동한다.
+
+일반 페이지 이동은 현재 표시한 페이지와 일치하는 시작 Question 하나만 활성화한다. 일치 Question이 없거나 여러 개이면 이전 Question을 유지하지 않고 CBT 입력을 비워 가림·공개·선택·정답·채점 상태가 남지 않게 한다. Unit 4.3의 `QuestionPageLink v1`은 탐색 상태에 연결 페이지를 알리는 데만 읽으며, 다페이지 Mask·공개·선택·추출·채점으로 소비하지 않는다. 수동 편집 중, 파일 교체, 새로고침, 종료에서는 탐색과 기존 세션 상태가 함께 초기화된다. 한 페이지 여러 Question의 자동 승격·문제별 실행과 Unit 4.5 통합 검증은 이 Unit에 포함하지 않았다.
 
 ## 2. Local First 원칙
 
@@ -435,9 +441,9 @@ Unit 4.0은 아래의 **후속 확장 계약**을 채택했다. 이는 실행 �
 | QuestionRegionBinding v1 | `questionId`·`regionId`·`role`·`visibility: question-only/shared-context`·`source: manual/automatic`·`confirmation`을 가진다. `solution/answer`는 반드시 `question-only`이며 둘 이상의 Question에 연결하려 하면 보류한다. `shared-context`는 정답을 포함하지 않는 지문·공통 설명에만 허용한다. |
 | 분리 후보와 수동 보정 | 자동 후보는 draft만 만들고 확정 수동 Binding·Region을 수정·삭제·재배정하지 않는다. 같은 범위를 두 후보가 주장하거나 수동 결과와 충돌하면 자동 후보를 보류하고 사용자에게 선택·분할·연결 해제를 맡긴다. |
 | 공개·가림 | 현재 Question에 `question-only`로 연결된 해설·정답만 공개한다. 공유 문맥은 공개 전에도 답을 포함하지 않는 것이 확인된 경우만 표시한다. 소유·민감도·revision이 불명확한 Region은 전체 덮개를 유지하며 다른 Question을 열거나 공개하지 않는다. |
-| 순서와 무효화 | Question 탐색 순서는 `QuestionOrder`의 확정된 별도 관계로만 제공하며 Unit 4.4 전에는 페이지 탐색을 유지한다. revision 변경은 모든 관계를, 수동 Binding 변경은 연결된 Question의 Answer·Attempt·Grade·Mask를, 공유 문맥 변경은 이를 참조한 모든 Question의 준비 상태를 무효화한다. |
+| 순서와 무효화 | `QuestionOrder v1`은 현재 revision에서 수동 확정이 삽입된 순서를 복사한 세션 전용 목록이다. Question ID·인쇄 번호·페이지 번호·자동 후보 순서로 추론하지 않는다. 문제 이동은 Question의 `prompt` 시작 페이지로만 이동하며, 일반 페이지 이동은 해당 페이지의 시작 Question 하나만 활성화한다. 일치 항목이 없거나 모호하면 CBT 입력을 비운다. revision 변경은 모든 관계를, 수동 Binding 변경은 연결된 Question의 Answer·Attempt·Grade·Mask와 탐색 항목을, 공유 문맥 변경은 이를 참조한 모든 Question의 준비 상태를 무효화한다. |
 
-Unit 4.3의 `QuestionPageLink v1`은 현재 page-single Question을 수정하거나 CBT 입력으로 교체하지 않는 세션 전용 수동 연결이다. 연결 레코드는 원본 Question의 `questionId`·document/revision, `pageRefs[{pageNumber, role: prompt/solution/answer}]`, 생성한 복수 `regionIds`, 각각의 PDF user space Region 복사본과 `linkStatus: confirmed`를 가진다. 연결 Region은 원본 문제의 `questionId`만 가지며 대상 페이지의 Question·Region·Mask·선택·Answer·Grade를 공유하거나 변경하지 않는다. 같은 Question 연결의 수정은 새 Region ID로 원자 교체하고, 해제는 연결 레코드만 지운다. revision 불일치·같은 페이지·미확정·유효하지 않은 영역은 기존 연결을 유지한 채 실패한다. 다페이지 연결을 실제 Mask·공개·선택·채점에 소비하거나 문제 순서를 만드는 일은 Unit 4.4 이상 범위다.
+Unit 4.3의 `QuestionPageLink v1`은 현재 page-single Question을 수정하거나 CBT 입력으로 교체하지 않는 세션 전용 수동 연결이다. 연결 레코드는 원본 Question의 `questionId`·document/revision, `pageRefs[{pageNumber, role: prompt/solution/answer}]`, 생성한 복수 `regionIds`, 각각의 PDF user space Region 복사본과 `linkStatus: confirmed`를 가진다. 연결 Region은 원본 문제의 `questionId`만 가지며 대상 페이지의 Question·Region·Mask·선택·Answer·Grade를 공유하거나 변경하지 않는다. 같은 Question 연결의 수정은 새 Region ID로 원자 교체하고, 해제는 연결 레코드만 지운다. revision 불일치·같은 페이지·미확정·유효하지 않은 영역은 기존 연결을 유지한 채 실패한다. Unit 4.4는 이 연결의 `pageRefs`를 탐색 상태에 표시만 하며, 다페이지 Mask·공개·선택·채점으로 소비하지 않는다.
 
 정답은 해당 질문의 확정 정답 영역과 같은 document revision·페이지의 TextItem bbox가 겹치는 텍스트에서만 추출한다. `①`~`⑤`, `정답: 1`, `답 2`, 영어 `Answer: 3`, 라벨이 없는 단독 1~5 값을 정규화하되 모든 숫자를 답으로 읽지 않는다. 복수 후보·없음·1~5 범위 밖·현재 보기 수 불일치는 `unknown/ambiguous`로 남긴다. `known` 값도 답 확인 전에 노출하지 않는다. Unit 3.6은 공개된 잠긴 선택과 같은 Question/revision의 `known` 하나만 비교해 `correct/incorrect`를 만들고, 그 외에는 `ungradable`로 기록한다.
 

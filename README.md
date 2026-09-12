@@ -1,8 +1,8 @@
 # Local PDF CBT
 
-**Unit 4.3 문제·해설 페이지 간 연결**을 완료했습니다. 서로 다른 페이지에서 수동으로 확정한 해설·정답 영역을 문제 Question에 연결·수정·해제할 수 있으며, 기존 한 페이지·한 문제 CBT 상태는 바꾸지 않습니다.
+**Unit 4.4 문제 단위 이전·다음 탐색**을 완료했습니다. 일반 페이지 이동과 별도로 사용자가 수동 확정한 Question 순서로 이동하며, 현재 Question의 시작 페이지와 일치할 때만 기존 CBT 가림·공개·선택·채점 상태를 표시합니다.
 
-앱 버전은 0.3.6입니다. Unit 1.0은 미착수이며 OPEN-09 GPU 종료 진단은 별도 미해결입니다. 한 페이지에 여러 문제가 있는 PDF까지 포함한 넓은 MVP 완료 기준은 Phase 4 완료이며, 다음 계획 Unit은 4.4 문제 단위 이전/다음 탐색입니다. [Project Bible](docs/PROJECT_BIBLE.md), [Roadmap](docs/ROADMAP.md), [Decisions](docs/DECISIONS.md), [Changelog](docs/CHANGELOG.md)를 확인하세요.
+앱 버전은 0.3.6입니다. Unit 1.0은 미착수이며 OPEN-09 GPU 종료 진단은 별도 미해결입니다. 한 페이지에 여러 문제가 있는 PDF까지 포함한 넓은 MVP 완료 기준은 Phase 4 완료이며, 다음 계획 Unit은 4.5 다문제·다페이지 통합 검증입니다. [Project Bible](docs/PROJECT_BIBLE.md), [Roadmap](docs/ROADMAP.md), [Decisions](docs/DECISIONS.md), [Changelog](docs/CHANGELOG.md)를 확인하세요.
 
 ## 실행 환경
 
@@ -37,6 +37,15 @@ npm start
 탐색기에서 `release/local-pdf-cbt-win32-x64/local-pdf-cbt.exe`를 실행하면 Node/npm·개발 서버가 필요하지 않습니다. 다른 위치로 옮길 때는 **앱 폴더 전체**를 복사해 DLL·resources·locales·라이선스 파일을 유지하세요.
 
 `npm run package`는 현재 소스의 Windows 패키지를 만듭니다. 기존 출력 폴더가 있으면 안내와 오류 코드 1로 중단하므로 이전 생성 폴더를 보관한 후 재생성합니다. 자동 삭제·덮어쓰기·서명·설치 프로그램·공개 배포·자동 업데이트는 하지 않습니다.
+
+## Unit 4.4 직접 확인하기
+
+1. 두 페이지 이상인 PDF를 열고, 서로 다른 두 페이지에서 각각 `해설·정답 영역 설정`을 완료합니다. 문제를 확정한 순서가 문제 이동 순서입니다.
+2. 문서 작업 공간 상단에서 `문제 1 / 2`와 `이전 문제`·`다음 문제`가 보이는지 확인합니다. 첫 문제에서는 이전 버튼이 비활성화되어야 합니다.
+3. `다음 문제`를 누릅니다. 일반 페이지 번호 이동과 별개로 두 번째로 확정한 Question의 시작 페이지로 이동하고, `문제 2 / 2` 및 해당 Question의 가림 상태만 보여야 합니다.
+4. `이전 문제`를 누릅니다. 첫 번째 Question의 시작 페이지와 그 Question의 가림·선택·공개·채점 상태만 다시 보여야 합니다.
+5. 일반 페이지 이동으로 확정 Question이 없는 페이지를 엽니다. 문제 이동 상태는 `현재 페이지에 확정된 문제가 없습니다`로 바뀌고 이전 Question의 가림·공개·선택·채점 화면이 남지 않아야 합니다.
+6. Unit 4.3 연결이 있는 Question에서는 문제 이동 상태에 연결 페이지가 보일 수 있지만, 연결된 해설·정답 페이지의 Mask·공개·선택·채점이 자동으로 실행되지 않아야 합니다.
 
 ## Unit 4.3 직접 확인하기
 
@@ -86,10 +95,10 @@ npm run test:native
 npm run test:shutdown
 ```
 
-- `npm test`: 페이지 간 다중 `pageRefs`·`regionIds` 연결, 수정·해제·실패 원자성, 다른 Question의 연결·기존 page-single CBT 상태 불변과 기존 다문제 후보·단일 문제 CBT 경계를 검사합니다.
-- `test:electron`: 진단 1경로와 일반 개발·빌드·패키지 3경로를 검사합니다. Unit 4.3에서는 4/4를 통과했고, 연결·수정·해제와 기존 page-single CBT 상태 보존을 자동으로 확인합니다.
+- `npm test`: 사용자 확정 순서의 `QuestionOrder v1`, 일반 페이지와 Question 이동 분리, 현재 Question 외 CBT 상태 비표시, Unit 4.3 연결·기존 page-single CBT 경계를 검사합니다.
+- `test:electron`: 진단 1경로와 일반 개발·빌드·패키지 3경로를 검사합니다. Unit 4.4에서는 Question 이전·다음 이동이 시작 페이지와 맞는 CBT 가림 상태만 보이는지 자동으로 확인합니다.
 - `test:native`: 실제 패키지의 Windows 선택 창에서 한글 합성 PDF 선택·텍스트와 위치 분석 가능·프로파일 미지원·접힌 문서 정보·취소·원본 불변을 검사합니다. 해당 앱 소유 대화상자만 조작합니다.
-- `test:shutdown`: 개발/패키지를 표시 직후·250ms 후·1500ms 후 닫는 검사를 3회 반복합니다. Unit 4.3에서도 창 종료·종료 코드·포트 정리는 정상이며, 개발 표시 직후 기존 OPEN-09 GPU 진단이 한 번 재현됐습니다.
+- `test:shutdown`: 개발/패키지를 표시 직후·250ms 후·1500ms 후 닫는 검사를 3회 반복합니다. Unit 4.4에서는 18회 모두 창 종료·종료 코드·포트 정리가 정상이나, 개발 표시 직후 기존 OPEN-09 GPU 진단이 한 번 재현되어 엄격한 stderr 기준의 명령 결과는 실패입니다.
 
 결과·캡처·합성 입력은 `work/pdf-file-tests/`, `work/electron-tests/`, `work/native-dialog-tests/`, `work/shutdown-tests/`에 남습니다. Git/앱 패키지에는 포함하지 않습니다. 의도적 CSP 거부 진단은 정상 화면 오류와 구분합니다. 오프라인 조건은 앱 전용 연결 불가 프록시이며 PC 전체 네트워크 설정은 바꾸지 않습니다.
 

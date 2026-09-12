@@ -105,6 +105,7 @@ export function initializeManualRegionSetup(
       prepareForPageChange() {},
       setViewport() {},
       getConfirmation: () => null,
+      getConfirmations: () => [],
       dispose() {},
     });
   }
@@ -516,6 +517,10 @@ export function initializeManualRegionSetup(
     getConfirmation(pageNumber) {
       if (store.getDraft()?.pageNumber === pageNumber) return null;
       return store.getConfirmation(pageNumber);
+    },
+    getConfirmations() {
+      if (store.getDraft()) return [];
+      return store.getConfirmations();
     },
     isSetupActive() {
       return Boolean(store.getDraft());

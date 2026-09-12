@@ -278,6 +278,31 @@
   gap: 0.5rem;
 }
 
+.question-navigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-inline: 0.75rem;
+  border-inline: 1px solid var(--color-border);
+}
+
+.question-navigation[hidden] {
+  display: none;
+}
+
+#question-navigation-status {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.question-navigation-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .zoom-controls {
   display: flex;
   align-items: center;

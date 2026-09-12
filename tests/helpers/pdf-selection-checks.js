@@ -1140,9 +1140,24 @@ export async function checkPdfSelection(application, page, artifacts) {
     await page.locator('#side-previous-page').click();
     await page.waitForSelector('#pdf-canvas[data-page-number="1"]');
     await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
+    assert.match(
+      await page.locator('#question-navigation-status').innerText(),
+      /문제 1 \/ 2 · 1페이지/,
+    );
+    await page.locator('#next-question').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="2"]');
+    await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
+    assert.match(
+      await page.locator('#question-navigation-status').innerText(),
+      /문제 2 \/ 2 · 2페이지/,
+    );
+    await page.locator('#previous-question').click();
+    await page.waitForSelector('#pdf-canvas[data-page-number="1"]');
+    await page.waitForSelector('#cbt-mask-overlay[data-state="ready"]');
     cases.push(
       'question-page-link-connect-modify-unlink',
       'question-page-link-preserves-page-single-cbt',
+      'question-navigation-keeps-page-and-question-movement-separate',
     );
 
     const layout = await page.evaluate(() => {

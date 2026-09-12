@@ -2,6 +2,55 @@
 
 프로젝트 문서와 구현의 변경을 구분해 기록한다. 앱 버전·릴리스·테스트 결과를 추정하여 적지 않는다. 기준은 [PROJECT_BIBLE](PROJECT_BIBLE.md), 진행 상태는 [ROADMAP](ROADMAP.md)을 따른다.
 
+## 0.3.6 / Unit 4.4 작업 기록 — 2026-09-11
+
+**일반 PDF 페이지 이동과 별도로, 사용자가 수동으로 확정한 Question 순서로 이전·다음 이동을 추가했다. 현재 페이지의 시작 Question과 일치할 때만 기존 CBT 상태를 연결해 다른 Question의 가림·공개·선택·채점이 남지 않게 했다.**
+
+### Unit 4.4 — 1. 구현한 내용
+
+- `QuestionOrder v1` 세션 탐색 저장소를 추가했다. 현재 revision의 page-single 수동 확정을 삽입된 순서대로 복사하며, 페이지 번호·인쇄 번호·자동 후보로 정렬하거나 순서를 추측하지 않는다.
+- `이전 문제`·`다음 문제`는 인접 Question의 `prompt` 시작 페이지로만 이동한다. 일반 페이지 이동과 별도 제어이며 처음·마지막에서는 각각 비활성화된다.
+- 일반 페이지 이동 뒤 현재 페이지의 시작 Question이 정확히 하나일 때만 CBT Mask·선택·공개·정답 추출·채점 UI에 해당 확정을 전달한다. 없거나 모호하면 CBT 입력을 비워 이전 Question 상태를 표시하지 않는다.
+- Unit 4.3 `QuestionPageLink v1`은 기존 관계를 재설계하지 않고 연결 페이지 안내에만 사용한다. 연결된 해설·정답 페이지의 Mask·공개·선택·추출·채점은 아직 자동 실행하지 않는다.
+
+### Unit 4.4 — 2. 수정된 파일
+
+| 구분 | 파일·변경 |
+| --- | --- |
+| 탐색 상태 | `src/cbt/question-navigation.js`, `src/cbt/manual-region-setup.js` — 사용자 확정 순서 기반 목록, 활성 Question·경계·무효화 |
+| 탐색 화면·CBT 결합 | `src/ui/question-navigation.js`, `src/ui/manual-region-setup.js`, `src/ui/pdf-viewer.js`, `index.html`, `src/styles/shell.css` — Question 이동 제어와 현재 Question만 CBT에 전달하는 경계 |
+| 회귀 검사 | `tests/question-navigation.test.js`, `tests/helpers/pdf-selection-checks.js`, `tests/electron.test.js`, `package.json` — 순서 비추론, 페이지/Question 이동 분리, Mask 상태와 기존 Electron 제어 검사 |
+| 문서 | `README.md`, `docs/PROJECT_BIBLE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md` — 완료 범위·계약·테스트 방법 |
+
+### Unit 4.4 — 3. 직접 확인할 방법
+
+1. 서로 다른 두 페이지에서 각각 `해설·정답 영역 설정`을 끝냅니다. 두 문제를 확정한 순서가 상단 `문제 n / 전체` 이동 순서가 됩니다.
+2. `다음 문제`를 누릅니다. 페이지 번호 입력·처음·이전·다음·마지막과 다른 Question 제어로 두 번째 Question의 시작 페이지로 이동해야 합니다.
+3. `이전 문제`를 눌러 첫 번째 Question으로 돌아갑니다. 각 페이지에는 그 Question의 가림·선택·공개·채점 상태만 보여야 합니다.
+4. 일반 페이지 이동으로 확정 Question이 없는 페이지를 열면 `현재 페이지에 확정된 문제가 없습니다.`가 나타나고 이전 Question의 CBT 상태가 남지 않아야 합니다.
+5. Unit 4.3 연결이 있는 Question은 연결 페이지 안내만 보이며, 연결된 페이지의 CBT 상태가 자동 공개되거나 다른 Question에 영향을 주지 않아야 합니다.
+
+### Unit 4.4 — 4. 검증 결과
+
+| 검사 | 결과 | 확인 범위 |
+| --- | --- | --- |
+| `npm run format:check` | 통과 | 프로젝트 형식 |
+| `npm test` | 136/136 통과 | QuestionOrder 순서 비추론, 페이지/Question 이동 분리, 활성 Question 무효화와 기존 분석·CBT 경계 |
+| `git diff --check` | 통과 | 공백 오류 없음 |
+| Vite 빌드·패키지 | 통과 | Vite 38 modules, 새 Windows x64 ASAR 패키지 생성. 기존 500 kB 초과 번들 안내만 표시 |
+| `npm run test:electron` | 4/4 통과 | Debug·개발·빌드·새 패키지에서 Question 이전·다음이 시작 페이지와 현재 Question CBT 상태만 연결하는지 확인 |
+| `npm run test:native` | 1/1 통과 | 새 패키지의 실제 Windows 선택 창·취소·원본 불변 |
+| `npm run test:shutdown` | 엄격 stderr 기준 실패 / 종료·포트 정리 18/18 통과 | 18회 모두 창 종료·종료 코드 0·포트 해제. 개발 표시 직후 기존 OPEN-09 GPU 진단 1회 기록 |
+
+### Unit 4.4 — 5. 알려진 제한사항
+
+- 현재 수동 확정은 페이지별 한 Question이며, 자동 다문제 후보를 탐색 목록이나 CBT 상태로 승격하지 않는다.
+- Unit 4.3 연결은 탐색 안내만 제공한다. 다페이지 Mask·공개·선택·정답 추출·채점과 Unit 4.5 통합 검증은 이번 범위 밖이다.
+
+### Unit 4.4 — 6. Git Commit Message
+
+제안: `PDFolio repository at unit 4.4_add question-level previous-next navigation`
+
 ## 0.3.6 / Unit 4.3 작업 기록 — 2026-09-11
 
 **문제 페이지와 해설·정답 페이지가 다른 경우를 위한 수동 연결을 추가했다. 기존 page-single Question과 CBT 상태는 변경하지 않아 다른 Question의 가림·선택·정답·채점에 영향을 주지 않는다.**
